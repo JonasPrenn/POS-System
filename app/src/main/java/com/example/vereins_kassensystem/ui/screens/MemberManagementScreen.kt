@@ -28,7 +28,6 @@ import java.util.Locale
 @Composable
 fun MemberManagementScreen(
     viewModel: MemberViewModel,
-    onOpenDrawer: () -> Unit,
     onMemberClick: (Member) -> Unit
 ) {
     val members by viewModel.allMembers.collectAsState()
@@ -85,11 +84,6 @@ fun MemberManagementScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Mitgliederverwaltung", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menü")
-                    }
-                },
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
                         Icon(Icons.Default.FileUpload, contentDescription = "Import")

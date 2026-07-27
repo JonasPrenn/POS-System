@@ -27,8 +27,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
-    viewModel: AnalyticsViewModel,
-    onOpenDrawer: () -> Unit
+    viewModel: AnalyticsViewModel
 ) {
     val summary by viewModel.summary.collectAsState()
     val currentRange by viewModel.dateRange.collectAsState()
@@ -36,12 +35,7 @@ fun AnalyticsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Auswertung", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menü")
-                    }
-                }
+                title = { Text("Auswertung", fontWeight = FontWeight.ExtraBold) }
             )
         }
     ) { padding ->
