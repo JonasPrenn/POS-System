@@ -192,9 +192,9 @@ fun ProductManagementScreen(
 fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Row(
             modifier = Modifier
@@ -203,15 +203,16 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(48.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Default.Fastfood,
+                        Icons.Default.Restaurant,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -225,10 +226,10 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
                         text = "${String.format( "%.2f", product.price)} €",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Black
                     )
-                    Text(text = " • ", color = MaterialTheme.colorScheme.outline)
-                    Text(text = product.category, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    Text(text = " • ", color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(text = product.category, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 
                 if (product.trackInventory) {
@@ -237,13 +238,12 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
                         modifier = Modifier.padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (isLowStock) Icons.Default.Warning else Icons.Default.Inventory,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (isLowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.width(4.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isLowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(8.dp)
+                        ) {}
+                        Spacer(Modifier.width(6.dp))
                         Text(
                             text = "Lager: ${product.stockQuantity}",
                             style = MaterialTheme.typography.labelSmall,
@@ -254,12 +254,18 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
                 }
             }
             
-            Row {
-                IconButton(onClick = { onEdit(product) }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.outline)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FilledTonalIconButton(
+                    onClick = { onEdit(product) },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = { onDelete(product) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
+                FilledTonalIconButton(
+                    onClick = { onDelete(product) },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
                 }
             }
         }

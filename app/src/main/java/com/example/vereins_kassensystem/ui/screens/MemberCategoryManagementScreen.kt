@@ -108,9 +108,9 @@ fun MemberCategoryManagementScreen(
 fun CategoryItem(category: MemberCategory, onEdit: (MemberCategory) -> Unit, onDelete: (MemberCategory) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Row(
             modifier = Modifier
@@ -119,15 +119,16 @@ fun CategoryItem(category: MemberCategory, onEdit: (MemberCategory) -> Unit, onD
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(56.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.tertiaryContainer
+                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.AutoMirrored.Filled.Label,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -137,18 +138,25 @@ fun CategoryItem(category: MemberCategory, onEdit: (MemberCategory) -> Unit, onD
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = category.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "Negatives Limit: ${String.format( "%.2f", category.negativeBalanceLimit)} €",
+                    text = "Limit: ${String.format(Locale.GERMANY, "%.2f", category.negativeBalanceLimit)} €",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold
                 )
             }
             
-            Row {
-                IconButton(onClick = { onEdit(category) }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.outline)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FilledTonalIconButton(
+                    onClick = { onEdit(category) },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = { onDelete(category) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
+                FilledTonalIconButton(
+                    onClick = { onDelete(category) },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
                 }
             }
         }
