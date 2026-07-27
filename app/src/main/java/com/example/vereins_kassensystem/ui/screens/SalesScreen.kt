@@ -43,7 +43,6 @@ import android.content.res.Configuration
 @Composable
 fun SalesScreen(
     viewModel: SalesViewModel,
-    onOpenDrawer: () -> Unit,
     onCardPayment: (Double) -> Unit
 ) {
     val allProductsWithVariants by viewModel.allProductsWithVariants.collectAsState()
@@ -77,11 +76,6 @@ fun SalesScreen(
             if (!isLandscape) {
                 TopAppBar(
                     title = { Text("Verkauf", fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = onOpenDrawer) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menü")
-                        }
-                    },
                     actions = {
                         IconButton(onClick = { showCartDrawer = true }) {
                             BadgedBox(
@@ -138,10 +132,6 @@ fun SalesScreen(
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onOpenDrawer) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menü")
-                        }
-                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = "Verkauf",
                             style = MaterialTheme.typography.headlineMedium,
@@ -288,7 +278,7 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
             .clip(RoundedCornerShape(24.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(24.dp),

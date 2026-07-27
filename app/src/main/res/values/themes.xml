@@ -1,4 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+      The platform theme exists only to dress the window until Compose paints. It was
+      previously Theme.MaterialComponents.Light with no night variant, so launching in
+      dark mode flashed white before the dark Compose theme appeared.
 
-    <style name="Theme.VereinsDeckel" parent="Theme.MaterialComponents.Light" />
+      DayNight plus a matching windowBackground (see values-night) removes the flash.
+      The bars are transparent because MainActivity calls enableEdgeToEdge(); their icon
+      tint is set from VereinsDeckelTheme, which knows the resolved theme mode and so
+      gets it right even when the user has pinned light or dark against the system.
+    -->
+    <style name="Theme.VereinsDeckel" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

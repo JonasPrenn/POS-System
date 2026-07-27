@@ -31,8 +31,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    viewModel: SalesViewModel,
-    onOpenDrawer: () -> Unit
+    viewModel: SalesViewModel
 ) {
     val transactions by viewModel.allTransactions.collectAsState()
     
@@ -46,11 +45,6 @@ fun HistoryScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Transaktionsverlauf", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menü")
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface

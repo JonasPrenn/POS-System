@@ -24,8 +24,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemberCategoryManagementScreen(
-    viewModel: MemberViewModel,
-    onOpenDrawer: () -> Unit
+    viewModel: MemberViewModel
 ) {
     val categories by viewModel.allCategories.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -34,12 +33,7 @@ fun MemberCategoryManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mitgliederkategorien", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menü")
-                    }
-                }
+                title = { Text("Mitgliederkategorien", fontWeight = FontWeight.Bold) }
             )
         },
         floatingActionButton = {

@@ -31,7 +31,6 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToProducts: () -> Unit,
     onNavigateToMembers: () -> Unit,
-    onOpenDrawer: () -> Unit,
     analyticsViewModel: AnalyticsViewModel,
     productViewModel: ProductViewModel,
     memberViewModel: MemberViewModel
@@ -53,11 +52,6 @@ fun HomeScreen(
                     Column {
                         Text("Dashboard", style = MaterialTheme.typography.titleLarge)
                         Text(today, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menü")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

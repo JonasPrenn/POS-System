@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.work.*
 import com.example.vereins_kassensystem.data.SettingsRepository
+import com.example.vereins_kassensystem.ui.components.ClubIdentitySection
+import com.example.vereins_kassensystem.ui.theme.ClubIdentity
 import com.example.vereins_kassensystem.data.repository.BackupRepository
 import com.example.vereins_kassensystem.worker.BackupWorker
 import kotlinx.coroutines.launch
@@ -29,8 +31,7 @@ import java.util.concurrent.TimeUnit
 fun SettingsScreen(
     settingsRepository: SettingsRepository,
     backupRepository: BackupRepository,
-    onOpenDrawer: () -> Unit,
-    onSumUpLogin: () -> Unit,
+    onSumUpLogin: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -39,6 +40,7 @@ fun SettingsScreen(
     val sumUpKey by settingsRepository.sumUpAffiliateKey.collectAsState(initial = "")
     var editedKey by remember(sumUpKey) { mutableStateOf(sumUpKey) }
 
+    val clubIdentity by settingsRepository.clubIdentity.collectAsState(initial = ClubIdentity())
     val backupUri by settingsRepository.backupUri.collectAsState(initial = null)
     val autoBackupEnabled by settingsRepository.autoBackupEnabled.collectAsState(initial = false)
 
@@ -91,12 +93,7 @@ fun SettingsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Einstellungen", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menü")
-                    }
-                }
+                title = { Text("Einstellungen", fontWeight = FontWeight.Bold) }
             )
         }
     ) { padding ->
@@ -108,6 +105,12 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            ClubIdentitySection(
+                identity = clubIdentity,
+                onNameChange = { scope.launch { settingsRepository.setClubName(it) } },
+                onAccentChange = { scope.launch { settingsRepository.setClubAccent(it) } }
+            )
+
             // SumUp Configuration Card
             Card(
                 modifier = Modifier.fillMaxWidth(),

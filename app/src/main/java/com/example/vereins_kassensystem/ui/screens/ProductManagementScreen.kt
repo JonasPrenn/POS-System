@@ -32,8 +32,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductManagementScreen(
-    viewModel: ProductViewModel,
-    onOpenDrawer: () -> Unit
+    viewModel: ProductViewModel
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<Product?>(null) }
@@ -82,11 +81,6 @@ fun ProductManagementScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Produktverwaltung", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menü")
-                    }
-                },
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
                         Icon(Icons.Default.FileUpload, contentDescription = "Import")
