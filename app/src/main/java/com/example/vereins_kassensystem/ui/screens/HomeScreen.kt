@@ -1,30 +1,59 @@
 package com.example.vereins_kassensystem.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.AddShoppingCart
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.vereins_kassensystem.ui.components.MoneyStatTile
+import com.example.vereins_kassensystem.ui.components.MoneyText
+import com.example.vereins_kassensystem.ui.components.StatTile
+import com.example.vereins_kassensystem.ui.components.VdListRow
+import com.example.vereins_kassensystem.ui.components.VdTopBar
+import com.example.vereins_kassensystem.ui.components.WarningBanner
+import com.example.vereins_kassensystem.ui.theme.ClubTheme
+import com.example.vereins_kassensystem.ui.theme.MoneySmall
+import com.example.vereins_kassensystem.ui.theme.Spacing
+import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.viewmodel.AnalyticsViewModel
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The at-a-glance screen. Deliberately not the start destination any more — a volunteer
+ * opening the app during a rush wants the till, not a summary.
+ */
 @Composable
 fun HomeScreen(
     onNavigateToSales: () -> Unit,
@@ -35,73 +64,74 @@ fun HomeScreen(
     productViewModel: ProductViewModel,
     memberViewModel: MemberViewModel
 ) {
-    val analyticsSummary by analyticsViewModel.summary.collectAsState()
+    val summary by analyticsViewModel.summary.collectAsState()
     val products by productViewModel.allProductsWithVariants.collectAsState()
     val members by memberViewModel.allMembers.collectAsState()
 
-    val lowStockProducts = remember(products) {
+    val lowStock = remember(products) {
         products.filter { it.product.trackInventory && it.product.stockQuantity <= it.product.minStockLevel }
     }
-
     val today = remember { SimpleDateFormat("EEEE, d. MMMM", Locale.GERMANY).format(Date()) }
+    val clubName = ClubTheme.name
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { 
-                    Column {
-                        Text("Dashboard", style = MaterialTheme.typography.titleLarge)
-                        Text(today, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+            VdTopBar(
+                title = clubName.ifBlank { "Übersicht" },
+                subtitle = today
             )
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(padding),
+            contentPadding = PaddingValues(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            // Summary Cards
             item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DashboardSummaryCard(
-                        title = "Umsatz heute",
-                        value = "${String.format("%.2f", analyticsSummary.totalSales)} €",
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    MoneyStatTile(
+                        label = "Umsatz heute",
+                        amount = summary.totalSales,
                         icon = Icons.Default.Payments,
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.weight(1f)
                     )
-                    DashboardSummaryCard(
-                        title = "Transaktionen",
-                        value = "${analyticsSummary.transactionCount}",
-                        icon = Icons.Default.ReceiptLong,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    StatTile(
+                        label = "Transaktionen",
+                        value = summary.transactionCount.toString(),
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            // Quick Actions
+            if (lowStock.isNotEmpty()) {
+                item {
+                    WarningBanner(
+                        title = "Lagerbestand niedrig",
+                        supportingText = if (lowStock.size == 1) {
+                            "${lowStock.first().product.name} geht zur Neige."
+                        } else {
+                            "${lowStock.size} Produkte gehen zur Neige."
+                        },
+                        onClick = onNavigateToProducts
+                    )
+                }
+            }
+
             item {
-                Text("Quick Actions", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(vertical = 4.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    QuickActionButton(
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    QuickAction(
                         label = "Neuer Verkauf",
                         icon = Icons.Default.AddShoppingCart,
                         onClick = onNavigateToSales,
                         modifier = Modifier.weight(1f)
                     )
-                    QuickActionButton(
-                        label = "Mitglied hinzufügen",
+                    QuickAction(
+                        label = "Mitglieder",
                         icon = Icons.Default.PersonAdd,
                         onClick = onNavigateToMembers,
                         modifier = Modifier.weight(1f)
@@ -109,75 +139,73 @@ fun HomeScreen(
                 }
             }
 
-            // Inventory Warning
-            if (lowStockProducts.isNotEmpty()) {
-                item {
-                    InventoryWarningCard(lowStockProducts.size, onNavigateToProducts)
-                }
+            item {
+                Text(
+                    text = "Verein",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.sm)
+                )
             }
 
-            // Stats Section
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Club Übersicht", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        StatItem(label = "Aktive Mitglieder", value = "${members.size}", icon = Icons.Default.Groups)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        StatItem(label = "Produkte im Sortiment", value = "${products.size}", icon = Icons.Default.Inventory2)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        StatItem(label = "Gesamttrinkgeld heute", value = "${String.format("%.2f", analyticsSummary.totalTips)} €", icon = Icons.Default.Favorite)
-                    }
-                }
+                VdListRow(
+                    title = "Aktive Mitglieder",
+                    leading = { StatIcon(Icons.Default.Groups) },
+                    trailing = { Text(members.size.toString(), style = MoneySmall) }
+                )
+            }
+            item {
+                VdListRow(
+                    title = "Produkte im Sortiment",
+                    leading = { StatIcon(Icons.Default.Inventory2) },
+                    trailing = { Text(products.size.toString(), style = MoneySmall) }
+                )
+            }
+            item {
+                VdListRow(
+                    title = "Trinkgeld heute",
+                    leading = { StatIcon(Icons.Default.Favorite) },
+                    trailing = { MoneyText(amount = summary.totalTips) }
+                )
+            }
+            item {
+                VdListRow(
+                    title = "Vollständige Historie",
+                    supportingText = "Alle Buchungen ansehen",
+                    leading = { StatIcon(Icons.AutoMirrored.Filled.ReceiptLong) },
+                    onClick = onNavigateToHistory
+                )
             }
 
-            // History Shortcut
-            item {
-                OutlinedButton(
-                    onClick = onNavigateToHistory,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    Icon(Icons.Default.History, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Vollständige Historie ansehen")
-                }
-            }
+            item { Spacer(Modifier.height(Spacing.xl)) }
         }
     }
 }
 
 @Composable
-fun DashboardSummaryCard(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    containerColor: Color,
-    contentColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = contentColor)
+private fun StatIcon(icon: ImageVector) {
+    Surface(
+        modifier = Modifier.size(36.dp),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(title, style = MaterialTheme.typography.labelMedium)
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+        Column(
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
-fun QuickActionButton(
+private fun QuickAction(
     label: String,
     icon: ImageVector,
     onClick: () -> Unit,
@@ -185,60 +213,17 @@ fun QuickActionButton(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        }
-    }
-}
-
-@Composable
-fun InventoryWarningCard(count: Int, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+        modifier = modifier.heightIn(min = TouchTarget.sales),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(32.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Lagerwarnung", fontWeight = FontWeight.Bold)
-                Text("$count Produkte haben einen niedrigen Bestand.", style = MaterialTheme.typography.bodySmall)
-            }
-            Icon(Icons.Default.ChevronRight, contentDescription = null)
+            Icon(icon, contentDescription = null, tint = ClubTheme.accent)
+            Spacer(Modifier.width(Spacing.md))
+            Text(text = label, style = MaterialTheme.typography.titleSmall)
         }
-    }
-}
-
-@Composable
-fun StatItem(label: String, value: String, icon: ImageVector) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-            modifier = Modifier.size(36.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }

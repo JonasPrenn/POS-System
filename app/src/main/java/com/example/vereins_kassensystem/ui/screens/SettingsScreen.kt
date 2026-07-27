@@ -19,8 +19,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.work.*
 import com.example.vereins_kassensystem.data.SettingsRepository
+import com.example.vereins_kassensystem.ui.components.AppearanceSection
 import com.example.vereins_kassensystem.ui.components.ClubIdentitySection
+import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.theme.ClubIdentity
+import com.example.vereins_kassensystem.ui.theme.ThemeMode
 import com.example.vereins_kassensystem.data.repository.BackupRepository
 import com.example.vereins_kassensystem.worker.BackupWorker
 import kotlinx.coroutines.launch
@@ -41,6 +44,7 @@ fun SettingsScreen(
     var editedKey by remember(sumUpKey) { mutableStateOf(sumUpKey) }
 
     val clubIdentity by settingsRepository.clubIdentity.collectAsState(initial = ClubIdentity())
+    val themeMode by settingsRepository.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
     val backupUri by settingsRepository.backupUri.collectAsState(initial = null)
     val autoBackupEnabled by settingsRepository.autoBackupEnabled.collectAsState(initial = false)
 
@@ -92,9 +96,7 @@ fun SettingsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Einstellungen", fontWeight = FontWeight.Bold) }
-            )
+            VdTopBar(title = "Einstellungen")
         }
     ) { padding ->
         Column(
@@ -111,10 +113,15 @@ fun SettingsScreen(
                 onAccentChange = { scope.launch { settingsRepository.setClubAccent(it) } }
             )
 
+            AppearanceSection(
+                themeMode = themeMode,
+                onThemeModeChange = { scope.launch { settingsRepository.setThemeMode(it) } }
+            )
+
             // SumUp Configuration Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -124,8 +131,7 @@ fun SettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = "SumUp Konfiguration",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -135,7 +141,7 @@ fun SettingsScreen(
                         label = { Text("SumUp Affiliate Key") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.small
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
@@ -145,7 +151,7 @@ fun SettingsScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
@@ -157,7 +163,7 @@ fun SettingsScreen(
             // Backup Management Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -167,8 +173,7 @@ fun SettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = "Backup & Wiederherstellung",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -192,7 +197,7 @@ fun SettingsScreen(
                     OutlinedButton(
                         onClick = { folderLauncher.launch(null) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Icon(Icons.Default.Folder, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
@@ -219,7 +224,7 @@ fun SettingsScreen(
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.small,
                             enabled = backupUri != null
                         ) {
                             Icon(Icons.Default.CloudUpload, contentDescription = null)
@@ -230,7 +235,7 @@ fun SettingsScreen(
                         Button(
                             onClick = { restoreLauncher.launch("application/zip") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.small,
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                         ) {
                             Icon(Icons.Default.CloudDownload, contentDescription = null)
@@ -244,7 +249,7 @@ fun SettingsScreen(
             // SumUp Account Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -254,8 +259,7 @@ fun SettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = "SumUp Account",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -266,7 +270,7 @@ fun SettingsScreen(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = MaterialTheme.colorScheme.onSecondary
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Text("Bei SumUp anmelden")
                     }

@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.ProductVariant
@@ -80,7 +81,7 @@ fun ProductManagementScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Produktverwaltung", fontWeight = FontWeight.Bold) },
+                title = { Text("Produktverwaltung") },
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
                         Icon(Icons.Default.FileUpload, contentDescription = "Import")
@@ -186,7 +187,7 @@ fun ProductManagementScreen(
 fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
@@ -198,7 +199,7 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
         ) {
             Surface(
                 modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -214,13 +215,12 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
             Spacer(Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(text = product.name, style = MaterialTheme.typography.titleMedium)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "${String.format( "%.2f", product.price)} €",
+                        text = Money.format(product.price),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Black
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(text = " • ", color = MaterialTheme.colorScheme.outlineVariant)
                     Text(text = product.category, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -285,7 +285,7 @@ fun ProductDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (product == null) "Produkt hinzufügen" else "Produkt bearbeiten", fontWeight = FontWeight.Bold) },
+        title = { Text(if (product == null) "Produkt hinzufügen" else "Produkt bearbeiten") },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
@@ -294,7 +294,7 @@ fun ProductDialog(
                         onValueChange = { name = it },
                         label = { Text("Name") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.small
                     )
                 }
                 item {
@@ -304,7 +304,7 @@ fun ProductDialog(
                         onValueChange = { if (!hasVariants) price = it },
                         label = { Text("Preis (€)") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         enabled = !hasVariants,
                         colors = if (hasVariants) {
                             OutlinedTextFieldDefaults.colors(
@@ -323,13 +323,13 @@ fun ProductDialog(
                         onValueChange = { category = it },
                         label = { Text("Kategorie") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.small
                     )
                 }
                 
                 item {
                     Spacer(Modifier.height(8.dp))
-                    Text("Lagerverwaltung", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Lagerverwaltung", style = MaterialTheme.typography.titleSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { trackInventory = !trackInventory },
                         verticalAlignment = Alignment.CenterVertically,
@@ -348,7 +348,7 @@ fun ProductDialog(
                                 onValueChange = { stockQuantity = it },
                                 label = { Text("Bestand") },
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.small,
                                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                             )
                             OutlinedTextField(
@@ -356,7 +356,7 @@ fun ProductDialog(
                                 onValueChange = { minStockLevel = it },
                                 label = { Text("Warnung bei") },
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.small,
                                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                             )
                         }
@@ -365,7 +365,7 @@ fun ProductDialog(
 
                 item {
                     Spacer(Modifier.height(8.dp))
-                    Text("Varianten", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Varianten", style = MaterialTheme.typography.titleSmall)
                 }
                 
                 items(editedVariants) { variant ->
@@ -382,7 +382,7 @@ fun ProductDialog(
                             },
                             label = { Text("Variante") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = MaterialTheme.shapes.extraSmall
                         )
                         OutlinedTextField(
                             value = if (variant.price == 0.0) "" else variant.price.toString(),
@@ -393,7 +393,7 @@ fun ProductDialog(
                             },
                             label = { Text("Preis") },
                             modifier = Modifier.weight(0.6f),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = MaterialTheme.shapes.extraSmall
                         )
                         IconButton(onClick = { editedVariants.remove(variant) }) {
                             Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
