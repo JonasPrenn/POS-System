@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Main Cash Register Icon centered in the safe zone (66x66) -->
+    <!-- Base of the register -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M25,72h58v6c0,2.21 -1.79,4 -4,4h-50c-2.21,0 -4,-1.79 -4,-4v-6z" />
+
+    <!-- Register Screen and Body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,35h48c2.21,0 4,1.79 4,4v33h-56v-33c0,-2.21 1.79,-4 4,-4z" />
+
+    <!-- Screen -->
+    <path
+        android:fillColor="#4F46E5"
+        android:pathData="M35,40h38v15h-38z" />
+
+    <!-- Buttons area -->
+    <path
+        android:fillColor="#E0E7FF"
+        android:pathData="M35,60h8v5h-8zM45,60h8v5h-8zM55,60h8v5h-8zM65,60h8v5h-8z" />
+
+    <!-- Coin/Currency Symbol on screen -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,47.5m-3.5,0a3.5,3.5 0,1 1,7 0a3.5,3.5 0,1 1,-7 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,45v5M52,47.5h4"
+        android:strokeColor="#4F46E5"
+        android:strokeWidth="0.5"/>
+</vector>

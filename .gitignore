@@ -1,0 +1,22 @@
+# Build artifacts
+.gradle/
+build/
+app/build/
+
+# IDE files
+.idea/
+*.iml
+.DS_Store
+
+# Local configuration
+local.properties
+
+# Kotlin
+.kotlin/
+
+# Android Studio
+captures/
+
+# External native build artifacts
+.externalNativeBuild/
+.cxx/
