@@ -7,6 +7,7 @@ import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.data.repository.AppRepository
+import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -17,10 +18,26 @@ data class CartItem(
     val variant: ProductVariant? = null,
     val quantity: Int = 1,
     val discountPercent: Double = 0.0,
-    val fixedDiscount: Double = 0.0
+    val fixedDiscount: Double = 0.0,
+    /**
+     * Identifies this line for the whole time it is in the cart.
+     *
+     * Lines used to be addressed by `product.id`, which every manual item shares
+     * (`-2L`) — so two manual amounts produced duplicate keys in the cart list, and
+     * editing one of them hit whichever came first.
+     */
+    val lineId: String = UUID.randomUUID().toString()
 ) {
     val finalPrice: Double
         get() = ((variant?.price ?: product.price) * (1.0 - discountPercent / 100.0)) - fixedDiscount
+
+    /** What this line contributes to the total, after its discount. */
+    val lineTotal: Double get() = finalPrice * quantity
+
+    val displayName: String
+        get() = if (variant != null) "${product.name} (${variant.name})" else product.name
+
+    val hasDiscount: Boolean get() = discountPercent > 0.0 || fixedDiscount > 0.0
 }
 
 class SalesViewModel(private val repository: AppRepository) : ViewModel() {
@@ -50,8 +67,23 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val totalAmount: StateFlow<Double> = combine(_cart, _topUpAmount, _tipAmount) { cartItems, topUp, tip ->
-        cartItems.sumOf { it.finalPrice * it.quantity } + topUp + tip
+        cartItems.sumOf { it.lineTotal } + topUp + tip
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    /** Distinct product categories, for the filter above the sales grid. */
+    val productCategories: StateFlow<List<String>> = allProductsWithVariants
+        .map { products ->
+            products.map { it.product.category }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Total pieces in the cart, for the badge and the total bar. */
+    val itemCount: StateFlow<Int> = _cart
+        .map { cart -> cart.sumOf { it.quantity } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     private val _checkoutError = MutableSharedFlow<String>()
     val checkoutError = _checkoutError.asSharedFlow()
@@ -82,26 +114,40 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         _cart.value = currentCart.toList()
     }
 
-    fun removeFromCart(product: Product, variant: ProductVariant? = null) {
-        val currentCart = _cart.value.toMutableList()
-        val index = currentCart.indexOfFirst { it.product.id == product.id && it.variant?.id == variant?.id }
-        if (index != -1) {
-            val existingItem = currentCart[index]
-            if (existingItem.quantity > 1) {
-                currentCart[index] = existingItem.copy(quantity = existingItem.quantity - 1)
-            } else {
-                currentCart.removeAt(index)
-            }
+    /** One more of an existing line, subject to the same stock check as adding it. */
+    fun increaseQuantity(lineId: String) {
+        val index = _cart.value.indexOfFirst { it.lineId == lineId }
+        if (index == -1) return
+        val item = _cart.value[index]
+        if (item.product.trackInventory && item.quantity + 1 > item.product.stockQuantity) {
+            viewModelScope.launch { _checkoutError.emit("Nicht genügend Bestand auf Lager!") }
+            return
         }
-        _cart.value = currentCart.toList()
+        _cart.value = _cart.value.toMutableList().also {
+            it[index] = item.copy(quantity = item.quantity + 1)
+        }
     }
 
-    fun applyDiscount(product: Product, variant: ProductVariant? = null, percent: Double = 0.0, fixed: Double = 0.0) {
-        val currentCart = _cart.value.toMutableList()
-        val index = currentCart.indexOfFirst { it.product.id == product.id && it.variant?.id == variant?.id }
-        if (index != -1) {
-            currentCart[index] = currentCart[index].copy(discountPercent = percent, fixedDiscount = fixed)
-            _cart.value = currentCart.toList()
+    /** One fewer; the line goes when it would reach zero. */
+    fun decreaseQuantity(lineId: String) {
+        val index = _cart.value.indexOfFirst { it.lineId == lineId }
+        if (index == -1) return
+        val item = _cart.value[index]
+        _cart.value = _cart.value.toMutableList().also {
+            if (item.quantity > 1) it[index] = item.copy(quantity = item.quantity - 1) else it.removeAt(index)
+        }
+    }
+
+    /** Drops the whole line regardless of quantity. */
+    fun removeLine(lineId: String) {
+        _cart.value = _cart.value.filterNot { it.lineId == lineId }
+    }
+
+    fun applyDiscount(lineId: String, percent: Double = 0.0, fixed: Double = 0.0) {
+        val index = _cart.value.indexOfFirst { it.lineId == lineId }
+        if (index == -1) return
+        _cart.value = _cart.value.toMutableList().also {
+            it[index] = it[index].copy(discountPercent = percent, fixedDiscount = fixed)
         }
     }
 
@@ -162,7 +208,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
             val category = member.categoryId?.let { repository.getCategoryById(it) }
             val limit = category?.negativeBalanceLimit ?: 0.0
             if (member.balance - cartTotal < limit) {
-                _checkoutError.emit("Guthaben nicht ausreichend (Limit: ${String.format(Locale.getDefault(), "%.2f", limit)} €)")
+                _checkoutError.emit("Guthaben nicht ausreichend. Limit: ${Money.format(limit)}")
                 return@launch
             }
         }

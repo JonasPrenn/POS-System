@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.MemberCategory
@@ -83,7 +84,7 @@ fun MemberManagementScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Mitgliederverwaltung", fontWeight = FontWeight.Bold) },
+                title = { Text("Mitgliederverwaltung") },
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
                         Icon(Icons.Default.FileUpload, contentDescription = "Import")
@@ -128,7 +129,7 @@ fun MemberManagementScreen(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.small
                 )
             }
             
@@ -195,7 +196,7 @@ fun MemberItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         onClick = onClick
@@ -215,7 +216,6 @@ fun MemberItem(
                     Text(
                         text = member.name.take(1).uppercase(),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
@@ -226,13 +226,11 @@ fun MemberItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = member.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "${String.format( "%.2f", member.balance)} €",
+                    text = Money.format(member.balance),
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Black,
                     color = if (member.balance < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
                 )
             }

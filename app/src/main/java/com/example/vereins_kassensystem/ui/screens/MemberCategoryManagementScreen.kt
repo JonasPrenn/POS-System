@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import java.util.Locale
@@ -33,7 +34,7 @@ fun MemberCategoryManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mitgliederkategorien", fontWeight = FontWeight.Bold) }
+                title = { Text("Mitgliederkategorien") }
             )
         },
         floatingActionButton = {
@@ -102,7 +103,7 @@ fun MemberCategoryManagementScreen(
 fun CategoryItem(category: MemberCategory, onEdit: (MemberCategory) -> Unit, onDelete: (MemberCategory) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
@@ -130,12 +131,11 @@ fun CategoryItem(category: MemberCategory, onEdit: (MemberCategory) -> Unit, onD
             Spacer(Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = category.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(text = category.name, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = "Limit: ${String.format(Locale.GERMANY, "%.2f", category.negativeBalanceLimit)} €",
+                    text = "Limit: ${Money.format(category.negativeBalanceLimit)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.error
                 )
             }
             
@@ -168,7 +168,7 @@ fun CategoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (category == null) "Kategorie hinzufügen" else "Kategorie bearbeiten", fontWeight = FontWeight.Bold) },
+        title = { Text(if (category == null) "Kategorie hinzufügen" else "Kategorie bearbeiten") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -176,7 +176,7 @@ fun CategoryDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.small
                 )
                 OutlinedTextField(
                     value = negativeLimit,
@@ -184,7 +184,7 @@ fun CategoryDialog(
                     label = { Text("Negatives Limit (€)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.small
                 )
                 Text(
                     "Das Limit gibt an, wie weit das Konto ins Minus gehen darf (z.B. -10.00).",

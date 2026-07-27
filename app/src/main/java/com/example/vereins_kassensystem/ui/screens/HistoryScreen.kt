@@ -2,83 +2,84 @@ package com.example.vereins_kassensystem.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.vereins_kassensystem.data.entity.Transaction
+import com.example.vereins_kassensystem.ui.components.EmptyState
+import com.example.vereins_kassensystem.ui.components.MoneyText
+import com.example.vereins_kassensystem.ui.components.VdTopBar
+import com.example.vereins_kassensystem.ui.format.Money
+import com.example.vereins_kassensystem.ui.theme.MoneyMedium
+import com.example.vereins_kassensystem.ui.theme.MoneySmall
+import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.viewmodel.SalesViewModel
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(
-    viewModel: SalesViewModel
-) {
+fun HistoryScreen(viewModel: SalesViewModel) {
     val transactions by viewModel.allTransactions.collectAsState()
-    
-    val groupedTransactions = remember(transactions) {
+
+    val grouped = remember(transactions) {
         transactions.groupBy { it.transactionGroupId }
             .values
             .sortedByDescending { it.firstOrNull()?.timestamp ?: 0L }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Transaktionsverlauf", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+    Scaffold(topBar = { VdTopBar(title = "Historie") }) { padding ->
+        if (grouped.isEmpty()) {
+            EmptyState(
+                icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                title = "Noch keine Buchungen",
+                supportingText = "Abgeschlossene Verkäufe erscheinen hier.",
+                modifier = Modifier.padding(padding)
             )
-        }
-    ) { padding ->
-        if (groupedTransactions.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.History,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Noch keine Transaktionen",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-            }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                items(groupedTransactions, key = { it.first().transactionGroupId }) { transactionList ->
-                    TransactionGroupItem(transactionList)
+                items(grouped, key = { it.first().transactionGroupId }) { group ->
+                    TransactionGroupItem(group)
                 }
             }
         }
@@ -86,121 +87,74 @@ fun HistoryScreen(
 }
 
 @Composable
-fun TransactionGroupItem(items: List<Transaction>) {
+private fun TransactionGroupItem(items: List<Transaction>) {
     var expanded by remember { mutableStateOf(false) }
-    val firstItem = items.first()
-    
-    val totalAmount = items.sumOf { it.price * it.quantity - it.discountAmount }
-    val dateFormat = SimpleDateFormat("dd. MMM yyyy • HH:mm", Locale.GERMANY)
-    val dateString = dateFormat.format(Date(firstItem.timestamp))
-    
-    val rotationState by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "rotation")
+    val first = items.first()
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    val total = items.sumOf { it.price * it.quantity - it.discountAmount }
+    val dateFormat = remember { SimpleDateFormat("dd. MMM · HH:mm", Locale.GERMANY) }
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+
+    Surface(
+        onClick = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = when(firstItem.paymentType) {
-                        "CARD" -> MaterialTheme.colorScheme.secondaryContainer
-                        "MEMBER_BALANCE" -> MaterialTheme.colorScheme.tertiaryContainer
-                        else -> MaterialTheme.colorScheme.primaryContainer
-                    },
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = when(firstItem.paymentType) {
-                                "CARD" -> Icons.Default.CreditCard
-                                "MEMBER_BALANCE" -> Icons.Default.AccountBalanceWallet
-                                else -> Icons.Default.Payments
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = when(firstItem.paymentType) {
-                                "CARD" -> MaterialTheme.colorScheme.onSecondaryContainer
-                                "MEMBER_BALANCE" -> MaterialTheme.colorScheme.onTertiaryContainer
-                                else -> MaterialTheme.colorScheme.onPrimaryContainer
-                            }
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
+        Column(modifier = Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PaymentBadge(first.paymentType)
+                Spacer(Modifier.width(Spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = firstItem.memberName ?: "Barverkauf",
+                        text = first.memberName ?: "Barverkauf",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        maxLines = 1
                     )
                     Text(
-                        text = dateString,
+                        text = dateFormat.format(Date(first.timestamp)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "${String.format("%.2f", totalAmount)} €",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .rotate(rotationState)
-                            .size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                MoneyText(amount = total, style = MoneyMedium)
+                Icon(
+                    imageVector = Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Zuklappen" else "Aufklappen",
+                    modifier = Modifier
+                        .padding(start = Spacing.sm)
+                        .size(20.dp)
+                        .rotate(rotation),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            
+
             AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 16.dp)) {
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Column(modifier = Modifier.padding(top = Spacing.md)) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = Spacing.sm),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
                     items.forEach { item ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                                .padding(vertical = Spacing.xs),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = item.productName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                Text(item.productName, style = MaterialTheme.typography.bodyMedium)
                                 if (item.quantity > 1) {
                                     Text(
-                                        text = "${item.quantity} x ${String.format("%.2f", item.price)} €",
+                                        text = "${item.quantity} × ${Money.format(item.price)}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
-                            
-                            val itemTotal = item.price * item.quantity - item.discountAmount
-                            Text(
-                                text = "${String.format("%.2f", itemTotal)} €",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                            MoneyText(
+                                amount = item.price * item.quantity - item.discountAmount,
+                                style = MoneySmall
                             )
                         }
                     }
@@ -210,3 +164,52 @@ fun TransactionGroupItem(items: List<Transaction>) {
     }
 }
 
+/**
+ * Payment type as an icon on its own colour: cash pine, card harbor, the Deckel brass —
+ * the same three the rest of the app uses for those ideas.
+ */
+@Composable
+private fun PaymentBadge(paymentType: String) {
+    val icon: ImageVector
+    val container: Color
+    val content: Color
+    when (paymentType) {
+        "CARD" -> {
+            icon = Icons.Default.CreditCard
+            container = MaterialTheme.colorScheme.tertiaryContainer
+            content = MaterialTheme.colorScheme.onTertiaryContainer
+        }
+        "MEMBER_BALANCE" -> {
+            icon = Icons.Default.AccountBalanceWallet
+            container = MaterialTheme.colorScheme.secondaryContainer
+            content = MaterialTheme.colorScheme.onSecondaryContainer
+        }
+        else -> {
+            icon = Icons.Default.Payments
+            container = MaterialTheme.colorScheme.primaryContainer
+            content = MaterialTheme.colorScheme.onPrimaryContainer
+        }
+    }
+
+    Surface(
+        modifier = Modifier.size(40.dp),
+        shape = CircleShape,
+        color = container,
+        contentColor = content
+    ) {
+        Column(
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = when (paymentType) {
+                    "CARD" -> "Kartenzahlung"
+                    "MEMBER_BALANCE" -> "Vom Deckel"
+                    else -> "Barzahlung"
+                },
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
