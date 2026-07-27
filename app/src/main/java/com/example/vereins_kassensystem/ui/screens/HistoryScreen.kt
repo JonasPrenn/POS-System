@@ -97,7 +97,7 @@ fun TransactionGroupItem(items: List<Transaction>) {
     val firstItem = items.first()
     
     val totalAmount = items.sumOf { it.price * it.quantity - it.discountAmount }
-    val dateFormat = SimpleDateFormat("dd. MMM yyyy • HH:mm", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("dd. MMM yyyy • HH:mm", Locale.GERMANY)
     val dateString = dateFormat.format(Date(firstItem.timestamp))
     
     val rotationState by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "rotation")
@@ -105,16 +105,46 @@ fun TransactionGroupItem(items: List<Transaction>) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
             .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Surface(
+                    shape = CircleShape,
+                    color = when(firstItem.paymentType) {
+                        "CARD" -> MaterialTheme.colorScheme.secondaryContainer
+                        "MEMBER_BALANCE" -> MaterialTheme.colorScheme.tertiaryContainer
+                        else -> MaterialTheme.colorScheme.primaryContainer
+                    },
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = when(firstItem.paymentType) {
+                                "CARD" -> Icons.Default.CreditCard
+                                "MEMBER_BALANCE" -> Icons.Default.AccountBalanceWallet
+                                else -> Icons.Default.Payments
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = when(firstItem.paymentType) {
+                                "CARD" -> MaterialTheme.colorScheme.onSecondaryContainer
+                                "MEMBER_BALANCE" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                else -> MaterialTheme.colorScheme.onPrimaryContainer
+                            }
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = firstItem.memberName ?: "Barverkauf",
@@ -128,25 +158,27 @@ fun TransactionGroupItem(items: List<Transaction>) {
                     )
                 }
                 
-                Text(
-                    text = "${String.format("%.2f", totalAmount)} €",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .rotate(rotationState)
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "${String.format("%.2f", totalAmount)} €",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .rotate(rotationState)
+                            .size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 16.dp)) {
-                    Divider(modifier = Modifier.padding(bottom = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     items.forEach { item ->
                         Row(
                             modifier = Modifier
@@ -158,7 +190,8 @@ fun TransactionGroupItem(items: List<Transaction>) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = item.productName,
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
                                 )
                                 if (item.quantity > 1) {
                                     Text(
@@ -176,26 +209,6 @@ fun TransactionGroupItem(items: List<Transaction>) {
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    val paymentLabel = when (firstItem.paymentType) {
-                        "CARD" -> "Karte"
-                        "MEMBER_BALANCE" -> "Konto"
-                        else -> "Bar"
-                    }
-                    
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            text = "Zahlung: $paymentLabel",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            fontWeight = FontWeight.Bold
-                        )
                     }
                 }
             }

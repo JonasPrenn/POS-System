@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -155,110 +156,203 @@ class MainActivity : ComponentActivity() {
                         drawerState = drawerState,
                         drawerContent = {
                             ModalDrawerSheet(
-                                drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
+                                drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
+                                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                                drawerContentColor = MaterialTheme.colorScheme.onSurface
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.primaryContainer)
-                                        .padding(vertical = 32.dp, horizontal = 24.dp)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                        .padding(vertical = 40.dp, horizontal = 24.dp)
                                 ) {
                                     Column {
-                                        Icon(
-                                            Icons.Default.Storefront,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.size(48.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    Icons.Default.Storefront,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSecondary,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(16.dp))
                                         Text(
                                             text = "VereinsDeckel",
-                                            style = MaterialTheme.typography.headlineMedium,
+                                            style = MaterialTheme.typography.headlineSmall,
                                             fontWeight = FontWeight.Black,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            color = MaterialTheme.colorScheme.onPrimary
                                         )
                                         Text(
-                                            text = "Version 1.1.2",
+                                            text = "Club POS System",
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
                                         )
                                     }
                                 }
                                 
                                 Spacer(modifier = Modifier.height(16.dp))
-                                NavigationDrawerItem(
-                                    label = { Text("Verkauf (POS)", fontWeight = FontWeight.Bold) },
-                                    selected = currentRoute == "sales",
-                                    icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
-                                    onClick = {
-                                        navController.navigate("sales") {
-                                            popUpTo("sales") { inclusive = true }
-                                        }
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
-                                NavigationDrawerItem(
-                                    label = { Text("Historie") },
-                                    selected = currentRoute == "history",
-                                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
-                                    onClick = {
-                                        navController.navigate("history")
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
-                                NavigationDrawerItem(
-                                    label = { Text("Produkte") },
-                                    selected = currentRoute == "products",
-                                    icon = { Icon(Icons.Default.Build, contentDescription = null) },
-                                    onClick = {
-                                        navController.navigate("products")
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
-                                NavigationDrawerItem(
-                                    label = { Text("Mitglieder") },
-                                    selected = currentRoute == "members",
-                                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                                    onClick = {
-                                        navController.navigate("members")
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
-                                NavigationDrawerItem(
-                                    label = { Text("Mitgliederkategorien") },
-                                    selected = currentRoute == "categories",
-                                    icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
-                                    onClick = {
-                                        navController.navigate("categories")
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
-                                NavigationDrawerItem(
-                                    label = { Text("Auswertung") },
-                                    selected = currentRoute == "analytics",
-                                    icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
-                                    onClick = {
-                                        navController.navigate("analytics")
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
-                                NavigationDrawerItem(
-                                    label = { Text("Einstellungen") },
-                                    selected = currentRoute == "settings",
-                                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                                    onClick = {
-                                        navController.navigate("settings")
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
+                                Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+                                    NavigationDrawerItem(
+                                        label = { Text("Dashboard", fontWeight = FontWeight.Bold) },
+                                        selected = currentRoute == "dashboard",
+                                        icon = { Icon(Icons.Default.Dashboard, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("dashboard") {
+                                                popUpTo("dashboard") { inclusive = true }
+                                            }
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    NavigationDrawerItem(
+                                        label = { Text("Verkauf (POS)") },
+                                        selected = currentRoute == "sales",
+                                        icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("sales")
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    NavigationDrawerItem(
+                                        label = { Text("Historie") },
+                                        selected = currentRoute == "history",
+                                        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("history")
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp))
+                                    Text(
+                                        "Verwaltung",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
+                                    )
+
+                                    NavigationDrawerItem(
+                                        label = { Text("Produkte") },
+                                        selected = currentRoute == "products",
+                                        icon = { Icon(Icons.Default.Inventory, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("products")
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    NavigationDrawerItem(
+                                        label = { Text("Mitglieder") },
+                                        selected = currentRoute == "members",
+                                        icon = { Icon(Icons.Default.People, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("members")
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    NavigationDrawerItem(
+                                        label = { Text("Kategorien") },
+                                        selected = currentRoute == "categories",
+                                        icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("categories")
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp))
+
+                                    NavigationDrawerItem(
+                                        label = { Text("Auswertung") },
+                                        selected = currentRoute == "analytics",
+                                        icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("analytics")
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    NavigationDrawerItem(
+                                        label = { Text("Einstellungen") },
+                                        selected = currentRoute == "settings",
+                                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                                        onClick = {
+                                            navController.navigate("settings")
+                                            scope.launch { drawerState.close() }
+                                        },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                }
                             }
                         }
                     ) {
                         NavHost(
                             navController = navController,
-                            startDestination = "sales",
+                            startDestination = "dashboard",
                             modifier = Modifier.fillMaxSize()
                         ) {
+                            composable("dashboard") {
+                                HomeScreen(
+                                    onNavigateToSales = { navController.navigate("sales") },
+                                    onNavigateToHistory = { navController.navigate("history") },
+                                    onNavigateToProducts = { navController.navigate("products") },
+                                    onNavigateToMembers = { navController.navigate("members") },
+                                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                                    analyticsViewModel = analyticsViewModel,
+                                    productViewModel = productViewModel,
+                                    memberViewModel = memberViewModel
+                                )
+                            }
                             composable("sales") {
                                 SalesScreen(
                                     viewModel = salesViewModel,

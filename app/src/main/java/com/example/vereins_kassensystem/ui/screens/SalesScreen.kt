@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -281,91 +283,93 @@ fun SalesScreen(
 fun ProductGridItem(product: Product, onClick: () -> Unit) {
     Card(
         modifier = Modifier
-            .padding(6.dp)
-            .aspectRatio(1.1f)
+            .padding(8.dp)
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(24.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier
-                .padding(12.dp)
+                .padding(16.dp)
                 .fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.Start
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = product.name,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        lineHeight = 20.sp,
                         modifier = Modifier.weight(1f)
                     )
                     if (product.trackInventory && product.stockQuantity <= product.minStockLevel) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = "Niedriger Bestand",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.PriorityHigh,
+                                contentDescription = "Low Stock",
+                                modifier = Modifier.padding(4.dp),
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
                     }
                 }
                 Text(
                     text = product.category,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(top = 2.dp)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    if (!product.hasVariants) {
-                        Text(
-                            text = "${String.format("%.2f", product.price)} €",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    } else {
+                if (!product.hasVariants) {
+                    Text(
+                        text = "${String.format("%.2f", product.price)} €",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
                         Text(
                             text = "Varianten",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                    if (product.trackInventory) {
-                        Text(
-                            text = "Lager: ${product.stockQuantity}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (product.stockQuantity <= product.minStockLevel) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
                 
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(32.dp)
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = null,
-                        modifier = Modifier.padding(6.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        modifier = Modifier.padding(8.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
@@ -427,163 +431,122 @@ fun CartContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Warenkorb",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                text = "Bestellung",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
             )
-            Row {
-                IconButton(onClick = { showManualItemDialog = true }) {
-                    Icon(Icons.Default.AddCircleOutline, contentDescription = "Manuell", tint = MaterialTheme.colorScheme.primary)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalIconButton(
+                    onClick = { showManualItemDialog = true },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Manuell")
                 }
-                IconButton(onClick = onClear) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = "Leeren", tint = MaterialTheme.colorScheme.error)
+                FilledTonalIconButton(
+                    onClick = onClear,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = "Leeren")
                 }
             }
         }
         
-        // Cart Items and Top-up in a scrollable column
-        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            Box(modifier = Modifier.weight(1f)) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Cart Items
+            items(cart, key = { it.product.id }) { item ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    // Cart Items
-                    items(cart, key = { it.product.id }) { item ->
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = if (item.variant != null) "${item.product.name} (${item.variant.name})" else item.product.name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "${item.quantity} x ${String.format( "%.2f", item.variant?.price ?: item.product.price)} €",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        if (item.discountPercent > 0 || item.fixedDiscount > 0) {
-                                            Text(
-                                                text = " (-${String.format( "%.2f", (item.variant?.price ?: item.product.price) * item.quantity - item.finalPrice * item.quantity)} €)",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.error,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    IconButton(
-                                        onClick = { showDiscountDialogFor = item },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.LocalOffer,
-                                            contentDescription = "Rabatt",
-                                            tint = if (item.discountPercent > 0 || item.fixedDiscount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = "${String.format( "%.2f", item.finalPrice * item.quantity)} €",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    IconButton(
-                                        onClick = { onRemove(item.product, item.variant) },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.RemoveCircleOutline,
-                                            contentDescription = "Entfernen",
-                                            tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "${item.quantity}x",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (item.variant != null) "${item.product.name} (${item.variant.name})" else item.product.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (item.discountPercent > 0 || item.fixedDiscount > 0) {
+                                Text(
+                                    text = "Rabatt angewendet",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                        
+                        Text(
+                            text = "${String.format("%.2f", item.finalPrice * item.quantity)} €",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Black
+                        )
+                        
+                        IconButton(onClick = { showDiscountDialogFor = item }) {
+                            Icon(Icons.Default.LocalOffer, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        
+                        IconButton(onClick = { onRemove(item.product, item.variant) }) {
+                            Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
+                        }
                     }
-                    
-                    // Top-up Item in Cart
-                    if (topUpAmount > 0) {
-                        item {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                        Icon(
-                                            Icons.Default.AccountBalanceWallet,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            text = "Guthabenaufladung",
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        Text(
-                                            text = "${String.format( "%.2f", topUpAmount)} €",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        IconButton(
-                                            onClick = { onSetTopUpAmount(0.0) },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Cancel,
-                                                contentDescription = "Entfernen",
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                }
+                }
+            }
+            
+            // Top-up Item
+            if (topUpAmount > 0) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.AccountBalanceWallet, null, tint = MaterialTheme.colorScheme.secondary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Guthabenaufladung",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${String.format("%.2f", topUpAmount)} €",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Black
+                            )
+                            IconButton(onClick = { onSetTopUpAmount(0.0) }) {
+                                Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -593,80 +556,61 @@ fun CartContent(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Member Selection Section
+        // Member Section
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(16.dp)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+            shape = RoundedCornerShape(24.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 if (selectedMember != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = selectedMember.name.take(1).uppercase(),
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = selectedMember.name,
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = selectedMember.name.take(1).uppercase(),
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Guthaben: ${String.format( "%.2f", selectedMember.balance)} €",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = selectedMember.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Guthaben: ${String.format("%.2f", selectedMember.balance)} €",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         IconButton(onClick = { onSelectMember(null) }) {
-                            Icon(Icons.Default.PersonRemove, contentDescription = "Entfernen", tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.PersonRemove, null, tint = MaterialTheme.colorScheme.error)
                         }
                     }
                     
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                     
-                    Text(
-                        text = "Schnell-Aufladung (+)",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(5.0, 10.0, 20.0, 50.0).forEach { amount ->
-                            Button(
+                            FilledTonalButton(
                                 onClick = { onSetTopUpAmount(amount) },
                                 modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(0.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(0.dp)
                             ) {
-                                Text("${amount.toInt()}€", fontWeight = FontWeight.Bold)
+                                Text("${amount.toInt()}€", style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -674,20 +618,17 @@ fun CartContent(
                     OutlinedButton(
                         onClick = { showMemberSelection = true },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(16.dp)
                     ) {
-                        Icon(Icons.Default.PersonAdd, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Mitglied für Kauf auswählen", fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.PersonAdd, null)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Mitglied auswählen", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
     }
-
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -716,82 +657,107 @@ fun CheckoutDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (paymentMode == null) "Zahlungsmethode" else "Zahlung: ${when(paymentMode) {
-            "CASH" -> "Bar"
-            "CARD" -> "Karte"
-            else -> "Mitgliedskonto"
-        }}") },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.padding(24.dp).fillMaxWidth().wrapContentHeight(),
+        title = { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (paymentMode != null) {
+                    IconButton(onClick = { 
+                        paymentMode = null
+                        onSetTipAmount(0.0)
+                        cashGiven = ""
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+                Text(
+                    text = if (paymentMode == null) "Zahlung wählen" else "Zahlung: ${when(paymentMode) {
+                        "CASH" -> "Bar"
+                        "CARD" -> "Karte"
+                        else -> "Mitglied"
+                    }}",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            }
+        },
         text = {
             Column {
-                Text(
-                    text = "Gesamtbetrag: ${String.format( "%.2f", totalAmount)} €",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                if (topUpAmount > 0 || tipAmount > 0) {
-                    val components = mutableListOf<String>()
-                    if (cartTotal > 0) components.add("Waren: ${String.format( "%.2f", cartTotal)}€")
-                    if (topUpAmount > 0) components.add("Aufladung: ${String.format( "%.2f", topUpAmount)}€")
-                    if (tipAmount > 0) components.add("Trinkgeld: ${String.format( "%.2f", tipAmount)}€")
-                    Text(
-                        text = "(${components.joinToString(" + ")})",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = "Gesamtbetrag", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            text = "${String.format("%.2f", totalAmount)} €",
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                
+                Spacer(modifier = Modifier.height(24.dp))
                 
                 if (paymentMode == null) {
-                    Button(
-                        onClick = { paymentMode = "CASH" },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Barzahlung")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = { paymentMode = "CARD" },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        Text("Kartenzahlung (SumUp)")
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        PaymentMethodTile(
+                            label = "Barzahlung",
+                            icon = Icons.Default.Payments,
+                            onClick = { paymentMode = "CASH" },
+                            modifier = Modifier.weight(1f)
+                        )
+                        PaymentMethodTile(
+                            label = "Kartenzahlung",
+                            icon = Icons.Default.CreditCard,
+                            onClick = { paymentMode = "CARD" },
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                     }
                     
                     if (selectedMember != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         
                         val category = categories.find { it.id == selectedMember.categoryId }
                         val limit = category?.negativeBalanceLimit ?: 0.0
                         val canPay = (selectedMember.balance - cartTotal) >= limit && topUpAmount == 0.0
 
-                        Text(text = "Mitgliedskonto: ${selectedMember.name}", style = MaterialTheme.typography.labelLarge)
-                        Text(
-                            text = "Guthaben: ${String.format( "%.2f", selectedMember.balance)} € (Limit: ${String.format( "%.2f", limit)} €)",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { paymentMode = "MEMBER_BALANCE" },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = canPay
+                        Surface(
+                            onClick = { if (canPay) paymentMode = "MEMBER_BALANCE" },
+                            enabled = canPay,
+                            shape = RoundedCornerShape(24.dp),
+                            color = if (canPay) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Vom Guthaben abziehen")
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(40.dp)) {
+                                    Icon(Icons.Default.AccountBalanceWallet, null, modifier = Modifier.padding(8.dp), tint = Color.White)
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = "Mitglied: ${selectedMember.name}", fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = "Guthaben: ${String.format("%.2f", selectedMember.balance)} €",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                if (!canPay) {
+                                    Icon(Icons.Default.Lock, null, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
                         if (topUpAmount > 0) {
                             Text(
                                 text = "Aufladung kann nicht mit Guthaben bezahlt werden.",
                                 color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        } else if (!canPay) {
-                            Text(
-                                text = "Limit überschritten! Bitte Guthaben aufladen.",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(top = 4.dp)
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(top = 4.dp, start = 8.dp)
                             )
                         }
                     }
@@ -799,31 +765,32 @@ fun CheckoutDialog(
                     OutlinedTextField(
                         value = cashGiven,
                         onValueChange = { cashGiven = it },
-                        label = { Text("Gezahlt (€)") },
+                        label = { Text("Gegebener Betrag (€)") },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
-                        textStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+                        textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        shape = RoundedCornerShape(16.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(12.dp)
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(20.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "Rückgeld", style = MaterialTheme.typography.labelMedium)
+                        Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "Rückgeld", style = MaterialTheme.typography.labelLarge)
                             Text(
-                                text = "${String.format( "%.2f", change)} €",
+                                text = "${String.format("%.2f", change)} €",
                                 style = MaterialTheme.typography.displayMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 fontWeight = FontWeight.Black
                             )
                         }
                     }
                 } else if (paymentMode == "CARD") {
                     Text(text = "Trinkgeld hinzufügen?", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     
                     val baseAmount = cartTotal + topUpAmount
                     if (!showCustomTipInput) {
@@ -834,56 +801,47 @@ fun CheckoutDialog(
                             FilterChip(
                                 selected = tipAmount == 0.0,
                                 onClick = { onSetTipAmount(0.0) },
-                                label = { Text("Kein") }
+                                label = { Text("Kein") },
+                                shape = RoundedCornerShape(12.dp)
                             )
-                            if (baseAmount < 10.0) {
-                                listOf(1.0, 3.0, 5.0).forEach { tip ->
-                                    FilterChip(
-                                        selected = tipAmount == tip,
-                                        onClick = { onSetTipAmount(tip) },
-                                        label = { Text("${tip.toInt()}€") }
-                                    )
-                                }
-                            } else {
-                                listOf(0.10, 0.15, 0.20).forEach { percent ->
-                                    val tip = ceil(baseAmount * percent * 2) / 2.0 // Round to nearest 0.50
-                                    FilterChip(
-                                        selected = tipAmount == tip,
-                                        onClick = { onSetTipAmount(tip) },
-                                        label = { Text("${(percent * 100).toInt()}% (~${String.format( "%.2f", tip)}€)") }
-                                    )
-                                }
+                            listOf(0.05, 0.10, 0.15).forEach { percent ->
+                                val tip = ceil(baseAmount * percent * 2) / 2.0 // Round to nearest 0.50
+                                FilterChip(
+                                    selected = tipAmount == tip,
+                                    onClick = { onSetTipAmount(tip) },
+                                    label = { Text("${(percent * 100).toInt()}% (+${String.format("%.1f", tip)}€)") },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
                             }
                             FilterChip(
                                 selected = showCustomTipInput,
                                 onClick = { showCustomTipInput = true },
-                                label = { Text("Andere") }
+                                label = { Text("Andere") },
+                                shape = RoundedCornerShape(12.dp)
                             )
                         }
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(
                                 value = customTipValue,
                                 onValueChange = { customTipValue = it },
-                                label = { Text("Trinkgeld (€)") },
+                                label = { Text("Betrag (€)") },
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                singleLine = true
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
                             )
                             IconButton(onClick = { 
                                 val tip = customTipValue.replace(",", ".").toDoubleOrNull() ?: 0.0
                                 onSetTipAmount(tip)
                                 showCustomTipInput = false
                             }) {
-                                Icon(Icons.Default.Check, contentDescription = "OK")
-                            }
-                            IconButton(onClick = { showCustomTipInput = false }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Abbrechen")
+                                Icon(Icons.Default.Check, contentDescription = "OK", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
                 } else if (paymentMode == "MEMBER_BALANCE") {
-                    Text("Möchtest du den Betrag vom Guthaben abziehen?")
+                    Text("Der Betrag wird direkt vom Guthaben des Mitglieds abgezogen.")
                 }
             }
         },
@@ -891,26 +849,44 @@ fun CheckoutDialog(
             if (paymentMode != null) {
                 Button(
                     onClick = { onCheckout(paymentMode!!) },
-                    enabled = paymentMode != "CASH" || cashGivenDouble >= totalAmount
+                    enabled = paymentMode != "CASH" || cashGivenDouble >= totalAmount,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Bestätigen")
+                    Text("Zahlung abschließen", fontWeight = FontWeight.Bold)
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = {
-                if (paymentMode != null) {
-                    paymentMode = null
-                    onSetTipAmount(0.0)
-                    cashGiven = ""
-                } else {
-                    onDismiss()
-                }
-            }) {
-                Text(if (paymentMode != null) "Zurück" else "Abbrechen")
-            }
-        }
+        dismissButton = {}
     )
+}
+
+@Composable
+fun PaymentMethodTile(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(100.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = containerColor,
+        contentColor = contentColor
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge)
+        }
+    }
 }
 
 @Composable

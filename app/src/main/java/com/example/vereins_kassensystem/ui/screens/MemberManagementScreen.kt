@@ -201,9 +201,9 @@ fun MemberItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         onClick = onClick
     ) {
         Row(
@@ -213,16 +213,16 @@ fun MemberItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(56.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = member.name.take(1).uppercase(),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
@@ -236,21 +236,31 @@ fun MemberItem(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Guthaben: ${String.format( "%.2f", member.balance)} €",
+                    text = "${String.format( "%.2f", member.balance)} €",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (member.balance < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    fontWeight = FontWeight.Black,
+                    color = if (member.balance < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
                 )
             }
             
-            Row {
-                IconButton(onClick = { onTopUp(member) }) {
-                    Icon(Icons.Default.Payments, contentDescription = "Aufladen", tint = MaterialTheme.colorScheme.primary)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FilledTonalIconButton(
+                    onClick = { onTopUp(member) },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.AddCard, contentDescription = "Top Up", modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = { onEdit(member) }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.outline)
+                FilledTonalIconButton(
+                    onClick = { onEdit(member) },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = { onDelete(member) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
+                FilledTonalIconButton(
+                    onClick = { onDelete(member) },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
                 }
             }
         }
