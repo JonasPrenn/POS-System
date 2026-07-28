@@ -13,7 +13,9 @@ import com.example.vereins_kassensystem.data.dao.ProductDao
 import com.example.vereins_kassensystem.data.dao.StockDao
 import com.example.vereins_kassensystem.data.dao.StockEntryDao
 import com.example.vereins_kassensystem.data.dao.TransactionDao
+import com.example.vereins_kassensystem.data.dao.DeliveryDao
 import com.example.vereins_kassensystem.data.entity.ContainerType
+import com.example.vereins_kassensystem.data.entity.Delivery
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.data.entity.Product
@@ -35,9 +37,10 @@ import com.example.vereins_kassensystem.data.entity.Transaction
         StockItem::class,
         ContainerType::class,
         TappedContainer::class,
-        ProductComponent::class
+        ProductComponent::class,
+        Delivery::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -48,6 +51,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun stockEntryDao(): StockEntryDao
     abstract fun stockDao(): StockDao
+    abstract fun deliveryDao(): DeliveryDao
 
     companion object {
         @Volatile
@@ -242,6 +246,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Groups goods receipts into deliveries, each with a photo of the Kassabon.
+         *
+         * Existing standalone entries keep working: their deliveryId stays null, which
+         * simply means "booked without a receipt attached".
+         */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS deliveries (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        supplier TEXT NOT NULL DEFAULT '',
+                        receiptTotal REAL,
+                        photoUri TEXT,
+                        note TEXT,
+                        timestamp INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_deliveries_timestamp ON deliveries(timestamp)")
+                db.execSQL("ALTER TABLE stock_entries ADD COLUMN deliveryId INTEGER")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_deliveryId ON stock_entries(deliveryId)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -249,7 +279,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "vereins_kassensystem_db"
                 )
-                    .addMigrations(MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     // Backstop for pre-7 development builds only; 7 -> 8 -> 9 have real
                     // paths and will not drop anyone's balance.
                     .fallbackToDestructiveMigration(true)
