@@ -18,7 +18,7 @@ enum class StockEntrySource { MANUAL, SCAN, CORRECTION }
  */
 @Entity(
     tableName = "stock_entries",
-    indices = [Index("stockItemId"), Index("timestamp")]
+    indices = [Index("stockItemId"), Index("timestamp"), Index("deliveryId")]
 )
 data class StockEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -36,10 +36,17 @@ data class StockEntry(
     /** What one unit of [quantity] was, e.g. "50 l Fass" or "Stk". */
     val unitLabel: String,
 
-    /** What the delivery cost in total, if the receipt was to hand. */
+    /** What this line cost on the receipt, if it was to hand. */
     val totalCost: Double? = null,
 
     val note: String? = null,
     val source: StockEntrySource = StockEntrySource.MANUAL,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+
+    /**
+     * The receipt this line came from, if any.
+     *
+     * Null for a standalone stocktake correction, which belongs to no delivery.
+     */
+    val deliveryId: Long? = null
 )

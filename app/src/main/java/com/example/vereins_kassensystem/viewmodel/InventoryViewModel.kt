@@ -9,6 +9,7 @@ import com.example.vereins_kassensystem.data.entity.StockEntry
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.StockTracking
 import com.example.vereins_kassensystem.data.entity.TappedContainer
+import com.example.vereins_kassensystem.data.entity.Delivery
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import com.example.vereins_kassensystem.data.stock.Inventory
 import com.example.vereins_kassensystem.data.stock.StockItemState
@@ -20,7 +21,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Everything the Lagerbestand screen needs for one item. */
 data class InventoryRow(
@@ -120,6 +124,125 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
                     "${row.item.name}: Fass verworfen, ${trim(rest)} ${row.item.unit} Verderb"
             }
         )
+    }
+
+    val deliveries: StateFlow<List<Delivery>> = repository.allDeliveries
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Books a whole Kassabon: lines, prices and the photo, as one record. */
+    fun bookDelivery(
+        supplier: String,
+        receiptTotal: Double?,
+        photoUri: String?,
+        note: String?,
+        lines: List<Triple<StockItem, ContainerType?, Pair<Double, Double?>>>
+    ) = viewModelScope.launch {
+        repository.bookDelivery(
+            supplier = supplier,
+            receiptTotal = receiptTotal,
+            photoUri = photoUri,
+            note = note,
+            lines = lines.map { (item, type, qtyCost) ->
+                AppRepository.ReceiptLine(item, type, qtyCost.first, qtyCost.second)
+            }
+        )
+        _status.emit("Wareneingang gebucht: ${lines.size} Positionen")
+    }
+
+    // ---------------------------------------------------------------- import
+
+    /**
+     * Reads Lagerartikel from a semicolon file.
+     *
+     * `Name;Einheit;Verwaltung;Warnung;Gebinde`
+     * where Verwaltung is STK or GEBINDE and Gebinde is a comma-separated list of
+     * `Bezeichnung:Inhalt:Ertrag`, e.g. `50 l:50:49,30 l:30:29,2`.
+     *
+     * Existing items are matched by name and updated rather than duplicated, so the same
+     * file can be re-imported after an edit without leaving two of everything.
+     */
+    suspend fun importFromCsv(input: java.io.InputStream) = withContext(Dispatchers.IO) {
+        try {
+            var count = 0
+            input.bufferedReader().use { reader ->
+                reader.readLine() // header
+                for (line in reader.lineSequence()) {
+                    if (line.isBlank()) continue
+                    val parts = line.split(";")
+                    if (parts.size < 2) continue
+                    val name = parts[0].trim()
+                    if (name.isEmpty()) continue
+
+                    val unit = parts.getOrNull(1)?.trim().orEmpty().ifBlank { "Stk" }
+                    val tracking = if (parts.getOrNull(2)?.trim()?.uppercase()?.startsWith("GEB") == true)
+                        StockTracking.CONTAINER else StockTracking.SIMPLE
+                    val minLevel = parseNumber(parts.getOrNull(3)) ?: 0.0
+
+                    val existing = repository.allStockItems.first().firstOrNull { it.name.equals(name, true) }
+                    val item = (existing ?: StockItem(name = name)).copy(
+                        name = name, unit = unit, tracking = tracking, minLevel = minLevel
+                    )
+                    val id = if (existing == null) repository.insertStockItem(item)
+                    else { repository.updateStockItem(item); item.id }
+
+                    parts.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() }?.split(",")?.forEach { spec ->
+                        val fields = spec.split(":")
+                        if (fields.size >= 2) {
+                            val size = parseNumber(fields[1]) ?: return@forEach
+                            repository.insertContainerType(
+                                ContainerType(
+                                    stockItemId = id,
+                                    label = fields[0].trim(),
+                                    nominalSize = size,
+                                    initialYieldEstimate = parseNumber(fields.getOrNull(2)) ?: (size * 0.97)
+                                )
+                            )
+                        }
+                    }
+                    count++
+                }
+            }
+            _status.emit("$count Lagerartikel importiert")
+        } catch (e: Exception) {
+            _status.emit("Fehler beim Import: ${e.message}")
+        }
+    }
+
+    suspend fun exportToCsv(output: java.io.OutputStream) = withContext(Dispatchers.IO) {
+        try {
+            val items = repository.allStockItems.first()
+            val types = repository.allContainerTypes.first()
+            output.bufferedWriter().use { writer ->
+                writer.write("Name;Einheit;Verwaltung;Warnung;Gebinde\n")
+                items.forEach { item ->
+                    val spec = types.filter { it.stockItemId == item.id }
+                        .joinToString(",") { "${it.label}:${it.nominalSize}:${it.initialYieldEstimate}" }
+                    writer.write(
+                        "${item.name};${item.unit};" +
+                            "${if (item.tracking == StockTracking.CONTAINER) "GEBINDE" else "STK"};" +
+                            "${item.minLevel};$spec\n"
+                    )
+                }
+                writer.flush()
+            }
+            _status.emit("Lagerartikel exportiert")
+        } catch (e: Exception) {
+            _status.emit("Fehler beim Export: ${e.message}")
+        }
+    }
+
+    /** Accepts both decimal separators, since these files come from spreadsheets. */
+    private fun parseNumber(raw: String?): Double? =
+        raw?.trim()?.replace(",", ".")?.toDoubleOrNull()
+
+    /** Saves an item together with the vessel sizes it arrives in. */
+    fun saveItemWithContainers(item: StockItem, types: List<ContainerType>) = viewModelScope.launch {
+        val id = if (item.id == 0L) repository.insertStockItem(item) else {
+            repository.updateStockItem(item); item.id
+        }
+        val existing = repository.allContainerTypes.first().filter { it.stockItemId == id }
+        existing.filter { old -> types.none { it.id == old.id } }.forEach { repository.deleteContainerType(it) }
+        types.forEach { repository.insertContainerType(it.copy(stockItemId = id)) }
     }
 
     // ------------------------------------------------------------ item admin

@@ -11,7 +11,8 @@ class AppRepository(
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val stockEntryDao: StockEntryDao,
-    private val stockDao: StockDao
+    private val stockDao: StockDao,
+    private val deliveryDao: DeliveryDao
 ) {
     val allProducts: Flow<List<Product>> = productDao.getAllProducts()
     val allProductsWithVariants: Flow<List<ProductWithVariants>> = productDao.getAllProductsWithVariants()
@@ -62,6 +63,61 @@ class AppRepository(
         stockDao.replaceComponents(productId, components)
 
     suspend fun componentsFor(productId: Long) = stockDao.getComponentsFor(productId)
+
+    val allDeliveries: Flow<List<Delivery>> = deliveryDao.getAllDeliveries()
+
+    /** One line of a receipt, as entered in the delivery dialog. */
+    data class ReceiptLine(
+        val item: StockItem,
+        val containerType: ContainerType?,
+        val quantity: Double,
+        val cost: Double?
+    )
+
+    /**
+     * Books a whole Kassabon: the receipt itself, its lines, and the stock each moves.
+     *
+     * One call rather than a loop of single receipts, because a delivery is one event —
+     * splitting it would make the photo belong to nothing in particular and leave the
+     * money impossible to reconcile against the club account.
+     */
+    suspend fun bookDelivery(
+        supplier: String,
+        receiptTotal: Double?,
+        photoUri: String?,
+        note: String?,
+        lines: List<ReceiptLine>
+    ): Long {
+        val deliveryId = deliveryDao.insertDelivery(
+            Delivery(
+                supplier = supplier,
+                receiptTotal = receiptTotal,
+                photoUri = photoUri,
+                note = note
+            )
+        )
+        lines.forEach { line ->
+            stockEntryDao.insertEntry(
+                StockEntry(
+                    stockItemId = line.item.id,
+                    itemName = line.item.name,
+                    quantity = line.quantity,
+                    unitLabel = line.containerType?.label ?: line.item.unit,
+                    totalCost = line.cost,
+                    source = StockEntrySource.MANUAL,
+                    deliveryId = deliveryId
+                )
+            )
+            if (line.containerType != null) {
+                stockDao.addFullCount(line.containerType.id, line.quantity.toInt())
+            } else {
+                stockDao.addSimpleQuantity(line.item.id, line.quantity)
+            }
+        }
+        return deliveryId
+    }
+
+    suspend fun deleteDelivery(delivery: Delivery) = deliveryDao.deleteDelivery(delivery)
 
     /**
      * Books a delivery and moves the stock in one step, so a stock figure can always be

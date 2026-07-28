@@ -17,10 +17,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,9 +46,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
@@ -55,6 +66,7 @@ import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.viewmodel.InventoryRow
 import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -74,13 +86,36 @@ private fun fmt(value: Double): String =
 fun InventoryScreen(viewModel: InventoryViewModel) {
     val rows by viewModel.rows.collectAsState()
     val entries by viewModel.recentEntries.collectAsState()
+    val containerTypes by viewModel.containerTypes.collectAsState()
 
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.status.collect { snackbarHostState.showSnackbar(it) } }
 
     var receiveFor by remember { mutableStateOf<InventoryRow?>(null) }
     var closeFor by remember { mutableStateOf<InventoryRow?>(null) }
+    var editItem by remember { mutableStateOf<InventoryRow?>(null) }
+    var showNewItem by remember { mutableStateOf(false) }
+    var showDelivery by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            scope.launch {
+                context.contentResolver.openInputStream(it)?.use { stream -> viewModel.importFromCsv(stream) }
+            }
+        }
+    }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let {
+            scope.launch {
+                context.contentResolver.openOutputStream(it)?.use { stream -> viewModel.exportToCsv(stream) }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -88,11 +123,31 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 title = "Lagerbestand",
                 subtitle = if (rows.isEmpty()) null else "${rows.size} Lagerartikel",
                 actions = {
+                    IconButton(onClick = { importLauncher.launch("text/*") }) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "Lagerartikel importieren")
+                    }
+                    IconButton(onClick = { exportLauncher.launch("lagerartikel.csv") }) {
+                        Icon(Icons.Default.FileDownload, contentDescription = "Lagerartikel exportieren")
+                    }
                     TextButton(onClick = { showHistory = !showHistory }) {
                         Text(if (showHistory) "Bestand" else "Eingänge")
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            if (!showHistory) {
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SmallFloatingActionButton(onClick = { showNewItem = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Lagerartikel anlegen")
+                    }
+                    ExtendedFloatingActionButton(
+                        onClick = { showDelivery = true },
+                        icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null) },
+                        text = { Text("Wareneingang") }
+                    )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -114,6 +169,7 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 items(rows, key = { it.item.id }) { row ->
                     StockCard(
                         row = row,
+                        onEdit = { editItem = row },
                         onReceive = { receiveFor = row },
                         onTap = { type -> viewModel.tap(type, row.item.name) },
                         onClose = { closeFor = row }
@@ -135,6 +191,44 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
         )
     }
 
+    if (showNewItem) {
+        StockItemDialog(
+            onDismiss = { showNewItem = false },
+            onConfirm = { newItem, types ->
+                viewModel.saveItemWithContainers(newItem, types)
+                showNewItem = false
+            }
+        )
+    }
+
+    editItem?.let { row ->
+        StockItemDialog(
+            item = row.item,
+            containerTypes = row.state.containerTypes,
+            onDismiss = { editItem = null },
+            onDelete = {
+                viewModel.deleteItem(row.item)
+                editItem = null
+            },
+            onConfirm = { edited, types ->
+                viewModel.saveItemWithContainers(edited, types)
+                editItem = null
+            }
+        )
+    }
+
+    if (showDelivery) {
+        DeliveryDialog(
+            stockItems = rows.map { it.item },
+            containerTypes = containerTypes,
+            onDismiss = { showDelivery = false },
+            onConfirm = { supplier, total, photo, note, lines ->
+                viewModel.bookDelivery(supplier, total, photo, note, lines)
+                showDelivery = false
+            }
+        )
+    }
+
     closeFor?.let { row ->
         CloseContainerDialog(
             row = row,
@@ -151,6 +245,7 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
 @Composable
 private fun StockCard(
     row: InventoryRow,
+    onEdit: () -> Unit,
     onReceive: () -> Unit,
     onTap: (ContainerType) -> Unit,
     onClose: () -> Unit
@@ -172,7 +267,7 @@ private fun StockCard(
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).clickable(onClick = onEdit)) {
                     Text(item.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     Text(
                         text = "${fmt(row.available)} ${item.unit} verfügbar",
