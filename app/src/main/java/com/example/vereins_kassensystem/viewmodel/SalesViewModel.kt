@@ -7,7 +7,8 @@ import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.data.repository.AppRepository
-import com.example.vereins_kassensystem.data.stock.Stock
+import com.example.vereins_kassensystem.data.stock.Inventory
+import com.example.vereins_kassensystem.data.stock.StockItemState
 import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -85,6 +86,40 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
     val itemCount: StateFlow<Int> = _cart
         .map { cart -> cart.sumOf { it.quantity } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    /** Stock state per Lagerartikel, rebuilt whenever the cellar changes. */
+    private val stockStates: StateFlow<Map<Long, StockItemState>> = combine(
+        repository.allStockItems,
+        repository.allContainerTypes,
+        repository.allTappedContainers
+    ) { items, types, tapped ->
+        items.associate { item ->
+            val itemTypes = types.filter { it.stockItemId == item.id }
+            item.id to StockItemState(
+                item = item,
+                containerTypes = itemTypes,
+                tapped = tapped.filter { t -> itemTypes.any { it.id == t.containerTypeId } }
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /**
+     * How many of each product could still be made, keyed by product id.
+     *
+     * Null means nothing is tracked for it. The figure is the minimum across the recipe,
+     * so a Radler is limited by whichever of beer or soda runs out first — and it never
+     * prevents a sale, it only drives the warning badge.
+     */
+    val productAvailability: StateFlow<Map<Long, Int?>> = combine(
+        allProductsWithVariants,
+        repository.allComponents,
+        stockStates
+    ) { products, components, states ->
+        products.associate { entry ->
+            val recipe = components.filter { it.productId == entry.product.id }
+            entry.product.id to Inventory.servingsPossible(recipe, states, entry.product.servingSize)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val _checkoutError = MutableSharedFlow<String>()
     val checkoutError = _checkoutError.asSharedFlow()
@@ -221,13 +256,10 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
             )
             repository.insertTransaction(transaction)
 
-            // Piece products lose pieces; draught products lose the poured volume and
-            // broach a fresh container when the open one runs dry. See Stock.
-            if (item.product.trackInventory) {
-                repository.updateProduct(
-                    Stock.applySale(item.product, item.variant, item.quantity)
-                )
-            }
+            // Every product draws through its recipe now, so one Radler takes from the
+            // beer keg and the soda keg at once. The variant's size scales the recipe.
+            val servingSize = item.variant?.servingSize ?: item.product.servingSize
+            repository.drawForSale(item.product.id, servingSize, item.quantity)
         }
 
         // 2. Process top-up

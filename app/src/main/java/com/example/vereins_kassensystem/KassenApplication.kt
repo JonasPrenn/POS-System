@@ -16,7 +16,8 @@ class KassenApplication : Application() {
             database.memberDao(),
             database.transactionDao(),
             database.categoryDao(),
-            database.stockEntryDao()
+            database.stockEntryDao(),
+            database.stockDao()
         )
     }
     val settingsRepository by lazy { SettingsRepository(this) }

@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.example.vereins_kassensystem.data.stock.Stock
 import com.example.vereins_kassensystem.ui.components.MoneyStatTile
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.StatTile
@@ -45,6 +44,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.viewmodel.AnalyticsViewModel
+import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
 import java.text.SimpleDateFormat
@@ -63,15 +63,15 @@ fun HomeScreen(
     onNavigateToMembers: () -> Unit,
     analyticsViewModel: AnalyticsViewModel,
     productViewModel: ProductViewModel,
-    memberViewModel: MemberViewModel
+    memberViewModel: MemberViewModel,
+    inventoryViewModel: InventoryViewModel
 ) {
     val summary by analyticsViewModel.summary.collectAsState()
     val products by productViewModel.allProductsWithVariants.collectAsState()
     val members by memberViewModel.allMembers.collectAsState()
 
-    val lowStock = remember(products) {
-        products.filter { Stock.isLow(it.product) }
-    }
+    val inventoryRows by inventoryViewModel.rows.collectAsState()
+    val lowStock = remember(inventoryRows) { inventoryRows.filter { it.isLow || it.isNegative } }
     val today = remember { SimpleDateFormat("EEEE, d. MMMM", Locale.GERMANY).format(Date()) }
     val clubName = ClubTheme.name
 
@@ -114,7 +114,7 @@ fun HomeScreen(
                     WarningBanner(
                         title = "Lagerbestand niedrig",
                         supportingText = if (lowStock.size == 1) {
-                            "${lowStock.first().product.name} geht zur Neige."
+                            "${lowStock.first().item.name} geht zur Neige."
                         } else {
                             "${lowStock.size} Produkte gehen zur Neige."
                         },

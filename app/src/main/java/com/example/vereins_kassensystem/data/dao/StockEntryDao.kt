@@ -14,8 +14,8 @@ interface StockEntryDao {
     @Query("SELECT * FROM stock_entries ORDER BY timestamp DESC")
     fun getAllEntries(): Flow<List<StockEntry>>
 
-    @Query("SELECT * FROM stock_entries WHERE productId = :productId ORDER BY timestamp DESC")
-    fun getEntriesForProduct(productId: Long): Flow<List<StockEntry>>
+    @Query("SELECT * FROM stock_entries WHERE stockItemId = :stockItemId ORDER BY timestamp DESC")
+    fun getEntriesForItem(stockItemId: Long): Flow<List<StockEntry>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEntry(entry: StockEntry): Long
