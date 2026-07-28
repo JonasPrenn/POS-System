@@ -32,6 +32,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.Product
+import com.example.vereins_kassensystem.data.entity.StockMode
+import com.example.vereins_kassensystem.data.stock.Stock
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -77,7 +79,7 @@ fun ProductTile(
         }
     }
 
-    val isLowStock = product.trackInventory && product.stockQuantity <= product.minStockLevel
+    val isLowStock = Stock.isLow(product)
     val accent = categoryColor(product.category)
 
     Surface(
@@ -125,7 +127,7 @@ fun ProductTile(
                         contentColor = VereinsColors.onWarningContainer
                     ) {
                         Text(
-                            text = product.stockQuantity.toString(),
+                            text = stockBadgeText(product),
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -160,4 +162,13 @@ fun ProductTile(
             }
         }
     }
+}
+
+/**
+ * What the low-stock badge shows: pieces for counted products, remaining servings for
+ * draught ones — "3 Halbe left" is the useful number, not "1,5 litres".
+ */
+private fun stockBadgeText(product: Product): String = when (product.stockMode) {
+    StockMode.PIECE -> product.stockQuantity.toString()
+    StockMode.BULK -> Stock.servingsRemaining(product).toString()
 }

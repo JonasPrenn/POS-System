@@ -10,7 +10,15 @@ import com.example.vereins_kassensystem.data.SettingsRepository
 
 class KassenApplication : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
-    val repository by lazy { AppRepository(database.productDao(), database.memberDao(), database.transactionDao(), database.categoryDao()) }
+    val repository by lazy {
+        AppRepository(
+            database.productDao(),
+            database.memberDao(),
+            database.transactionDao(),
+            database.categoryDao(),
+            database.stockEntryDao()
+        )
+    }
     val settingsRepository by lazy { SettingsRepository(this) }
     val backupRepository by lazy { BackupRepository(this) }
 

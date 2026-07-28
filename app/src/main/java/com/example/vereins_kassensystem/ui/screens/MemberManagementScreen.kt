@@ -177,8 +177,8 @@ fun MemberManagementScreen(
             TopUpDialog(
                 member = memberToTopUp!!,
                 onDismiss = { memberToTopUp = null },
-                onConfirm = { amount ->
-                    viewModel.updateBalance(memberToTopUp!!.id, amount)
+                onConfirm = { amount, reason, paymentType ->
+                    viewModel.adjustBalance(memberToTopUp!!, amount, reason, paymentType)
                     memberToTopUp = null
                 }
             )
@@ -339,40 +339,132 @@ fun MemberDialog(
     )
 }
 
+/** How the money for a top-up actually arrived — or that it did not. */
+enum class TopUpKind(val label: String, val paymentType: String, val defaultReason: String) {
+    CASH("Bar", "CASH", "Bar an der Kasse erhalten"),
+    CARD("Karte", "CARD", "Per Karte erhalten"),
+    CORRECTION("Korrektur", "CORRECTION", "");
+
+    val isPayment: Boolean get() = this != CORRECTION
+}
+
+/**
+ * Crediting a Deckel from the Mitglieder screen.
+ *
+ * Both the route the money took and a reason are required. Previously this dialog asked
+ * only for an amount and moved the balance directly, so a Deckel could gain fifty euro
+ * with nothing written down anywhere — impossible to reconcile against the cash box, and
+ * impossible to answer "who put that there?" a week later. A correction is still allowed,
+ * including a negative one, but it has to say what it is.
+ */
 @Composable
 fun TopUpDialog(
     member: Member,
     onDismiss: () -> Unit,
-    onConfirm: (Double) -> Unit
+    onConfirm: (amount: Double, reason: String, paymentType: String) -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
+    var kind by remember { mutableStateOf(TopUpKind.CASH) }
+    var reason by remember { mutableStateOf(TopUpKind.CASH.defaultReason) }
+
+    val parsed = Money.parse(amount)
+    // Payments must bring money in; only a correction may be negative.
+    val amountValid = parsed != null && parsed != 0.0 && (kind == TopUpKind.CORRECTION || parsed > 0.0)
+    val reasonValid = reason.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Guthaben aufladen für ${member.name}") },
+        title = { Text("Guthaben · ${member.name}") },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Aktuelles Guthaben: ${Money.format(member.balance)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TopUpKind.entries.forEach { option ->
+                        FilterChip(
+                            selected = kind == option,
+                            onClick = {
+                                // Swap in the matching default reason unless it was edited.
+                                if (reason == kind.defaultReason) reason = option.defaultReason
+                                kind = option
+                            },
+                            label = { Text(option.label) },
+                            shape = MaterialTheme.shapes.small
+                        )
+                    }
+                }
+
+                if (kind.isPayment) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(5, 10, 20, 50).forEach { preset ->
+                            FilterChip(
+                                selected = amount == preset.toString(),
+                                onClick = { amount = preset.toString() },
+                                label = { Text("$preset €") },
+                                shape = MaterialTheme.shapes.small
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = { Text("Betrag (€)") },
+                    label = { Text(if (kind == TopUpKind.CORRECTION) "Betrag (+/−)" else "Betrag (€)") },
+                    isError = amount.isNotBlank() && !amountValid,
+                    supportingText = {
+                        if (amount.isNotBlank() && !amountValid) {
+                            Text(
+                                if (kind == TopUpKind.CORRECTION) "Bitte einen Betrag ungleich 0 eingeben."
+                                else "Eine Aufladung muss größer als 0 sein."
+                            )
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("Grund") },
+                    isError = !reasonValid,
+                    supportingText = {
+                        Text(
+                            if (!reasonValid) "Pflichtfeld – erscheint in der Historie."
+                            else "Erscheint in der Transaktionshistorie."
+                        )
+                    },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (amountValid) {
+                    Text(
+                        text = "Neues Guthaben: ${Money.format(member.balance + parsed!!)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val a = amount.replace(",", ".").toDoubleOrNull() ?: 0.0
-                onConfirm(a)
-            }) {
-                Text("Aufladen")
+            Button(
+                onClick = { onConfirm(parsed ?: 0.0, reason.trim(), kind.paymentType) },
+                enabled = amountValid && reasonValid
+            ) {
+                Text(if (kind == TopUpKind.CORRECTION) "Korrigieren" else "Aufladen")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Abbrechen")
-            }
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
         }
     )
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.data.stock.Stock
 import com.example.vereins_kassensystem.ui.components.MoneyStatTile
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.StatTile
@@ -69,7 +70,7 @@ fun HomeScreen(
     val members by memberViewModel.allMembers.collectAsState()
 
     val lowStock = remember(products) {
-        products.filter { it.product.trackInventory && it.product.stockQuantity <= it.product.minStockLevel }
+        products.filter { Stock.isLow(it.product) }
     }
     val today = remember { SimpleDateFormat("EEEE, d. MMMM", Locale.GERMANY).format(Date()) }
     val clubName = ClubTheme.name

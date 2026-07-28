@@ -22,7 +22,17 @@ data class Transaction(
     val price: Double,
     val quantity: Int,
     val discountAmount: Double = 0.0,
-    val paymentType: String = "CASH", // "CASH", "CARD", "MEMBER_BALANCE"
+    val paymentType: String = "CASH", // "CASH", "CARD", "MEMBER_BALANCE", "TOPUP_*"
     val timestamp: Long = System.currentTimeMillis(),
-    val isRefund: Boolean = false
+    val isRefund: Boolean = false,
+
+    /**
+     * Why this booking happened, in the operator's own words.
+     *
+     * Required for balance top-ups made from the Mitglieder screen: crediting a Deckel
+     * outside the till used to change the balance with nothing written down, so money
+     * appeared from nowhere and could not be reconciled against the cash box. Every
+     * top-up now carries a reason and lands here.
+     */
+    val note: String? = null
 )

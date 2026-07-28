@@ -102,8 +102,10 @@ private fun TransactionGroupItem(items: List<Transaction>) {
         color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
+            val isBalanceMovement = items.all { it.productCategory == "Guthaben" }
+
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PaymentBadge(first.paymentType)
+                PaymentBadge(first.paymentType, isBalanceMovement)
                 Spacer(Modifier.width(Spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -116,6 +118,16 @@ private fun TransactionGroupItem(items: List<Transaction>) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // The reason a balance moved is the point of recording it, so it is
+                    // shown on the collapsed row rather than hidden behind the chevron.
+                    first.note?.takeIf { it.isNotBlank() }?.let { note ->
+                        Text(
+                            text = note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2
+                        )
+                    }
                 }
                 MoneyText(amount = total, style = MoneyMedium)
                 Icon(
@@ -169,10 +181,30 @@ private fun TransactionGroupItem(items: List<Transaction>) {
  * the same three the rest of the app uses for those ideas.
  */
 @Composable
-private fun PaymentBadge(paymentType: String) {
+private fun PaymentBadge(paymentType: String, isBalanceMovement: Boolean = false) {
     val icon: ImageVector
     val container: Color
     val content: Color
+    if (isBalanceMovement) {
+        // A top-up or correction is about the Deckel, not about how a sale was rung up.
+        icon = Icons.Default.AccountBalanceWallet
+        container = MaterialTheme.colorScheme.secondaryContainer
+        content = MaterialTheme.colorScheme.onSecondaryContainer
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = CircleShape,
+            color = container,
+            contentColor = content
+        ) {
+            Column(
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(icon, contentDescription = "Guthabenbewegung", modifier = Modifier.size(18.dp))
+            }
+        }
+        return
+    }
     when (paymentType) {
         "CARD" -> {
             icon = Icons.Default.CreditCard

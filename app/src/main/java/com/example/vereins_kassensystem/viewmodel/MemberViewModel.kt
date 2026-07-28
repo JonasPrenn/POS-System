@@ -40,8 +40,21 @@ class MemberViewModel(private val repository: AppRepository) : ViewModel() {
         repository.deleteMember(member)
     }
 
-    fun updateBalance(memberId: Long, amount: Double) = viewModelScope.launch {
-        repository.updateMemberBalance(memberId, amount)
+    /**
+     * Credits or debits a Deckel from the Mitglieder screen.
+     *
+     * [reason] and [paymentType] are not optional. Crediting a balance used to move the
+     * number with nothing written down, so money appeared on a Deckel that could not be
+     * reconciled against the cash box afterwards. Every movement now lands in the
+     * transaction history with its reason attached.
+     */
+    fun adjustBalance(
+        member: Member,
+        amount: Double,
+        reason: String,
+        paymentType: String
+    ) = viewModelScope.launch {
+        repository.adjustMemberBalance(member, amount, reason, paymentType)
     }
 
     fun insertCategory(category: MemberCategory) = viewModelScope.launch {
