@@ -32,15 +32,15 @@ import com.example.vereins_kassensystem.ui.theme.VereinsDeckelTheme
 
 private val SampleBeer = Product(
     id = 1, name = "Weißbier 0,5l", price = 4.20, category = "Getränke",
-    hasVariants = false, stockQuantity = 42, minStockLevel = 5, trackInventory = true
+    hasVariants = false, servingSize = 0.5
 )
 private val SampleLowStock = Product(
     id = 2, name = "Radler", price = 3.80, category = "Getränke",
-    hasVariants = false, stockQuantity = 3, minStockLevel = 5, trackInventory = true
+    hasVariants = false, servingSize = 0.5
 )
 private val SampleVariants = Product(
     id = 3, name = "Pommes", price = 0.0, category = "Küche",
-    hasVariants = true, trackInventory = false
+    hasVariants = true
 )
 private val SampleMember = Member(id = 1, name = "Maria Bauer", balance = 23.50, categoryId = 1)
 private val SampleMemberOwing = Member(id = 2, name = "Jonas Prenn", balance = -18.00, categoryId = 1)
@@ -78,7 +78,7 @@ private fun Gallery() {
             SectionLabel("Product tiles")
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 ProductTile(SampleBeer, onClick = {}, modifier = Modifier.weight(1f))
-                ProductTile(SampleLowStock, onClick = {}, modifier = Modifier.weight(1f))
+                ProductTile(SampleLowStock, onClick = {}, servingsLeft = 3, modifier = Modifier.weight(1f))
                 ProductTile(SampleVariants, onClick = {}, modifier = Modifier.weight(1f))
             }
 

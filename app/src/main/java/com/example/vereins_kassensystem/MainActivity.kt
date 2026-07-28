@@ -213,7 +213,8 @@ private fun VereinsDeckelApp(
                     onNavigateToMembers = { navController.navigateToDestination(Destination.Members) },
                     analyticsViewModel = analyticsViewModel,
                     productViewModel = productViewModel,
-                    memberViewModel = memberViewModel
+                    memberViewModel = memberViewModel,
+                    inventoryViewModel = inventoryViewModel
                 )
             }
             composable(Destination.History.route) {

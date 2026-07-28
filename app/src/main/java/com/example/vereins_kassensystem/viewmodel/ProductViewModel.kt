@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.ProductVariant
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
+import com.example.vereins_kassensystem.data.entity.ProductComponent
+import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +21,32 @@ import java.io.InputStream
 import java.io.OutputStream
 
 class ProductViewModel(private val repository: AppRepository) : ViewModel() {
+
+    /** Lagerartikel available to build a recipe from. */
+    val allStockItems: StateFlow<List<StockItem>> = repository.allStockItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allComponents: StateFlow<List<ProductComponent>> = repository.allComponents
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Saves the product, its variants and its recipe together. */
+    fun saveProductWithRecipe(
+        product: Product,
+        variants: List<ProductVariant>,
+        components: List<ProductComponent>,
+        isNew: Boolean
+    ) = viewModelScope.launch {
+        val id = if (isNew) {
+            repository.insertProduct(product)
+        } else {
+            repository.updateProduct(product); product.id
+        }
+        repository.deleteVariantsForProduct(id)
+        variants.filter { it.name.isNotBlank() }.forEach {
+            repository.insertVariant(it.copy(id = 0, productId = id))
+        }
+        repository.setComponents(id, components.filter { it.quantityPerUnit > 0.0 })
+    }
 
     private val _importStatus = MutableSharedFlow<String>()
     val importStatus = _importStatus.asSharedFlow()

@@ -32,8 +32,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.Product
-import com.example.vereins_kassensystem.data.entity.StockMode
-import com.example.vereins_kassensystem.data.stock.Stock
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -59,7 +57,14 @@ import kotlinx.coroutines.delay
 fun ProductTile(
     product: Product,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /**
+     * Servings still possible, or null when nothing is tracked. Passed in rather than
+     * derived here: a product draws from its recipe, so only the screen holding the
+     * cellar state can work it out.
+     */
+    servingsLeft: Int? = null,
+    lowThreshold: Int = 10
 ) {
     val haptics = LocalHapticFeedback.current
     var pulseKey by remember { mutableIntStateOf(0) }
@@ -79,7 +84,7 @@ fun ProductTile(
         }
     }
 
-    val isLowStock = Stock.isLow(product)
+    val isLowStock = servingsLeft != null && servingsLeft <= lowThreshold
     val accent = categoryColor(product.category)
 
     Surface(
@@ -127,7 +132,7 @@ fun ProductTile(
                         contentColor = VereinsColors.onWarningContainer
                     ) {
                         Text(
-                            text = stockBadgeText(product),
+                            text = servingsLeft.toString(),
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -164,11 +169,3 @@ fun ProductTile(
     }
 }
 
-/**
- * What the low-stock badge shows: pieces for counted products, remaining servings for
- * draught ones — "3 Halbe left" is the useful number, not "1,5 litres".
- */
-private fun stockBadgeText(product: Product): String = when (product.stockMode) {
-    StockMode.PIECE -> product.stockQuantity.toString()
-    StockMode.BULK -> Stock.servingsRemaining(product).toString()
-}
