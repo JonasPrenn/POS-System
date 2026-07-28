@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -36,6 +37,7 @@ enum class Destination(
     History("history", "Historie", Icons.AutoMirrored.Filled.ReceiptLong, DestinationGroup.Primary),
 
     Products("products", "Produkte", Icons.Default.Inventory2, DestinationGroup.Management),
+    Inventory("inventory", "Lagerbestand", Icons.Default.Warehouse, DestinationGroup.Management),
     Members("members", "Mitglieder", Icons.Default.People, DestinationGroup.Management),
     Categories("categories", "Kategorien", Icons.AutoMirrored.Filled.Label, DestinationGroup.Management),
     Analytics("analytics", "Auswertung", Icons.Default.BarChart, DestinationGroup.Management),

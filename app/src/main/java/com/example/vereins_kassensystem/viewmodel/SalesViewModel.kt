@@ -7,6 +7,7 @@ import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.data.repository.AppRepository
+import com.example.vereins_kassensystem.data.stock.Stock
 import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -88,41 +89,31 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
     private val _checkoutError = MutableSharedFlow<String>()
     val checkoutError = _checkoutError.asSharedFlow()
 
+    /**
+     * Adds a product to the cart.
+     *
+     * A low or empty stock figure never blocks the sale. The number is a best guess about
+     * the cellar; the person at the counter is real, and refusing to ring up a beer that
+     * is visibly in the fridge would be the app arguing with the room. Stock is allowed
+     * to go negative and is surfaced as a warning under Lagerbestand instead.
+     */
     fun addToCart(product: Product, variant: ProductVariant? = null) {
-        if (product.trackInventory && product.stockQuantity <= 0) {
-            viewModelScope.launch {
-                _checkoutError.emit("Produkt nicht mehr auf Lager!")
-            }
-            return
-        }
-
         val currentCart = _cart.value.toMutableList()
         val index = currentCart.indexOfFirst { it.product.id == product.id && it.variant?.id == variant?.id }
-        
+
         if (index != -1) {
-            val currentQty = currentCart[index].quantity
-            if (product.trackInventory && currentQty + 1 > product.stockQuantity) {
-                viewModelScope.launch {
-                    _checkoutError.emit("Nicht genügend Bestand auf Lager!")
-                }
-                return
-            }
-            currentCart[index] = currentCart[index].copy(quantity = currentQty + 1)
+            currentCart[index] = currentCart[index].copy(quantity = currentCart[index].quantity + 1)
         } else {
             currentCart.add(CartItem(product, variant))
         }
         _cart.value = currentCart.toList()
     }
 
-    /** One more of an existing line, subject to the same stock check as adding it. */
+    /** One more of an existing line. Also unconstrained by stock — see [addToCart]. */
     fun increaseQuantity(lineId: String) {
         val index = _cart.value.indexOfFirst { it.lineId == lineId }
         if (index == -1) return
         val item = _cart.value[index]
-        if (item.product.trackInventory && item.quantity + 1 > item.product.stockQuantity) {
-            viewModelScope.launch { _checkoutError.emit("Nicht genügend Bestand auf Lager!") }
-            return
-        }
         _cart.value = _cart.value.toMutableList().also {
             it[index] = item.copy(quantity = item.quantity + 1)
         }
@@ -230,10 +221,12 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
             )
             repository.insertTransaction(transaction)
 
-            // Update Stock
+            // Piece products lose pieces; draught products lose the poured volume and
+            // broach a fresh container when the open one runs dry. See Stock.
             if (item.product.trackInventory) {
-                val newStock = item.product.stockQuantity - item.quantity
-                repository.updateProduct(item.product.copy(stockQuantity = newStock))
+                repository.updateProduct(
+                    Stock.applySale(item.product, item.variant, item.quantity)
+                )
             }
         }
 

@@ -26,6 +26,8 @@ import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.ProductVariant
+import com.example.vereins_kassensystem.data.entity.StockMode
+import com.example.vereins_kassensystem.data.stock.Stock
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
 import java.util.Locale
@@ -140,19 +142,8 @@ fun ProductManagementScreen(
         if (showAddDialog) {
             ProductDialog(
                 onDismiss = { showAddDialog = false },
-                onConfirm = { name, price, category, variants, track, stock, minStock ->
-                    viewModel.insertProductWithVariants(
-                        Product(
-                            name = name, 
-                            price = price, 
-                            category = category, 
-                            hasVariants = variants.isNotEmpty(),
-                            trackInventory = track,
-                            stockQuantity = stock,
-                            minStockLevel = minStock
-                        ),
-                        variants
-                    )
+                onConfirm = { newProduct, variants ->
+                    viewModel.insertProductWithVariants(newProduct, variants)
                     showAddDialog = false
                 }
             )
@@ -163,19 +154,8 @@ fun ProductManagementScreen(
                 product = productToEdit,
                 variants = currentVariants,
                 onDismiss = { productToEdit = null },
-                onConfirm = { name, price, category, variants, track, stock, minStock ->
-                    viewModel.updateProductWithVariants(
-                        productToEdit!!.copy(
-                            name = name, 
-                            price = price, 
-                            category = category, 
-                            hasVariants = variants.isNotEmpty(),
-                            trackInventory = track,
-                            stockQuantity = stock,
-                            minStockLevel = minStock
-                        ),
-                        variants
-                    )
+                onConfirm = { edited, variants ->
+                    viewModel.updateProductWithVariants(edited, variants)
                     productToEdit = null
                 }
             )
@@ -227,7 +207,7 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
                 }
                 
                 if (product.trackInventory) {
-                    val isLowStock = product.stockQuantity <= product.minStockLevel
+                    val isLowStock = Stock.isLow(product)
                     Row(
                         modifier = Modifier.padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -266,21 +246,32 @@ fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product)
     }
 }
 
+/**
+ * Takes the assembled [Product] rather than a dozen positional arguments — the bulk
+ * stock settings pushed the old signature past the point of being readable.
+ */
 @Composable
 fun ProductDialog(
     product: Product? = null,
     variants: List<ProductVariant> = emptyList(),
     onDismiss: () -> Unit,
-    onConfirm: (String, Double, String, List<ProductVariant>, Boolean, Int, Int) -> Unit
+    onConfirm: (Product, List<ProductVariant>) -> Unit
 ) {
     var name by remember { mutableStateOf(product?.name ?: "") }
     var price by remember { mutableStateOf(product?.price?.toString() ?: "") }
     var category by remember { mutableStateOf(product?.category ?: "") }
-    
+
     var trackInventory by remember { mutableStateOf(product?.trackInventory ?: false) }
     var stockQuantity by remember { mutableStateOf(product?.stockQuantity?.toString() ?: "0") }
     var minStockLevel by remember { mutableStateOf(product?.minStockLevel?.toString() ?: "5") }
-    
+
+    var stockMode by remember { mutableStateOf(product?.stockMode ?: StockMode.PIECE) }
+    var stockUnit by remember { mutableStateOf(product?.stockUnit ?: "Stk") }
+    var containerSize by remember { mutableStateOf(product?.containerSize?.takeIf { it > 0 }?.toString() ?: "30") }
+    var containerLoss by remember { mutableStateOf(product?.containerLoss?.toString() ?: "0,8") }
+    var servingSize by remember { mutableStateOf(product?.servingSize?.toString() ?: "0,5") }
+    var minServings by remember { mutableStateOf(product?.minServingsLevel?.toString() ?: "20") }
+
     val editedVariants = remember { mutableStateListOf<ProductVariant>().apply { addAll(variants) } }
 
     AlertDialog(
@@ -342,23 +333,104 @@ fun ProductDialog(
                 
                 if (trackInventory) {
                     item {
+                        Text("Wie wird gezählt?", style = MaterialTheme.typography.bodyMedium)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = stockQuantity,
-                                onValueChange = { stockQuantity = it },
-                                label = { Text("Bestand") },
-                                modifier = Modifier.weight(1f),
-                                shape = MaterialTheme.shapes.small,
-                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                            FilterChip(
+                                selected = stockMode == StockMode.PIECE,
+                                onClick = { stockMode = StockMode.PIECE; stockUnit = "Stk" },
+                                label = { Text("Stückzahl") },
+                                shape = MaterialTheme.shapes.small
                             )
-                            OutlinedTextField(
-                                value = minStockLevel,
-                                onValueChange = { minStockLevel = it },
-                                label = { Text("Warnung bei") },
-                                modifier = Modifier.weight(1f),
-                                shape = MaterialTheme.shapes.small,
-                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                            FilterChip(
+                                selected = stockMode == StockMode.BULK,
+                                onClick = { stockMode = StockMode.BULK; if (stockUnit == "Stk") stockUnit = "l" },
+                                label = { Text("Gebinde / Fass") },
+                                shape = MaterialTheme.shapes.small
                             )
+                        }
+                    }
+
+                    if (stockMode == StockMode.PIECE) {
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = stockQuantity,
+                                    onValueChange = { stockQuantity = it },
+                                    label = { Text("Bestand") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = MaterialTheme.shapes.small,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                )
+                                OutlinedTextField(
+                                    value = minStockLevel,
+                                    onValueChange = { minStockLevel = it },
+                                    label = { Text("Warnung bei") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = MaterialTheme.shapes.small,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                )
+                            }
+                        }
+                    } else {
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = containerSize,
+                                    onValueChange = { containerSize = it },
+                                    label = { Text("Gebinde") },
+                                    suffix = { Text(stockUnit) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = MaterialTheme.shapes.small,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                                )
+                                OutlinedTextField(
+                                    value = stockUnit,
+                                    onValueChange = { stockUnit = it },
+                                    label = { Text("Einheit") },
+                                    modifier = Modifier.weight(0.6f),
+                                    shape = MaterialTheme.shapes.small
+                                )
+                            }
+                        }
+                        item {
+                            OutlinedTextField(
+                                value = containerLoss,
+                                onValueChange = { containerLoss = it },
+                                label = { Text("Schwund pro Gebinde") },
+                                suffix = { Text(stockUnit) },
+                                supportingText = {
+                                    Text("Anstich, Abstich und Rest im Fass. Deshalb ergeben 2 × 20 l weniger als 1 × 40 l.")
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.small,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                            )
+                        }
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = servingSize,
+                                    onValueChange = { servingSize = it },
+                                    label = { Text("Menge je Verkauf") },
+                                    suffix = { Text(stockUnit) },
+                                    enabled = editedVariants.isEmpty(),
+                                    supportingText = {
+                                        if (editedVariants.isNotEmpty()) Text("Wird je Variante gesetzt")
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = MaterialTheme.shapes.small,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                                )
+                                OutlinedTextField(
+                                    value = minServings,
+                                    onValueChange = { minServings = it },
+                                    label = { Text("Warnung ab") },
+                                    suffix = { Text("Stk") },
+                                    modifier = Modifier.weight(0.8f),
+                                    shape = MaterialTheme.shapes.small,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                )
+                            }
                         }
                     }
                 }
@@ -395,6 +467,23 @@ fun ProductDialog(
                             modifier = Modifier.weight(0.6f),
                             shape = MaterialTheme.shapes.extraSmall
                         )
+                        // How much of the keg this glass size actually draws. A "0,3l"
+                        // is usually 0,33 in the cellar, which is the whole reason this
+                        // is a separate number from the variant's name.
+                        if (trackInventory && stockMode == StockMode.BULK) {
+                            OutlinedTextField(
+                                value = variant.servingSize?.toString() ?: "",
+                                onValueChange = { newSize ->
+                                    val parsed = Money.parse(newSize)
+                                    val index = editedVariants.indexOf(variant)
+                                    if (index != -1) editedVariants[index] = editedVariants[index].copy(servingSize = parsed)
+                                },
+                                label = { Text(stockUnit) },
+                                modifier = Modifier.weight(0.6f),
+                                shape = MaterialTheme.shapes.extraSmall,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                            )
+                        }
                         IconButton(onClick = { editedVariants.remove(variant) }) {
                             Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
                         }
@@ -414,13 +503,31 @@ fun ProductDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val hasVariants = editedVariants.isNotEmpty()
-                val p = if (hasVariants) 0.0 else (price.replace(",", ".").toDoubleOrNull() ?: 0.0)
-                val stock = stockQuantity.toIntOrNull() ?: 0
-                val minStock = minStockLevel.toIntOrNull() ?: 5
-                onConfirm(name, p, category, editedVariants.toList(), trackInventory, stock, minStock)
-            }) {
+            Button(
+                onClick = {
+                    val hasVariants = editedVariants.isNotEmpty()
+                    val base = product ?: Product(name = "", price = 0.0, category = "")
+                    onConfirm(
+                        base.copy(
+                            name = name.trim(),
+                            price = if (hasVariants) 0.0 else (Money.parse(price) ?: 0.0),
+                            category = category.trim(),
+                            hasVariants = hasVariants,
+                            trackInventory = trackInventory,
+                            stockQuantity = stockQuantity.toIntOrNull() ?: 0,
+                            minStockLevel = minStockLevel.toIntOrNull() ?: 5,
+                            stockMode = stockMode,
+                            stockUnit = stockUnit.trim().ifBlank { "Stk" },
+                            containerSize = Money.parse(containerSize) ?: 0.0,
+                            containerLoss = Money.parse(containerLoss) ?: 0.0,
+                            servingSize = Money.parse(servingSize) ?: 1.0,
+                            minServingsLevel = minServings.toIntOrNull() ?: 20
+                        ),
+                        editedVariants.toList()
+                    )
+                },
+                enabled = name.isNotBlank()
+            ) {
                 Text("Speichern")
             }
         },

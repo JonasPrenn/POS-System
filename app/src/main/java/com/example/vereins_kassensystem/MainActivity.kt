@@ -187,6 +187,7 @@ private fun VereinsDeckelApp(
     val productViewModel: ProductViewModel = viewModel(factory = ProductViewModelFactory(repository))
     val memberViewModel: MemberViewModel = viewModel(factory = MemberViewModelFactory(repository))
     val analyticsViewModel: AnalyticsViewModel = viewModel(factory = AnalyticsViewModelFactory(repository))
+    val inventoryViewModel: InventoryViewModel = viewModel(factory = InventoryViewModelFactory(repository))
 
     VereinsDeckelNavigation(
         layout = navLayout,
@@ -220,6 +221,9 @@ private fun VereinsDeckelApp(
             }
             composable(Destination.Products.route) {
                 ProductManagementScreen(viewModel = productViewModel)
+            }
+            composable(Destination.Inventory.route) {
+                InventoryScreen(viewModel = inventoryViewModel)
             }
             composable(Destination.Members.route) {
                 MemberManagementScreen(
