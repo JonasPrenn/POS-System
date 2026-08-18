@@ -5,8 +5,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,15 +13,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.components.EmptyState
+import com.example.vereins_kassensystem.ui.components.MemberChip
+import com.example.vereins_kassensystem.ui.components.RowMenuItem
+import com.example.vereins_kassensystem.ui.components.VdIconAction
+import com.example.vereins_kassensystem.ui.components.VdRowMenu
+import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.format.Money
+import com.example.vereins_kassensystem.ui.theme.Spacing
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,17 +82,24 @@ fun MemberManagementScreen(
         }
     }
 
+    // The allowance is a property of the member's category, and the balance colour is
+    // meaningless without it: "−8 €" is fine on a €20 Deckel and over the line on a €5 one.
+    val limitByCategory: Map<Long, Double> = remember(categories) {
+        categories.associate { it.id to it.negativeBalanceLimit }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Mitgliederverwaltung") },
+            VdTopBar(
+                title = "Mitglieder",
+                subtitle = if (members.isEmpty()) null else "${members.size} Mitglieder",
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "Import")
+                        Icon(Icons.Default.FileUpload, contentDescription = "Mitglieder importieren")
                     }
                     IconButton(onClick = { exportLauncher.launch("mitglieder.csv") }) {
-                        Icon(Icons.Default.FileDownload, contentDescription = "Export")
+                        Icon(Icons.Default.FileDownload, contentDescription = "Mitglieder exportieren")
                     }
                 }
             )
@@ -108,44 +117,62 @@ fun MemberManagementScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Mitglied suchen...") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Löschen")
-                            }
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Mitglied suchen") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Suche löschen")
                         }
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.small
+                    }
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.small
+            )
+
+            when {
+                members.isEmpty() -> EmptyState(
+                    icon = Icons.Default.Groups,
+                    title = "Noch keine Mitglieder",
+                    supportingText = "Wer einen Deckel führen soll, braucht hier einen Eintrag.",
+                    actionLabel = "Mitglied anlegen",
+                    onAction = { showAddDialog = true },
+                    modifier = Modifier.weight(1f)
                 )
-            }
-            
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(filteredMembers, key = { it.id }) { member ->
-                    MemberItem(
-                        member = member,
-                        onEdit = { memberToEdit = it },
-                        onDelete = { viewModel.deleteMember(it) },
-                        onTopUp = { memberToTopUp = it },
-                        onClick = { onMemberClick(member) }
-                    )
+
+                filteredMembers.isEmpty() -> EmptyState(
+                    icon = Icons.Default.SearchOff,
+                    title = "Keine Treffer",
+                    supportingText = "Kein Mitglied enthält „$searchQuery“.",
+                    modifier = Modifier.weight(1f)
+                )
+
+                else -> LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        top = Spacing.sm,
+                        bottom = Spacing.xxl
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    items(filteredMembers, key = { it.id }) { member ->
+                        MemberItem(
+                            member = member,
+                            negativeLimit = member.categoryId?.let { limitByCategory[it] } ?: 0.0,
+                            onEdit = { memberToEdit = it },
+                            onDelete = { viewModel.deleteMember(it) },
+                            onTopUp = { memberToTopUp = it },
+                            onClick = { onMemberClick(member) }
+                        )
+                    }
                 }
             }
         }
@@ -186,77 +213,51 @@ fun MemberManagementScreen(
     }
 }
 
+/**
+ * A member and their Deckel, on the management screen.
+ *
+ * The row itself starts a sale for that member, which is what the screen is mostly used
+ * for. Topping up keeps its own button because it is the second-most-common thing that
+ * happens here; renaming and deleting move into the overflow. The balance colour comes
+ * from [MemberChip], so it reads the same way here as it does at the till.
+ */
 @Composable
 fun MemberItem(
-    member: Member, 
-    onEdit: (Member) -> Unit, 
-    onDelete: (Member) -> Unit, 
+    member: Member,
+    negativeLimit: Double,
+    onEdit: (Member) -> Unit,
+    onDelete: (Member) -> Unit,
     onTopUp: (Member) -> Unit,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(56.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary
+    MemberChip(
+        member = member,
+        negativeLimit = negativeLimit,
+        onClick = onClick,
+        trailing = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = member.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-            }
-            
-            Spacer(Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = member.name,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = Money.format(member.balance),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (member.balance < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
-                )
-            }
-            
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilledTonalIconButton(
+                VdIconAction(
+                    icon = Icons.Default.AddCard,
+                    contentDescription = "Guthaben aufladen für ${member.name}",
                     onClick = { onTopUp(member) },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.AddCard, contentDescription = "Top Up", modifier = Modifier.size(20.dp))
-                }
-                FilledTonalIconButton(
-                    onClick = { onEdit(member) },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
-                }
-                FilledTonalIconButton(
-                    onClick = { onDelete(member) },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
-                }
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                VdRowMenu(
+                    items = listOf(
+                        RowMenuItem("Bearbeiten", Icons.Default.Edit) { onEdit(member) },
+                        RowMenuItem("Löschen", Icons.Default.Delete, destructive = true) {
+                            onDelete(member)
+                        }
+                    ),
+                    contentDescription = "Aktionen für ${member.name}"
+                )
             }
         }
-    }
+    )
 }
 
 
@@ -283,7 +284,7 @@ fun MemberDialog(
                     label = { Text("Name") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
                 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -376,14 +377,14 @@ fun TopUpDialog(
         onDismissRequest = onDismiss,
         title = { Text("Guthaben · ${member.name}") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Text(
                     text = "Aktuelles Guthaben: ${Money.format(member.balance)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     TopUpKind.entries.forEach { option ->
                         FilterChip(
                             selected = kind == option,
@@ -399,7 +400,7 @@ fun TopUpDialog(
                 }
 
                 if (kind.isPayment) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         listOf(5, 10, 20, 50).forEach { preset ->
                             FilterChip(
                                 selected = amount == preset.toString(),

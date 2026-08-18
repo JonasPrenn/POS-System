@@ -8,12 +8,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.AddCard
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -103,6 +108,43 @@ private fun Gallery() {
             )
             QuantityStepper(quantity = 3, onIncrease = {}, onDecrease = {})
 
+            SectionLabel("Management row — one frequent action, the rest in the overflow")
+            VdListRow(
+                title = "Maria Bauer",
+                supportingText = "Aktive Mitglieder",
+                leading = { RowBadge("MB") },
+                onClick = {},
+                trailing = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        VdIconAction(
+                            icon = Icons.Default.AddCard,
+                            contentDescription = "Aufladen",
+                            onClick = {},
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        VdRowMenu(
+                            items = listOf(
+                                RowMenuItem("Bearbeiten", Icons.Default.Edit) {},
+                                RowMenuItem("Löschen", Icons.Default.Delete, destructive = true) {}
+                            )
+                        )
+                    }
+                }
+            )
+
+            SectionLabel("Section shell")
+            VdSection(title = "Backup", icon = Icons.Default.Backup) {
+                Text(
+                    text = "Läuft einmal täglich im Hintergrund.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             SectionLabel("Warning — attention, not failure")
             WarningBanner(
                 title = "Lagerwarnung",
@@ -139,13 +181,13 @@ private fun SectionLabel(text: String) {
     )
 }
 
-@Preview(name = "Components — light", showBackground = true, heightDp = 1800)
+@Preview(name = "Components — light", showBackground = true, heightDp = 2200)
 @Composable
 private fun GalleryLightPreview() {
     VereinsDeckelTheme(themeMode = ThemeMode.LIGHT) { Gallery() }
 }
 
-@Preview(name = "Components — dark", showBackground = true, heightDp = 1800)
+@Preview(name = "Components — dark", showBackground = true, heightDp = 2200)
 @Composable
 private fun GalleryDarkPreview() {
     VereinsDeckelTheme(themeMode = ThemeMode.DARK) { Gallery() }

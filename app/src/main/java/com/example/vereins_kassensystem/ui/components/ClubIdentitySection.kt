@@ -6,13 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -52,42 +47,31 @@ fun ClubIdentitySection(
     onAccentChange: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer
+    VdSection(
+        title = "Verein",
+        icon = Icons.Default.Groups,
+        modifier = modifier,
+        // The section's own colour picker is right below it, so the mark follows the
+        // pending choice rather than the theme, which only catches up once it is saved.
+        iconTint = identity.accent,
+        contentSpacing = Spacing.lg
     ) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Groups,
-                    contentDescription = null,
-                    tint = identity.accent
-                )
-                Spacer(Modifier.width(Spacing.md))
-                Text("Verein", style = MaterialTheme.typography.titleMedium)
-            }
+        OutlinedTextField(
+            value = identity.name,
+            onValueChange = onNameChange,
+            label = { Text("Vereinsname") },
+            placeholder = { Text("z. B. TSV Beispiel") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = MaterialTheme.shapes.small
+        )
 
-            Spacer(Modifier.height(Spacing.lg))
-
-            OutlinedTextField(
-                value = identity.name,
-                onValueChange = onNameChange,
-                label = { Text("Vereinsname") },
-                placeholder = { Text("z. B. TSV Beispiel") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = MaterialTheme.shapes.small
-            )
-
-            Spacer(Modifier.height(Spacing.lg))
-
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(
                 text = "Vereinsfarbe",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(Spacing.sm))
 
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -102,17 +86,15 @@ fun ClubIdentitySection(
                     )
                 }
             }
-
-            Spacer(Modifier.height(Spacing.md))
-
-            Text(
-                text = "Die Vereinsfarbe färbt Navigation, Kopfzeile und Mitglieder-Symbole. " +
-                    "Bezahlen bleibt grün, Warnungen orange und Fehler rot – damit die Farben " +
-                    "im Verkauf immer dasselbe bedeuten.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
+
+        Text(
+            text = "Die Vereinsfarbe färbt Navigation, Kopfzeile und Mitglieder-Symbole. " +
+                "Bezahlen bleibt grün, Warnungen orange und Fehler rot – damit die Farben " +
+                "im Verkauf immer dasselbe bedeuten.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

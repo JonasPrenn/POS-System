@@ -61,6 +61,7 @@ import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.format.Money
+import com.example.vereins_kassensystem.ui.format.Quantity
 import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
@@ -70,9 +71,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private fun fmt(value: Double): String =
-    if (value % 1.0 == 0.0) value.toInt().toString() else String.format(Locale.GERMANY, "%.1f", value)
 
 /**
  * Lagerbestand — what the cellar holds, per Lagerartikel.
@@ -270,7 +268,7 @@ private fun StockCard(
                 Column(modifier = Modifier.weight(1f).clickable(onClick = onEdit)) {
                     Text(item.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     Text(
-                        text = "${fmt(row.available)} ${item.unit} verfügbar",
+                        text = "${Quantity.format(row.available)} ${item.unit} verfügbar",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -304,8 +302,8 @@ private fun StockCard(
                                     style = MaterialTheme.typography.titleSmall
                                 )
                                 Text(
-                                    text = "${fmt(open.drawn)} ${item.unit} gezapft · noch ca. " +
-                                        "${fmt(((type?.perContainer ?: 0.0) - open.drawn).coerceAtLeast(0.0))} ${item.unit}",
+                                    text = "${Quantity.format(open.drawn)} ${item.unit} gezapft · noch ca. " +
+                                        "${Quantity.format(((type?.perContainer ?: 0.0) - open.drawn).coerceAtLeast(0.0))} ${item.unit}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -339,7 +337,7 @@ private fun StockCard(
                 Spacer(Modifier.height(Spacing.sm))
                 row.yields.forEach { estimate ->
                     Text(
-                        text = "${estimate.containerType.label}: ø ${fmt(estimate.perContainer)} ${item.unit} " +
+                        text = "${estimate.containerType.label}: ø ${Quantity.format(estimate.perContainer)} ${item.unit} " +
                             if (estimate.isLearned) "(aus ${estimate.observations} Fässern gelernt)"
                             else "(Schätzwert, noch kein Fass gemessen)",
                         style = MaterialTheme.typography.bodySmall,
@@ -349,7 +347,7 @@ private fun StockCard(
 
                 if (row.spoiled > 0.0) {
                     Text(
-                        text = "Verderb bisher: ${fmt(row.spoiled)} ${item.unit}",
+                        text = "Verderb bisher: ${Quantity.format(row.spoiled)} ${item.unit}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -491,7 +489,7 @@ private fun CloseContainerDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Text(
-                    text = "Bisher gezapft: ${fmt(open?.drawn ?: 0.0)} ${row.item.unit}",
+                    text = "Bisher gezapft: ${Quantity.format(open?.drawn ?: 0.0)} ${row.item.unit}",
                     style = MaterialTheme.typography.bodyMedium
                 )
 
@@ -517,7 +515,7 @@ private fun CloseContainerDialog(
                                 "ein ${row.yields.firstOrNull { it.containerType.id == open?.containerTypeId }?.containerType?.label ?: "Gebinde"} " +
                                 "wirklich hergibt."
                         ContainerCloseReason.SPOILED ->
-                            "Rest von ca. ${fmt(rest)} ${row.item.unit} wird als Verderb gebucht " +
+                            "Rest von ca. ${Quantity.format(rest)} ${row.item.unit} wird als Verderb gebucht " +
                                 "und fließt NICHT in die Ertragsberechnung ein."
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -588,7 +586,7 @@ private fun EntryHistory(entries: List<StockEntry>, modifier: Modifier = Modifie
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = (if (entry.quantity >= 0) "+" else "") + fmt(entry.quantity),
+                            text = Quantity.formatSigned(entry.quantity),
                             style = MoneySmall,
                             color = if (entry.quantity >= 0) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.error

@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
@@ -15,15 +14,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.work.*
 import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.ui.components.AppearanceSection
 import com.example.vereins_kassensystem.ui.components.ClubIdentitySection
+import com.example.vereins_kassensystem.ui.components.VdSection
 import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.theme.ClubIdentity
+import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
+import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.data.repository.BackupRepository
 import com.example.vereins_kassensystem.worker.BackupWorker
 import kotlinx.coroutines.launch
@@ -102,11 +102,13 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = Spacing.lg)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
+            Spacer(Modifier.height(Spacing.xs))
+
             ClubIdentitySection(
                 identity = clubIdentity,
                 onNameChange = { scope.launch { settingsRepository.setClubName(it) } },
@@ -118,188 +120,160 @@ fun SettingsScreen(
                 onThemeModeChange = { scope.launch { settingsRepository.setThemeMode(it) } }
             )
 
-            // SumUp Configuration Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(12.dp))
+            VdSection(title = "Kartenzahlung", icon = Icons.Default.Payments) {
+                Text(
+                    text = "Der Affiliate Key verbindet die Kasse mit eurem SumUp-Konto. " +
+                        "Ohne ihn bleibt nur Bar und Deckel.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = editedKey,
+                    onValueChange = { editedKey = it },
+                    label = { Text("SumUp Affiliate Key") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small
+                )
+                Button(
+                    onClick = {
+                        scope.launch {
+                            settingsRepository.saveSumUpAffiliateKey(editedKey)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = TouchTarget.min),
+                    shape = MaterialTheme.shapes.small,
+                    enabled = editedKey != sumUpKey
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text("Key speichern")
+                }
+
+                HorizontalDivider()
+
+                OutlinedButton(
+                    onClick = onSumUpLogin,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = TouchTarget.min),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null)
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text("Bei SumUp anmelden")
+                }
+            }
+
+            VdSection(title = "Backup", icon = Icons.Default.Backup) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = TouchTarget.min),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Tägliches Backup", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            text = "SumUp Konfiguration",
-                            style = MaterialTheme.typography.titleMedium
+                            text = if (backupUri == null) {
+                                "Erst einen Speicherort wählen."
+                            } else {
+                                "Läuft einmal täglich im Hintergrund."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = editedKey,
-                        onValueChange = { editedKey = it },
-                        label = { Text("SumUp Affiliate Key") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.small
+                    Spacer(Modifier.width(Spacing.md))
+                    Switch(
+                        checked = autoBackupEnabled,
+                        onCheckedChange = { scope.launch { settingsRepository.setAutoBackupEnabled(it) } },
+                        enabled = backupUri != null
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                OutlinedButton(
+                    onClick = { folderLauncher.launch(null) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = TouchTarget.min),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Icon(Icons.Default.Folder, contentDescription = null)
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text(if (backupUri != null) "Speicherort ändern" else "Speicherort wählen")
+                }
+
+                if (backupUri != null) {
+                    Text(
+                        text = backupUri!!.toUri().path.orEmpty(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                HorizontalDivider()
+
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Button(
                         onClick = {
                             scope.launch {
-                                settingsRepository.saveSumUpAffiliateKey(editedKey)
+                                val success = backupRepository.createBackup(backupUri?.toUri())
+                                snackbarHostState.showSnackbar(if (success) "Backup erstellt" else "Fehler beim Backup")
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.small
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = TouchTarget.min),
+                        shape = MaterialTheme.shapes.small,
+                        enabled = backupUri != null
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Key Speichern")
+                        Icon(Icons.Default.CloudUpload, contentDescription = null)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text("Sichern")
                     }
-                }
-            }
 
-            // Backup Management Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Backup, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            text = "Backup & Wiederherstellung",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text("Automatisches Backup", style = MaterialTheme.typography.titleSmall)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Tägliches Backup aktivieren", style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = autoBackupEnabled,
-                            onCheckedChange = { scope.launch { settingsRepository.setAutoBackupEnabled(it) } },
-                            enabled = backupUri != null
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
+                    // Restoring replaces the live database, so it does not get a filled
+                    // button beside the harmless one — the two must not look interchangeable.
                     OutlinedButton(
-                        onClick = { folderLauncher.launch(null) },
-                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { restoreLauncher.launch("application/zip") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = TouchTarget.min),
                         shape = MaterialTheme.shapes.small
                     ) {
-                        Icon(Icons.Default.Folder, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (backupUri != null) "Speicherort ändern" else "Speicherort wählen")
-                    }
-                    
-                    if (backupUri != null) {
-                        Text(
-                            text = "Pfad: ${backupUri!!.toUri().path}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    val success = backupRepository.createBackup(backupUri?.toUri())
-                                    snackbarHostState.showSnackbar(if (success) "Backup erstellt" else "Fehler beim Backup")
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.small,
-                            enabled = backupUri != null
-                        ) {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Backup")
-                        }
-                        
-                        Button(
-                            onClick = { restoreLauncher.launch("application/zip") },
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.small,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Icon(Icons.Default.CloudDownload, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Restore")
-                        }
+                        Icon(Icons.Default.CloudDownload, contentDescription = null)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text("Einspielen")
                     }
                 }
             }
 
-            // SumUp Account Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            text = "SumUp Account",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = onSumUpLogin,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.onSecondary
-                        ),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Text("Bei SumUp anmelden")
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            // App Info Section
+            // App info: quiet, at the end, where a version number belongs.
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.lg, bottom = Spacing.xl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                )
                 Text(
-                    text = "App-Version: 1.1.2",
+                    text = "VereinsDeckel $APP_VERSION",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "C 2026 Jonas Prenn",
+                    text = "© 2026 Jonas Prenn",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.outline
                 )
             }
         }
     }
 }
+
+/** Shown at the foot of Settings. Kept next to its only use rather than in a config file. */
+private const val APP_VERSION = "1.1.2"

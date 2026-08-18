@@ -14,6 +14,7 @@ import com.example.vereins_kassensystem.data.repository.AppRepository
 import com.example.vereins_kassensystem.data.stock.Inventory
 import com.example.vereins_kassensystem.data.stock.StockItemState
 import com.example.vereins_kassensystem.data.stock.YieldEstimate
+import com.example.vereins_kassensystem.ui.format.Quantity
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -85,7 +86,7 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
         note: String?
     ) = viewModelScope.launch {
         repository.receiveStock(item, quantity, containerType, totalCost, note)
-        _status.emit("${item.name}: ${trim(quantity)} ${containerType?.label ?: item.unit} gebucht")
+        _status.emit("${item.name}: ${Quantity.format(quantity)} ${containerType?.label ?: item.unit} gebucht")
     }
 
     // --------------------------------------------------------- keg handling
@@ -119,9 +120,9 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
         _status.emit(
             when (reason) {
                 ContainerCloseReason.EMPTIED ->
-                    "${row.item.name}: Fass leer, ${trim(open.drawn)} ${row.item.unit} gezapft"
+                    "${row.item.name}: Fass leer, ${Quantity.format(open.drawn)} ${row.item.unit} gezapft"
                 ContainerCloseReason.SPOILED ->
-                    "${row.item.name}: Fass verworfen, ${trim(rest)} ${row.item.unit} Verderb"
+                    "${row.item.name}: Fass verworfen, ${Quantity.format(rest)} ${row.item.unit} Verderb"
             }
         )
     }
@@ -266,9 +267,6 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
         unit = if (tracking == StockTracking.CONTAINER) "l" else "Stk",
         tracking = tracking
     )
-
-    private fun trim(value: Double) =
-        if (value % 1.0 == 0.0) value.toInt().toString() else String.format(java.util.Locale.GERMANY, "%.1f", value)
 }
 
 class InventoryViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {

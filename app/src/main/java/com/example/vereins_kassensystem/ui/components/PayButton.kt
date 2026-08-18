@@ -25,6 +25,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
+import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 
 /** What the pay button is currently doing. */
@@ -73,7 +74,7 @@ fun PayButton(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(text = label, style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(Spacing.md))
                     MoneyText(amount = amount, style = MoneyMedium)
                 }
 
@@ -92,7 +93,7 @@ fun PayButton(
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     Text("Bezahlt", style = MaterialTheme.typography.labelLarge)
                 }
             }

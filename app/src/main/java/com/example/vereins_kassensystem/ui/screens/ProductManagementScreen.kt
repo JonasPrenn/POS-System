@@ -2,35 +2,40 @@ package com.example.vereins_kassensystem.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.components.EmptyState
+import com.example.vereins_kassensystem.ui.components.MoneyText
+import com.example.vereins_kassensystem.ui.components.RowMenuItem
+import com.example.vereins_kassensystem.ui.components.VdListRow
+import com.example.vereins_kassensystem.ui.components.VdRowMenu
+import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.format.Money
+import com.example.vereins_kassensystem.ui.theme.MoneySmall
+import com.example.vereins_kassensystem.ui.theme.Spacing
+import com.example.vereins_kassensystem.ui.theme.categoryColor
+import com.example.vereins_kassensystem.ui.theme.contrastingOn
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.ProductVariant
 import com.example.vereins_kassensystem.data.entity.ProductComponent
 import com.example.vereins_kassensystem.data.entity.StockItem
-import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,8 +46,6 @@ fun ProductManagementScreen(
     var productToEdit by remember { mutableStateOf<Product?>(null) }
     var currentVariants by remember { mutableStateOf<List<ProductVariant>>(emptyList()) }
 
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val productsWithVariants by viewModel.allProductsWithVariants.collectAsState()
     val stockItems by viewModel.allStockItems.collectAsState()
     val allComponents by viewModel.allComponents.collectAsState()
@@ -84,14 +87,15 @@ fun ProductManagementScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Produktverwaltung") },
+            VdTopBar(
+                title = "Produkte",
+                subtitle = if (productsWithVariants.isEmpty()) null else "${productsWithVariants.size} Produkte",
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "Import")
+                        Icon(Icons.Default.FileUpload, contentDescription = "Produkte importieren")
                     }
                     IconButton(onClick = { exportLauncher.launch("produkte.csv") }) {
-                        Icon(Icons.Default.FileDownload, contentDescription = "Export")
+                        Icon(Icons.Default.FileDownload, contentDescription = "Produkte exportieren")
                     }
                 }
             )
@@ -105,32 +109,31 @@ fun ProductManagementScreen(
         }
     ) { padding ->
         if (productsWithVariants.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Inventory2,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text("Noch keine Produkte", color = MaterialTheme.colorScheme.outline)
-                }
-            }
+            EmptyState(
+                icon = Icons.Default.Inventory2,
+                title = "Noch keine Produkte",
+                supportingText = "Lege an, was über die Theke geht — Preis und Kategorie reichen für den Anfang.",
+                actionLabel = "Produkt anlegen",
+                onAction = { showAddDialog = true },
+                modifier = Modifier.padding(padding)
+            )
         } else {
+            // Width decides the column count, not orientation: a tablet in portrait has
+            // room for two, a phone in landscape does not.
             LazyVerticalGrid(
-                columns = if (isLandscape) GridCells.Fixed(2) else GridCells.Fixed(1),
+                columns = GridCells.Adaptive(minSize = 320.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 items(productsWithVariants, key = { it.product.id }) { productWithVariants ->
                     ProductItem(
                         product = productWithVariants.product,
-                        onEdit = { 
+                        variantCount = productWithVariants.variants.size,
+                        onEdit = {
                             productToEdit = productWithVariants.product
                             // Store the current variants for editing
                             currentVariants = productWithVariants.variants
@@ -138,6 +141,8 @@ fun ProductManagementScreen(
                         onDelete = { viewModel.deleteProduct(it) }
                     )
                 }
+                // Clears the FAB, which otherwise sits on top of the last row.
+                item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(Spacing.xxl)) }
             }
         }
 
@@ -168,67 +173,70 @@ fun ProductManagementScreen(
     }
 }
 
+/**
+ * A product in the management list.
+ *
+ * Carries the same category colour the sales grid uses, so a product is recognisable in
+ * both places by the same mark. Editing is the whole row rather than a 40dp pencil —
+ * it is the frequent action here — and delete moves behind the overflow, where a
+ * mistimed tap cannot reach it.
+ */
 @Composable
-fun ProductItem(product: Product, onEdit: (Product) -> Unit, onDelete: (Product) -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+fun ProductItem(
+    product: Product,
+    variantCount: Int,
+    onEdit: (Product) -> Unit,
+    onDelete: (Product) -> Unit
+) {
+    val accent = categoryColor(product.category)
+
+    VdListRow(
+        title = product.name,
+        supportingText = product.category.ifBlank { "Ohne Kategorie" },
+        onClick = { onEdit(product) },
+        leading = {
             Surface(
-                modifier = Modifier.size(56.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                modifier = Modifier.size(40.dp),
+                shape = MaterialTheme.shapes.small,
+                color = accent,
+                contentColor = contrastingOn(accent)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Restaurant,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-            
-            Spacer(Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = product.name, style = MaterialTheme.typography.titleMedium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = Money.format(product.price),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        text = product.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.labelLarge
                     )
-                    Text(text = " • ", color = MaterialTheme.colorScheme.outlineVariant)
-                    Text(text = product.category, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                
             }
-            
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilledTonalIconButton(
-                    onClick = { onEdit(product) },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
+        },
+        trailing = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+            ) {
+                if (product.hasVariants) {
+                    Text(
+                        text = if (variantCount == 1) "1 Variante" else "$variantCount Varianten",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    MoneyText(amount = product.price, style = MoneySmall)
                 }
-                FilledTonalIconButton(
-                    onClick = { onDelete(product) },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
-                }
+                VdRowMenu(
+                    items = listOf(
+                        RowMenuItem("Bearbeiten", Icons.Default.Edit) { onEdit(product) },
+                        RowMenuItem("Löschen", Icons.Default.Delete, destructive = true) {
+                            onDelete(product)
+                        }
+                    ),
+                    contentDescription = "Aktionen für ${product.name}"
+                )
             }
         }
-    }
+    )
 }
 
 /**
@@ -258,7 +266,7 @@ fun ProductDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (product == null) "Produkt hinzufügen" else "Produkt bearbeiten") },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 item {
                     OutlinedTextField(
                         value = name,
@@ -299,7 +307,7 @@ fun ProductDialog(
                 }
                 
                 item {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Text("Rezept", style = MaterialTheme.typography.titleSmall)
                     Text(
                         "Woraus dieses Produkt gezogen wird. Mengen gelten je Einheit und " +
@@ -333,7 +341,7 @@ fun ProductDialog(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         Text(
                             text = stockItem?.name ?: "Unbekannt",
@@ -361,13 +369,13 @@ fun ProductDialog(
                 item {
                     TextButton(onClick = { showComponentPicker = true }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(Spacing.sm))
                         Text("Lagerartikel hinzufuegen")
                     }
                 }
 
                 item {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Text("Varianten", style = MaterialTheme.typography.titleSmall)
                 }
                 
@@ -375,7 +383,7 @@ fun ProductDialog(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         OutlinedTextField(
                             value = variant.name,
@@ -427,7 +435,7 @@ fun ProductDialog(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(Spacing.sm))
                         Text("Variante hinzufügen")
                     }
                 }
@@ -490,7 +498,7 @@ fun ProductDialog(
                                         )
                                         showComponentPicker = false
                                     }
-                                    .padding(vertical = 12.dp)
+                                    .padding(vertical = Spacing.md)
                             )
                         }
                     }
