@@ -94,7 +94,9 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
             scope.launch {
-                context.contentResolver.openInputStream(it)?.use { stream -> viewModel.importFromCsv(stream) }
+                context.contentResolver.openInputStream(it)?.use { stream ->
+                    viewModel.importFromCsv(stream.bufferedReader().readText())
+                }
             }
         }
     }
@@ -103,7 +105,11 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
     ) { uri ->
         uri?.let {
             scope.launch {
-                context.contentResolver.openOutputStream(it)?.use { stream -> viewModel.exportToCsv(stream) }
+                val csv = viewModel.exportToCsv()
+                context.contentResolver.openOutputStream(it)?.use { stream ->
+                    stream.bufferedWriter().use { w -> w.write(csv) }
+                }
+                snackbarHostState.showSnackbar("Lagerartikel exportiert")
             }
         }
     }

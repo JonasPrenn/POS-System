@@ -3,6 +3,9 @@ package com.example.vereins_kassensystem.data
 import androidx.room.RoomDatabase
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
+// Dispatchers.IO ist auf Kotlin/Native eine Erweiterung, kein Member; ohne diesen
+// Import sieht der Compiler dort nur die interne Fassung.
+import kotlinx.coroutines.IO
 
 /**
  * Wo die Datenbankdatei liegt, weiß nur die Plattform.

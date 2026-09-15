@@ -59,7 +59,7 @@ fun ProductManagementScreen(
         uri?.let {
             scope.launch {
                 context.contentResolver.openInputStream(it)?.use { stream ->
-                    viewModel.importProductsFromCsv(stream)
+                    viewModel.importProductsFromCsv(stream.bufferedReader().readText())
                 }
             }
         }
@@ -71,8 +71,9 @@ fun ProductManagementScreen(
         uri?.let {
             scope.launch {
                 context.contentResolver.openOutputStream(it)?.use { stream ->
-                    viewModel.exportProductsToCsv(stream)
+                    stream.bufferedWriter().use { w -> w.write(viewModel.exportProductsToCsv()) }
                 }
+                snackbarHostState.showSnackbar("Export erfolgreich")
             }
         }
     }

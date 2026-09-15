@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
@@ -13,6 +14,7 @@ import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.platform.Ids
+import kotlin.reflect.KClass
 
 data class CartItem(
     val product: Product,
@@ -311,11 +313,9 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
 }
 
 class SalesViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(SalesViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return SalesViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+        require(modelClass == SalesViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
+        @Suppress("UNCHECKED_CAST")
+        return SalesViewModel(repository) as T
     }
 }

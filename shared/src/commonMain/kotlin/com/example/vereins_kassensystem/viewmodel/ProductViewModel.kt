@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.ProductVariant
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
@@ -15,10 +16,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
-import java.io.InputStream
-import java.io.OutputStream
+import kotlin.reflect.KClass
 
 class ProductViewModel(private val repository: AppRepository) : ViewModel() {
 
@@ -73,77 +71,70 @@ class ProductViewModel(private val repository: AppRepository) : ViewModel() {
         repository.deleteProduct(product)
     }
 
-    suspend fun importProductsFromCsv(inputStream: InputStream) = withContext(Dispatchers.IO) {
+    /**
+     * Liest Produkte aus einer Semikolon-Datei.
+     *
+     * `Name;Grundpreis;Kategorie;Varianten(Name:Preis,...)`, erste Zeile ist die Kopfzeile.
+     * Nimmt den Inhalt als Zeichenkette statt als Strom, damit der Bildschirm die Datei
+     * über `platform/FileExchange.kt` holen kann — Ströme gibt es nur auf der JVM.
+     */
+    suspend fun importProductsFromCsv(csv: String) {
         try {
-            inputStream.bufferedReader().use { reader ->
-                reader.readLine() // skip header: Name;Grundpreis;Kategorie;Varianten(Name:Preis,...)
-                var count = 0
-                for (line in reader.lineSequence()) {
-                    val parts = line.split(";")
-                    if (parts.size >= 3) {
-                        val name = parts[0].trim()
-                        val basePrice = parts[1].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
-                        val category = parts[2].trim()
-                        val variantsString = if (parts.size >= 4) parts[3].trim() else ""
-                        
-                        if (name.isNotEmpty()) {
-                            val variantList = mutableListOf<ProductVariant>()
-                            if (variantsString.isNotEmpty()) {
-                                variantsString.split(",").forEach { vPart ->
-                                    val vSubParts = vPart.split(":")
-                                    if (vSubParts.size == 2) {
-                                        val vName = vSubParts[0].trim()
-                                        val vPrice = vSubParts[1].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
-                                        variantList.add(ProductVariant(name = vName, price = vPrice, productId = 0))
-                                    }
-                                }
-                            }
-                            
-                            val productId = repository.insertProduct(Product(
-                                name = name, 
-                                price = if (variantList.isNotEmpty()) 0.0 else basePrice, 
-                                category = category,
-                                hasVariants = variantList.isNotEmpty()
-                            ))
-                            
-                            for (variant in variantList) {
-                                repository.insertVariant(variant.copy(productId = productId))
-                            }
-                            count++
+            var count = 0
+            for (line in csv.lineSequence().drop(1)) {
+                val parts = line.split(";")
+                if (parts.size < 3) continue
+                val name = parts[0].trim()
+                val basePrice = parts[1].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
+                val category = parts[2].trim()
+                val variantsString = if (parts.size >= 4) parts[3].trim() else ""
+
+                if (name.isEmpty()) continue
+                val variantList = mutableListOf<ProductVariant>()
+                if (variantsString.isNotEmpty()) {
+                    variantsString.split(",").forEach { vPart ->
+                        val vSubParts = vPart.split(":")
+                        if (vSubParts.size == 2) {
+                            val vName = vSubParts[0].trim()
+                            val vPrice = vSubParts[1].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
+                            variantList.add(ProductVariant(name = vName, price = vPrice, productId = 0))
                         }
                     }
                 }
-                _importStatus.emit("Erfolgreich $count Produkte importiert")
+
+                val productId = repository.insertProduct(
+                    Product(
+                        name = name,
+                        price = if (variantList.isNotEmpty()) 0.0 else basePrice,
+                        category = category,
+                        hasVariants = variantList.isNotEmpty()
+                    )
+                )
+                for (variant in variantList) {
+                    repository.insertVariant(variant.copy(productId = productId))
+                }
+                count++
             }
+            _importStatus.emit("Erfolgreich $count Produkte importiert")
         } catch (e: Exception) {
             _importStatus.emit("Fehler beim Import: ${e.message}")
         }
     }
 
-    suspend fun exportProductsToCsv(outputStream: OutputStream) = withContext(Dispatchers.IO) {
-        try {
-            outputStream.bufferedWriter().use { writer ->
-                writer.write("Name;Grundpreis;Kategorie;Varianten(Name:Preis,...)\n")
-                val productsWithVariants = allProductsWithVariants.value
-                productsWithVariants.forEach { pwv ->
-                    val variantsString = pwv.variants.joinToString(",") { "${it.name}:${it.price}" }
-                    writer.write("${pwv.product.name};${pwv.product.price};${pwv.product.category};$variantsString\n")
-                }
-                writer.flush()
-            }
-            _importStatus.emit("Export erfolgreich")
-        } catch (e: Exception) {
-            _importStatus.emit("Fehler beim Export: ${e.message}")
+    /** Alle Produkte als Semikolon-Datei, Kopfzeile inklusive. Das Schreiben übernimmt der Bildschirm. */
+    fun exportProductsToCsv(): String = buildString {
+        append("Name;Grundpreis;Kategorie;Varianten(Name:Preis,...)\n")
+        allProductsWithVariants.value.forEach { pwv ->
+            val variantsString = pwv.variants.joinToString(",") { "${it.name}:${it.price}" }
+            append("${pwv.product.name};${pwv.product.price};${pwv.product.category};$variantsString\n")
         }
     }
 }
 
 class ProductViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(ProductViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return ProductViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+        require(modelClass == ProductViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
+        @Suppress("UNCHECKED_CAST")
+        return ProductViewModel(repository) as T
     }
 }

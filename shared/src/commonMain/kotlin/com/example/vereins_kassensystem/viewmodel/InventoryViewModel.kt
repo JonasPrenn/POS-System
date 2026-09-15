@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
 import com.example.vereins_kassensystem.data.entity.ContainerType
 import com.example.vereins_kassensystem.data.entity.StockEntry
@@ -22,10 +23,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlin.reflect.KClass
 
 /** Everything the Lagerbestand screen needs for one item. */
 data class InventoryRow(
@@ -161,47 +161,46 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
      *
      * Existing items are matched by name and updated rather than duplicated, so the same
      * file can be re-imported after an edit without leaving two of everything.
+     *
+     * Nimmt den Inhalt als Zeichenkette statt als Strom, siehe `platform/FileExchange.kt`.
      */
-    suspend fun importFromCsv(input: java.io.InputStream) = withContext(Dispatchers.IO) {
+    suspend fun importFromCsv(csv: String) {
         try {
             var count = 0
-            input.bufferedReader().use { reader ->
-                reader.readLine() // header
-                for (line in reader.lineSequence()) {
-                    if (line.isBlank()) continue
-                    val parts = line.split(";")
-                    if (parts.size < 2) continue
-                    val name = parts[0].trim()
-                    if (name.isEmpty()) continue
+            for (line in csv.lineSequence().drop(1)) {
+                if (line.isBlank()) continue
+                val parts = line.split(";")
+                if (parts.size < 2) continue
+                val name = parts[0].trim()
+                if (name.isEmpty()) continue
 
-                    val unit = parts.getOrNull(1)?.trim().orEmpty().ifBlank { "Stk" }
-                    val tracking = if (parts.getOrNull(2)?.trim()?.uppercase()?.startsWith("GEB") == true)
-                        StockTracking.CONTAINER else StockTracking.SIMPLE
-                    val minLevel = parseNumber(parts.getOrNull(3)) ?: 0.0
+                val unit = parts.getOrNull(1)?.trim().orEmpty().ifBlank { "Stk" }
+                val tracking = if (parts.getOrNull(2)?.trim()?.uppercase()?.startsWith("GEB") == true)
+                    StockTracking.CONTAINER else StockTracking.SIMPLE
+                val minLevel = parseNumber(parts.getOrNull(3)) ?: 0.0
 
-                    val existing = repository.allStockItems.first().firstOrNull { it.name.equals(name, true) }
-                    val item = (existing ?: StockItem(name = name)).copy(
-                        name = name, unit = unit, tracking = tracking, minLevel = minLevel
-                    )
-                    val id = if (existing == null) repository.insertStockItem(item)
-                    else { repository.updateStockItem(item); item.id }
+                val existing = repository.allStockItems.first().firstOrNull { it.name.equals(name, true) }
+                val item = (existing ?: StockItem(name = name)).copy(
+                    name = name, unit = unit, tracking = tracking, minLevel = minLevel
+                )
+                val id = if (existing == null) repository.insertStockItem(item)
+                else { repository.updateStockItem(item); item.id }
 
-                    parts.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() }?.split(",")?.forEach { spec ->
-                        val fields = spec.split(":")
-                        if (fields.size >= 2) {
-                            val size = parseNumber(fields[1]) ?: return@forEach
-                            repository.insertContainerType(
-                                ContainerType(
-                                    stockItemId = id,
-                                    label = fields[0].trim(),
-                                    nominalSize = size,
-                                    initialYieldEstimate = parseNumber(fields.getOrNull(2)) ?: (size * 0.97)
-                                )
+                parts.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() }?.split(",")?.forEach { spec ->
+                    val fields = spec.split(":")
+                    if (fields.size >= 2) {
+                        val size = parseNumber(fields[1]) ?: return@forEach
+                        repository.insertContainerType(
+                            ContainerType(
+                                stockItemId = id,
+                                label = fields[0].trim(),
+                                nominalSize = size,
+                                initialYieldEstimate = parseNumber(fields.getOrNull(2)) ?: (size * 0.97)
                             )
-                        }
+                        )
                     }
-                    count++
                 }
+                count++
             }
             _status.emit("$count Lagerartikel importiert")
         } catch (e: Exception) {
@@ -209,26 +208,21 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    suspend fun exportToCsv(output: java.io.OutputStream) = withContext(Dispatchers.IO) {
-        try {
-            val items = repository.allStockItems.first()
-            val types = repository.allContainerTypes.first()
-            output.bufferedWriter().use { writer ->
-                writer.write("Name;Einheit;Verwaltung;Warnung;Gebinde\n")
-                items.forEach { item ->
-                    val spec = types.filter { it.stockItemId == item.id }
-                        .joinToString(",") { "${it.label}:${it.nominalSize}:${it.initialYieldEstimate}" }
-                    writer.write(
-                        "${item.name};${item.unit};" +
-                            "${if (item.tracking == StockTracking.CONTAINER) "GEBINDE" else "STK"};" +
-                            "${item.minLevel};$spec\n"
-                    )
-                }
-                writer.flush()
+    /** Alle Lagerartikel samt Gebinden als Semikolon-Datei. Das Schreiben übernimmt der Bildschirm. */
+    suspend fun exportToCsv(): String {
+        val items = repository.allStockItems.first()
+        val types = repository.allContainerTypes.first()
+        return buildString {
+            append("Name;Einheit;Verwaltung;Warnung;Gebinde\n")
+            items.forEach { item ->
+                val spec = types.filter { it.stockItemId == item.id }
+                    .joinToString(",") { "${it.label}:${it.nominalSize}:${it.initialYieldEstimate}" }
+                append(
+                    "${item.name};${item.unit};" +
+                        "${if (item.tracking == StockTracking.CONTAINER) "GEBINDE" else "STK"};" +
+                        "${item.minLevel};$spec\n"
+                )
             }
-            _status.emit("Lagerartikel exportiert")
-        } catch (e: Exception) {
-            _status.emit("Fehler beim Export: ${e.message}")
         }
     }
 
@@ -270,11 +264,9 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
 }
 
 class InventoryViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(InventoryViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return InventoryViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+        require(modelClass == InventoryViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
+        @Suppress("UNCHECKED_CAST")
+        return InventoryViewModel(repository) as T
     }
 }

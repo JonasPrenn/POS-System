@@ -48,7 +48,7 @@ fun MemberManagementScreen(
         uri?.let {
             scope.launch {
                 context.contentResolver.openInputStream(it)?.use { stream ->
-                    viewModel.importMembersFromCsv(stream)
+                    viewModel.importMembersFromCsv(stream.bufferedReader().readText())
                 }
             }
         }
@@ -60,8 +60,9 @@ fun MemberManagementScreen(
         uri?.let {
             scope.launch {
                 context.contentResolver.openOutputStream(it)?.use { stream ->
-                    viewModel.exportMembersToCsv(stream)
+                    stream.bufferedWriter().use { w -> w.write(viewModel.exportMembersToCsv()) }
                 }
+                snackbarHostState.showSnackbar("Export erfolgreich")
             }
         }
     }

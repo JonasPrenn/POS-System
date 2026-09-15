@@ -3,11 +3,13 @@ package com.example.vereins_kassensystem.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import kotlinx.coroutines.flow.*
 import com.example.vereins_kassensystem.platform.nowMillis
 import com.example.vereins_kassensystem.platform.VdDate
+import kotlin.reflect.KClass
 
 enum class DateRange {
     TODAY, LAST_7_DAYS, LAST_30_DAYS, ALL_TIME
@@ -83,10 +85,11 @@ class AnalyticsViewModel(private val repository: AppRepository) : ViewModel() {
                     "MEMBER_BALANCE" -> member += revenue
                 }
 
-                val current = productMap.getOrDefault(tx.productName, Pair(0, 0.0))
+                // getOrDefault gibt es nur auf der JVM (java.util.Map); der Elvis tut dasselbe.
+                val current = productMap[tx.productName] ?: Pair(0, 0.0)
                 productMap[tx.productName] = Pair(current.first + tx.quantity, current.second + revenue)
 
-                categoryMap[tx.productCategory] = categoryMap.getOrDefault(tx.productCategory, 0.0) + revenue
+                categoryMap[tx.productCategory] = (categoryMap[tx.productCategory] ?: 0.0) + revenue
             }
         }
 
@@ -108,11 +111,9 @@ class AnalyticsViewModel(private val repository: AppRepository) : ViewModel() {
 }
 
 class AnalyticsViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(AnalyticsViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return AnalyticsViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+        require(modelClass == AnalyticsViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
+        @Suppress("UNCHECKED_CAST")
+        return AnalyticsViewModel(repository) as T
     }
 }
