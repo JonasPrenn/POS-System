@@ -28,12 +28,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     settingsRepository: SettingsRepository,
-    backupRepository: BackupRepository,
-    onSumUpLogin: () -> Unit
+    backupRepository: BackupRepository
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val backupScheduler = LocalPlatform.current.backupScheduler
+    val platform = LocalPlatform.current
+    val backupScheduler = platform.backupScheduler
 
     val sumUpKey by settingsRepository.sumUpAffiliateKey.collectAsState(initial = "")
     var editedKey by remember(sumUpKey) { mutableStateOf(sumUpKey) }
@@ -131,7 +131,17 @@ fun SettingsScreen(
                 HorizontalDivider()
 
                 OutlinedButton(
-                    onClick = onSumUpLogin,
+                    onClick = {
+                        scope.launch {
+                            if (sumUpKey.isBlank()) {
+                                snackbarHostState.showSnackbar("Bitte erst den Affiliate Key speichern.")
+                                return@launch
+                            }
+                            platform.payments.login(sumUpKey)
+                                .onSuccess { snackbarHostState.showSnackbar("Bei SumUp angemeldet.") }
+                                .onFailure { snackbarHostState.showSnackbar(it.message ?: "Anmeldung fehlgeschlagen.") }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = TouchTarget.min),

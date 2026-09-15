@@ -1,9 +1,7 @@
 package com.example.vereins_kassensystem.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.ProductVariant
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
@@ -16,7 +14,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlin.reflect.KClass
 
 class ProductViewModel(private val repository: AppRepository) : ViewModel() {
 
@@ -128,13 +125,5 @@ class ProductViewModel(private val repository: AppRepository) : ViewModel() {
             val variantsString = pwv.variants.joinToString(",") { "${it.name}:${it.price}" }
             append("${pwv.product.name};${pwv.product.price};${pwv.product.category};$variantsString\n")
         }
-    }
-}
-
-class ProductViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
-        require(modelClass == ProductViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
-        @Suppress("UNCHECKED_CAST")
-        return ProductViewModel(repository) as T
     }
 }

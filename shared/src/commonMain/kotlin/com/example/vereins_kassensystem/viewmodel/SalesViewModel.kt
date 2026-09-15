@@ -1,9 +1,7 @@
 package com.example.vereins_kassensystem.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
@@ -14,7 +12,8 @@ import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.platform.Ids
-import kotlin.reflect.KClass
+import com.example.vereins_kassensystem.platform.PaymentProcessor
+import com.example.vereins_kassensystem.platform.PaymentResult
 
 data class CartItem(
     val product: Product,
@@ -219,7 +218,26 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         repository.updateMemberBalance(member.id, amount)
     }
 
-    fun checkout(paymentType: String = "CASH") = viewModelScope.launch {
+    /**
+     * Kartenzahlung über das Terminal, dann die Buchung.
+     *
+     * Läuft im Scope des ViewModels und nicht im Bildschirm: Der Kassier dreht das Tablet,
+     * während das Terminal wartet, und die Activity darunter wird neu gebaut. Das
+     * ViewModel überlebt das, eine Composition nicht — und eine Karte, die belastet wurde,
+     * ohne dass die Buchung folgt, ist der teuerste Fehler, den diese App machen kann.
+     * Die Referenz entsteht vorab und geht an den Anbieter mit, damit sich die Zahlung
+     * im SumUp-Konto dem Kassiervorgang zuordnen lässt.
+     */
+    fun checkoutByCard(payments: PaymentProcessor) = viewModelScope.launch {
+        val reference = Ids.new()
+        when (val result = payments.charge(totalAmount.value, reference)) {
+            is PaymentResult.Success -> checkout("CARD", reference)
+            PaymentResult.Cancelled -> Unit
+            is PaymentResult.Failed -> _checkoutError.emit(result.message)
+        }
+    }
+
+    fun checkout(paymentType: String = "CASH", transactionGroupId: String = Ids.new()) = viewModelScope.launch {
         val currentCart = _cart.value
         val currentTopUp = _topUpAmount.value
         val currentTip = _tipAmount.value
@@ -228,7 +246,6 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return@launch
 
         val cartTotal = currentCart.sumOf { (it.variant?.price ?: it.product.price) * it.quantity }
-        val transactionGroupId = Ids.new()
         val memberName = member?.name
 
         if (paymentType == "MEMBER_BALANCE" && member != null) {
@@ -309,13 +326,5 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         
         clearCart()
         selectMember(null)
-    }
-}
-
-class SalesViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
-        require(modelClass == SalesViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
-        @Suppress("UNCHECKED_CAST")
-        return SalesViewModel(repository) as T
     }
 }

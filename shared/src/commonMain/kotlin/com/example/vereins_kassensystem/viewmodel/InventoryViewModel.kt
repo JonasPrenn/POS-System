@@ -1,9 +1,7 @@
 package com.example.vereins_kassensystem.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
 import com.example.vereins_kassensystem.data.entity.ContainerType
 import com.example.vereins_kassensystem.data.entity.StockEntry
@@ -25,7 +23,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlin.reflect.KClass
 
 /** Everything the Lagerbestand screen needs for one item. */
 data class InventoryRow(
@@ -265,12 +262,4 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
         unit = if (tracking == StockTracking.CONTAINER) "l" else "Stk",
         tracking = tracking
     )
-}
-
-class InventoryViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
-        require(modelClass == InventoryViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
-        @Suppress("UNCHECKED_CAST")
-        return InventoryViewModel(repository) as T
-    }
 }

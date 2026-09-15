@@ -8,8 +8,9 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Die tägliche Sicherung, von WorkManager angestoßen (siehe AndroidBackupScheduler).
- * Holt sich Repository und Einstellungen über die Application, statt eigene Instanzen
- * zu bauen — sonst gäbe es zwei Datenbankverbindungen auf dieselbe Datei.
+ * Holt sich Repository und Einstellungen über den AppGraph der Application, statt
+ * eigene Instanzen zu bauen — sonst gäbe es zwei Datenbankverbindungen auf dieselbe
+ * Datei.
  */
 class BackupWorker(
     context: Context,
@@ -17,8 +18,8 @@ class BackupWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val app = applicationContext as KassenApplication
-        if (!app.settingsRepository.autoBackupEnabled.first()) return Result.success()
-        return if (app.backupRepository.createBackup()) Result.success() else Result.retry()
+        val graph = (applicationContext as KassenApplication).graph
+        if (!graph.settingsRepository.autoBackupEnabled.first()) return Result.success()
+        return if (graph.backupRepository.createBackup()) Result.success() else Result.retry()
     }
 }

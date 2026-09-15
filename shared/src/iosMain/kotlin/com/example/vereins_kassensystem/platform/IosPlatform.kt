@@ -132,6 +132,6 @@ class IosBackupScheduler(
     }
 
     companion object {
-        const val TASK_IDENTIFIER = "com.example.vereins_kassensystem.backup"
+        const val TASK_IDENTIFIER = "com.example.vereinsdeckel.backup"
     }
 }

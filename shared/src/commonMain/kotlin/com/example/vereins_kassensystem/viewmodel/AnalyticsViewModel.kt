@@ -1,15 +1,12 @@
 package com.example.vereins_kassensystem.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import kotlinx.coroutines.flow.*
 import com.example.vereins_kassensystem.platform.nowMillis
 import com.example.vereins_kassensystem.platform.VdDate
-import kotlin.reflect.KClass
 
 enum class DateRange {
     TODAY, LAST_7_DAYS, LAST_30_DAYS, ALL_TIME
@@ -107,13 +104,5 @@ class AnalyticsViewModel(private val repository: AppRepository) : ViewModel() {
             topProducts = topProducts,
             categoryDistribution = categoryMap
         )
-    }
-}
-
-class AnalyticsViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
-        require(modelClass == AnalyticsViewModel::class) { "Unbekanntes ViewModel: $modelClass" }
-        @Suppress("UNCHECKED_CAST")
-        return AnalyticsViewModel(repository) as T
     }
 }

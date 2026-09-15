@@ -1,12 +1,23 @@
 package com.example.vereins_kassensystem.platform
 
 import android.app.Activity
+import android.app.Application
 import android.content.Intent
 import com.sumup.merchant.reader.api.SumUpAPI
 import com.sumup.merchant.reader.api.SumUpLogin
 import com.sumup.merchant.reader.api.SumUpPayment
+import com.sumup.reader.sdk.api.SumUpState
 import kotlinx.coroutines.CompletableDeferred
 import java.math.BigDecimal
+
+/**
+ * Einmal beim Start der App, vor allem anderen. Liegt hier und nicht in der
+ * Application, weil das SDK eine Abhängigkeit von :shared ist und das App-Modul seine
+ * Klassen gar nicht sieht.
+ */
+fun initializeSumUp(application: Application) {
+    SumUpState.init(application)
+}
 
 /**
  * Kartenzahlung über das SumUp-Android-SDK.

@@ -72,16 +72,15 @@ import com.example.vereins_kassensystem.ui.theme.balanceColor
 import com.example.vereins_kassensystem.viewmodel.CartItem
 import com.example.vereins_kassensystem.viewmodel.SalesViewModel
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.platform.LocalPlatform
 
 /** Below this the cart cannot sit beside the grid without squeezing both. */
 private val TwoPaneBreakpoint = 720.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SalesScreen(
-    viewModel: SalesViewModel,
-    onCardPayment: (Double) -> Unit
-) {
+fun SalesScreen(viewModel: SalesViewModel) {
+    val payments = LocalPlatform.current.payments
     val products by viewModel.allProductsWithVariants.collectAsState()
     val categories by viewModel.productCategories.collectAsState()
     val cart by viewModel.cart.collectAsState()
@@ -228,7 +227,7 @@ fun SalesScreen(
                 onDismiss = { showCheckout = false },
                 onSetTipAmount = viewModel::setTipAmount,
                 onCheckout = { paymentType ->
-                    if (paymentType == "CARD") onCardPayment(total) else viewModel.checkout(paymentType)
+                    if (paymentType == "CARD") viewModel.checkoutByCard(payments) else viewModel.checkout(paymentType)
                     showCheckout = false
                 }
             )

@@ -1,0 +1,5 @@
+// Was je Entwickler anders ist, an einer Stelle. TEAM_ID ist die Apple-Team-Kennung aus
+// Xcode > Settings > Accounts; ohne sie baut Xcode nur für den Simulator.
+TEAM_ID=
+BUNDLE_ID=com.example.vereinsdeckel
+APP_NAME=VereinsDeckel

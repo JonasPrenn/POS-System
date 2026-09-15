@@ -1,43 +1,38 @@
 package com.example.vereins_kassensystem
 
 import android.app.Application
-import com.example.vereins_kassensystem.data.AppDatabase
-import com.example.vereins_kassensystem.data.repository.AppRepository
-import com.example.vereins_kassensystem.data.repository.BackupRepository
-
-import com.sumup.reader.sdk.api.SumUpState
-import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.platform.AndroidBackupScheduler
-import com.example.vereins_kassensystem.platform.AndroidSettingsStore
-import com.example.vereins_kassensystem.platform.createBackupExchange
+import com.example.vereins_kassensystem.platform.AndroidContextHolder
+import com.example.vereins_kassensystem.platform.AndroidPlatform
+import com.example.vereins_kassensystem.platform.SumUpPaymentProcessor
+import com.example.vereins_kassensystem.platform.initializeSumUp
 import com.example.vereins_kassensystem.worker.BackupWorker
-import kotlinx.coroutines.flow.first
 
+/**
+ * Die Android-Hülle. Sie hält das Platform-Objekt und den [AppGraph]; alles Fachliche
+ * liegt in :shared. Der Zahlungsprozessor lebt hier und nicht in der Activity, weil er
+ * ein Ergebnis über einen Bildschirmwechsel hinweg halten muss — MainActivity hängt sich
+ * nur an und wieder ab.
+ */
 class KassenApplication : Application() {
-    val database by lazy { AppDatabase.getDatabase(this) }
-    val repository by lazy {
-        AppRepository(
-            database.productDao(),
-            database.memberDao(),
-            database.transactionDao(),
-            database.categoryDao(),
-            database.stockEntryDao(),
-            database.stockDao(),
-            database.deliveryDao()
+
+    val payments = SumUpPaymentProcessor()
+
+    val platform: AndroidPlatform by lazy {
+        AndroidPlatform(
+            application = this,
+            payments = payments,
+            backupScheduler = AndroidBackupScheduler(this, BackupWorker::class.java)
         )
     }
-    val settingsRepository by lazy { SettingsRepository(AndroidSettingsStore(this)) }
-    val backupRepository by lazy {
-        BackupRepository(
-            database = database,
-            exchange = createBackupExchange { settingsRepository.backupDestination.first() },
-            settings = settingsRepository
-        )
-    }
-    val backupScheduler by lazy { AndroidBackupScheduler(this, BackupWorker::class.java) }
+
+    val graph: AppGraph by lazy { AppGraph(platform) }
 
     override fun onCreate() {
         super.onCreate()
-        SumUpState.init(this)
+        // Muss vor allem anderen kommen: Datenbank, Einstellungen und Sicherung holen
+        // sich den Context hierüber.
+        AndroidContextHolder.install(this)
+        initializeSumUp(this)
     }
 }

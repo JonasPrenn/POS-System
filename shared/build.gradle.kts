@@ -33,6 +33,8 @@ kotlin {
             // Statisch, weil das SumUp-iOS-SDK als Framework danebenliegt und ein
             // dynamisches Shared-Framework die Symbolaufloesung unnoetig verkompliziert.
             isStatic = true
+            // Sonst warnt der Linker bei jedem Lauf, dass er keine Bundle-ID ableiten kann.
+            binaryOption("bundleId", "com.example.vereinsdeckel.shared")
         }
     }
 
