@@ -1,7 +1,5 @@
 package com.example.vereins_kassensystem.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MemberChip
@@ -25,6 +22,8 @@ import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.platform.rememberTextFileReader
+import com.example.vereins_kassensystem.platform.rememberTextFileWriter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,33 +37,17 @@ fun MemberManagementScreen(
     var memberToEdit by remember { mutableStateOf<Member?>(null) }
     var memberToTopUp by remember { mutableStateOf<Member?>(null) }
 
-    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            scope.launch {
-                context.contentResolver.openInputStream(it)?.use { stream ->
-                    viewModel.importMembersFromCsv(stream.bufferedReader().readText())
-                }
-            }
-        }
+    val importer = rememberTextFileReader { csv ->
+        scope.launch { viewModel.importMembersFromCsv(csv) }
     }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        uri?.let {
-            scope.launch {
-                context.contentResolver.openOutputStream(it)?.use { stream ->
-                    stream.bufferedWriter().use { w -> w.write(viewModel.exportMembersToCsv()) }
-                }
-                snackbarHostState.showSnackbar("Export erfolgreich")
-            }
-        }
+    val exporter = rememberTextFileWriter(
+        suggestedName = "mitglieder.csv",
+        content = { viewModel.exportMembersToCsv() }
+    ) { ok ->
+        scope.launch { snackbarHostState.showSnackbar(if (ok) "Export erfolgreich" else "Export fehlgeschlagen") }
     }
 
     LaunchedEffect(Unit) {
@@ -95,10 +78,10 @@ fun MemberManagementScreen(
                 title = "Mitglieder",
                 subtitle = if (members.isEmpty()) null else "${members.size} Mitglieder",
                 actions = {
-                    IconButton(onClick = { importLauncher.launch("text/*") }) {
+                    IconButton(onClick = { importer.open() }) {
                         Icon(VdIcons.FileUpload, contentDescription = "Mitglieder importieren")
                     }
-                    IconButton(onClick = { exportLauncher.launch("mitglieder.csv") }) {
+                    IconButton(onClick = { exporter.open() }) {
                         Icon(VdIcons.FileDownload, contentDescription = "Mitglieder exportieren")
                     }
                 }

@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -44,7 +42,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
@@ -64,6 +61,8 @@ import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.platform.VdDate
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.platform.rememberTextFileReader
+import com.example.vereins_kassensystem.platform.rememberTextFileWriter
 
 /**
  * Lagerbestand — what the cellar holds, per Lagerartikel.
@@ -79,7 +78,6 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
     val entries by viewModel.recentEntries.collectAsState()
     val containerTypes by viewModel.containerTypes.collectAsState()
 
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.status.collect { snackbarHostState.showSnackbar(it) } }
@@ -91,27 +89,12 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
     var showDelivery by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
 
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            scope.launch {
-                context.contentResolver.openInputStream(it)?.use { stream ->
-                    viewModel.importFromCsv(stream.bufferedReader().readText())
-                }
-            }
-        }
-    }
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        uri?.let {
-            scope.launch {
-                val csv = viewModel.exportToCsv()
-                context.contentResolver.openOutputStream(it)?.use { stream ->
-                    stream.bufferedWriter().use { w -> w.write(csv) }
-                }
-                snackbarHostState.showSnackbar("Lagerartikel exportiert")
-            }
-        }
+    val importer = rememberTextFileReader { csv -> scope.launch { viewModel.importFromCsv(csv) } }
+    val exporter = rememberTextFileWriter(
+        suggestedName = "lagerartikel.csv",
+        content = { viewModel.exportToCsv() }
+    ) { ok ->
+        scope.launch { snackbarHostState.showSnackbar(if (ok) "Lagerartikel exportiert" else "Export fehlgeschlagen") }
     }
 
     Scaffold(
@@ -120,10 +103,10 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 title = "Lagerbestand",
                 subtitle = if (rows.isEmpty()) null else "${rows.size} Lagerartikel",
                 actions = {
-                    IconButton(onClick = { importLauncher.launch("text/*") }) {
+                    IconButton(onClick = { importer.open() }) {
                         Icon(VdIcons.FileUpload, contentDescription = "Lagerartikel importieren")
                     }
-                    IconButton(onClick = { exportLauncher.launch("lagerartikel.csv") }) {
+                    IconButton(onClick = { exporter.open() }) {
                         Icon(VdIcons.FileDownload, contentDescription = "Lagerartikel exportieren")
                     }
                     TextButton(onClick = { showHistory = !showHistory }) {

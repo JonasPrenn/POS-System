@@ -1,7 +1,5 @@
 package com.example.vereins_kassensystem.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.components.EmptyState
@@ -35,6 +32,8 @@ import com.example.vereins_kassensystem.data.entity.ProductComponent
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.platform.rememberTextFileReader
+import com.example.vereins_kassensystem.platform.rememberTextFileWriter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,33 +48,17 @@ fun ProductManagementScreen(
     val stockItems by viewModel.allStockItems.collectAsState()
     val allComponents by viewModel.allComponents.collectAsState()
 
-    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            scope.launch {
-                context.contentResolver.openInputStream(it)?.use { stream ->
-                    viewModel.importProductsFromCsv(stream.bufferedReader().readText())
-                }
-            }
-        }
+    val importer = rememberTextFileReader { csv ->
+        scope.launch { viewModel.importProductsFromCsv(csv) }
     }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        uri?.let {
-            scope.launch {
-                context.contentResolver.openOutputStream(it)?.use { stream ->
-                    stream.bufferedWriter().use { w -> w.write(viewModel.exportProductsToCsv()) }
-                }
-                snackbarHostState.showSnackbar("Export erfolgreich")
-            }
-        }
+    val exporter = rememberTextFileWriter(
+        suggestedName = "produkte.csv",
+        content = { viewModel.exportProductsToCsv() }
+    ) { ok ->
+        scope.launch { snackbarHostState.showSnackbar(if (ok) "Export erfolgreich" else "Export fehlgeschlagen") }
     }
 
     LaunchedEffect(Unit) {
@@ -91,10 +74,10 @@ fun ProductManagementScreen(
                 title = "Produkte",
                 subtitle = if (productsWithVariants.isEmpty()) null else "${productsWithVariants.size} Produkte",
                 actions = {
-                    IconButton(onClick = { importLauncher.launch("text/*") }) {
+                    IconButton(onClick = { importer.open() }) {
                         Icon(VdIcons.FileUpload, contentDescription = "Produkte importieren")
                     }
-                    IconButton(onClick = { exportLauncher.launch("produkte.csv") }) {
+                    IconButton(onClick = { exporter.open() }) {
                         Icon(VdIcons.FileDownload, contentDescription = "Produkte exportieren")
                     }
                 }

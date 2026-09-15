@@ -1,8 +1,5 @@
 package com.example.vereins_kassensystem.ui.screens
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,12 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.FileProvider
-import coil.compose.AsyncImage
 import com.example.vereins_kassensystem.data.entity.ContainerType
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.StockTracking
@@ -50,9 +44,13 @@ import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
-import java.io.File
-import com.example.vereins_kassensystem.platform.nowMillis
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import com.example.vereins_kassensystem.platform.loadImageBitmap
+import com.example.vereins_kassensystem.platform.rememberPhotoCapture
+import com.example.vereins_kassensystem.platform.rememberPhotoPicker
 
 /** One editable row of the receipt being entered. */
 data class DeliveryLineDraft(
@@ -88,24 +86,19 @@ fun DeliveryDialog(
         lines: List<Triple<StockItem, ContainerType?, Pair<Double, Double?>>>
     ) -> Unit
 ) {
-    val context = LocalContext.current
-
     var supplier by remember { mutableStateOf("") }
     var receiptTotal by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-    var photoUri by remember { mutableStateOf<Uri?>(null) }
-    var pendingPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var photoUri by remember { mutableStateOf<String?>(null) }
 
     var nextKey by remember { mutableStateOf(1L) }
     val lines = remember { mutableStateListOf(DeliveryLineDraft(key = 0L)) }
     var pickerFor by remember { mutableStateOf<Long?>(null) }
 
-    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        if (ok) photoUri = pendingPhotoUri
-    }
-    val pickImage = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri -> if (uri != null) photoUri = uri }
+    // Kamera und Mediathek liefern beide einen Verweis auf eine Datei im eigenen
+    // Ordner; wie sie dorthin kommt, weiß nur die Plattform.
+    val camera = rememberPhotoCapture { photoUri = it }
+    val gallery = rememberPhotoPicker { photoUri = it }
 
     // What the entered lines add up to, for comparison with the receipt.
     val linesTotal = lines.sumOf { Money.parse(it.cost) ?: 0.0 }
@@ -271,33 +264,28 @@ fun DeliveryDialog(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(onClick = {
-                            val uri = createPhotoUri(context)
-                            pendingPhotoUri = uri
-                            takePicture.launch(uri)
-                        }) {
+                        TextButton(onClick = { camera.open() }) {
                             Icon(VdIcons.PhotoCamera, contentDescription = null)
                             Spacer(Modifier.width(Spacing.xs))
                             Text("Foto aufnehmen")
                         }
-                        TextButton(onClick = {
-                            pickImage.launch(
-                                androidx.activity.result.PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                                )
-                            )
-                        }) { Text("Aus Galerie") }
+                        TextButton(onClick = { gallery.open() }) { Text("Aus Galerie") }
                     }
-                    photoUri?.let { uri ->
+                    photoUri?.let { ref ->
+                        // Wird je Verweis einmal geladen; solange das läuft, bleibt die
+                        // Fläche leer statt zu springen.
+                        val bitmap by produceState<ImageBitmap?>(null, ref) { value = loadImageBitmap(ref) }
                         Box(modifier = Modifier.fillMaxWidth()) {
-                            AsyncImage(
-                                model = uri,
-                                contentDescription = "Kassabon",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 220.dp)
-                            )
+                            bitmap?.let { image ->
+                                Image(
+                                    bitmap = image,
+                                    contentDescription = "Kassabon",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 220.dp)
+                                )
+                            }
                             IconButton(
                                 onClick = { photoUri = null },
                                 modifier = Modifier.align(Alignment.TopEnd)
@@ -326,7 +314,7 @@ fun DeliveryDialog(
                     onConfirm(
                         supplier.trim(),
                         receiptTotalValue,
-                        photoUri?.toString(),
+                        photoUri,
                         note.ifBlank { null },
                         resolved
                     )
@@ -371,14 +359,4 @@ fun DeliveryDialog(
             dismissButton = { TextButton(onClick = { pickerFor = null }) { Text("Schließen") } }
         )
     }
-}
-
-/**
- * A writable URI for the camera, inside the app's own files directory so the photo is
- * covered by the existing backup rules rather than landing in the shared gallery.
- */
-private fun createPhotoUri(context: android.content.Context): Uri {
-    val dir = File(context.filesDir, "belege").apply { mkdirs() }
-    val file = File(dir, "bon_${nowMillis()}.jpg")
-    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }

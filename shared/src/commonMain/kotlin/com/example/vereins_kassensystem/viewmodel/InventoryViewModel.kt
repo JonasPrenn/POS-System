@@ -208,10 +208,14 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    /** Alle Lagerartikel samt Gebinden als Semikolon-Datei. Das Schreiben übernimmt der Bildschirm. */
-    suspend fun exportToCsv(): String {
-        val items = repository.allStockItems.first()
-        val types = repository.allContainerTypes.first()
+    /**
+     * Alle Lagerartikel samt Gebinden als Semikolon-Datei. Das Schreiben übernimmt der
+     * Bildschirm. Liest aus den gehaltenen Zuständen statt aus dem Repository, damit der
+     * Export beim Öffnen der Dateiauswahl sofort feststeht.
+     */
+    fun exportToCsv(): String {
+        val items = rows.value.map { it.item }
+        val types = containerTypes.value
         return buildString {
             append("Name;Einheit;Verwaltung;Warnung;Gebinde\n")
             items.forEach { item ->
