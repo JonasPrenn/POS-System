@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.data.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.nowMillis
 
 @Entity(
     tableName = "transactions",
@@ -23,7 +24,7 @@ data class Transaction(
     val quantity: Int,
     val discountAmount: Double = 0.0,
     val paymentType: String = "CASH", // "CASH", "CARD", "MEMBER_BALANCE", "TOPUP_*"
-    val timestamp: Long = System.currentTimeMillis(),
+    val timestamp: Long = nowMillis(),
     val isRefund: Boolean = false,
 
     /**

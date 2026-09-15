@@ -6,7 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import kotlinx.coroutines.flow.*
-import java.util.*
+import com.example.vereins_kassensystem.platform.nowMillis
+import com.example.vereins_kassensystem.platform.VdDate
 
 enum class DateRange {
     TODAY, LAST_7_DAYS, LAST_30_DAYS, ALL_TIME
@@ -46,18 +47,11 @@ class AnalyticsViewModel(private val repository: AppRepository) : ViewModel() {
     }
 
     private fun calculateSummary(transactions: List<Transaction>, range: DateRange): AnalyticsSummary {
-        val now = System.currentTimeMillis()
-        val calendar = Calendar.getInstance()
-        
+        val now = nowMillis()
+
         val filtered = transactions.filter { tx ->
             when (range) {
-                DateRange.TODAY -> {
-                    calendar.timeInMillis = now
-                    val todayYear = calendar.get(Calendar.YEAR)
-                    val todayDay = calendar.get(Calendar.DAY_OF_YEAR)
-                    calendar.timeInMillis = tx.timestamp
-                    calendar.get(Calendar.YEAR) == todayYear && calendar.get(Calendar.DAY_OF_YEAR) == todayDay
-                }
+                DateRange.TODAY -> VdDate.isSameDay(tx.timestamp, now)
                 DateRange.LAST_7_DAYS -> tx.timestamp >= now - (7L * 24 * 60 * 60 * 1000)
                 DateRange.LAST_30_DAYS -> tx.timestamp >= now - (30L * 24 * 60 * 60 * 1000)
                 DateRange.ALL_TIME -> true

@@ -47,9 +47,8 @@ import com.example.vereins_kassensystem.viewmodel.AnalyticsViewModel
 import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.vereins_kassensystem.platform.nowMillis
+import com.example.vereins_kassensystem.platform.VdDate
 
 /**
  * The at-a-glance screen. Deliberately not the start destination any more — a volunteer
@@ -72,7 +71,7 @@ fun HomeScreen(
 
     val inventoryRows by inventoryViewModel.rows.collectAsState()
     val lowStock = remember(inventoryRows) { inventoryRows.filter { it.isLow || it.isNegative } }
-    val today = remember { SimpleDateFormat("EEEE, d. MMMM", Locale.GERMANY).format(Date()) }
+    val today = remember { VdDate.weekdayAndDate(nowMillis()) }
     val clubName = ClubTheme.name
 
     Scaffold(

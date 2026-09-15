@@ -1,12 +1,13 @@
 package com.example.vereins_kassensystem.data
 
-import android.content.Context
 import androidx.room.Database
-import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room.ConstructedBy
+import androidx.room.RoomDatabaseConstructor
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.example.vereins_kassensystem.data.dao.CategoryDao
 import com.example.vereins_kassensystem.data.dao.MemberDao
 import com.example.vereins_kassensystem.data.dao.ProductDao
@@ -25,6 +26,7 @@ import com.example.vereins_kassensystem.data.entity.StockEntry
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.TappedContainer
 import com.example.vereins_kassensystem.data.entity.Transaction
+import com.example.vereins_kassensystem.platform.nowMillis
 
 @Database(
     entities = [
@@ -44,6 +46,7 @@ import com.example.vereins_kassensystem.data.entity.Transaction
     exportSchema = false
 )
 @TypeConverters(Converters::class)
+@ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun memberDao(): MemberDao
@@ -54,23 +57,21 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun deliveryDao(): DeliveryDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
 
         /** Bulk stock, goods receipts and the note on a transaction. */
         private val MIGRATION_7_8 = object : Migration(7, 8) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE products ADD COLUMN stockMode TEXT NOT NULL DEFAULT 'PIECE'")
-                db.execSQL("ALTER TABLE products ADD COLUMN stockUnit TEXT NOT NULL DEFAULT 'Stk'")
-                db.execSQL("ALTER TABLE products ADD COLUMN containerSize REAL NOT NULL DEFAULT 0.0")
-                db.execSQL("ALTER TABLE products ADD COLUMN containerLoss REAL NOT NULL DEFAULT 0.0")
-                db.execSQL("ALTER TABLE products ADD COLUMN servingSize REAL NOT NULL DEFAULT 1.0")
-                db.execSQL("ALTER TABLE products ADD COLUMN fullContainers INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE products ADD COLUMN openContainerRemaining REAL NOT NULL DEFAULT 0.0")
-                db.execSQL("ALTER TABLE products ADD COLUMN minServingsLevel INTEGER NOT NULL DEFAULT 20")
-                db.execSQL("ALTER TABLE product_variants ADD COLUMN servingSize REAL")
-                db.execSQL("ALTER TABLE transactions ADD COLUMN note TEXT")
-                db.execSQL(
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE products ADD COLUMN stockMode TEXT NOT NULL DEFAULT 'PIECE'")
+                connection.execSQL("ALTER TABLE products ADD COLUMN stockUnit TEXT NOT NULL DEFAULT 'Stk'")
+                connection.execSQL("ALTER TABLE products ADD COLUMN containerSize REAL NOT NULL DEFAULT 0.0")
+                connection.execSQL("ALTER TABLE products ADD COLUMN containerLoss REAL NOT NULL DEFAULT 0.0")
+                connection.execSQL("ALTER TABLE products ADD COLUMN servingSize REAL NOT NULL DEFAULT 1.0")
+                connection.execSQL("ALTER TABLE products ADD COLUMN fullContainers INTEGER NOT NULL DEFAULT 0")
+                connection.execSQL("ALTER TABLE products ADD COLUMN openContainerRemaining REAL NOT NULL DEFAULT 0.0")
+                connection.execSQL("ALTER TABLE products ADD COLUMN minServingsLevel INTEGER NOT NULL DEFAULT 20")
+                connection.execSQL("ALTER TABLE product_variants ADD COLUMN servingSize REAL")
+                connection.execSQL("ALTER TABLE transactions ADD COLUMN note TEXT")
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS stock_entries (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -80,8 +81,8 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_productId ON stock_entries(productId)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_timestamp ON stock_entries(timestamp)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_productId ON stock_entries(productId)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_timestamp ON stock_entries(timestamp)")
             }
         }
 
@@ -99,12 +100,12 @@ abstract class AppDatabase : RoomDatabase() {
          * that quietly disagrees six months later.
          */
         private val MIGRATION_8_9 = object : Migration(8, 9) {
-            override fun migrate(db: SupportSQLiteDatabase) {
+            override fun migrate(connection: SQLiteConnection) {
                 // Rebuilding `products` re-points the variants foreign key; defer it so
                 // the drop does not cascade the variants away mid-migration.
-                db.execSQL("PRAGMA defer_foreign_keys = TRUE")
+                connection.execSQL("PRAGMA defer_foreign_keys = TRUE")
 
-                db.execSQL(
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS stock_items (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -113,7 +114,7 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL(
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS container_types (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -124,8 +125,8 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_container_types_stockItemId ON container_types(stockItemId)")
-                db.execSQL(
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_container_types_stockItemId ON container_types(stockItemId)")
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS tapped_containers (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -136,9 +137,9 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_tapped_containers_containerTypeId ON tapped_containers(containerTypeId)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_tapped_containers_openedAt ON tapped_containers(openedAt)")
-                db.execSQL(
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_tapped_containers_containerTypeId ON tapped_containers(containerTypeId)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_tapped_containers_openedAt ON tapped_containers(openedAt)")
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS product_components (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -149,11 +150,11 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_product_components_productId ON product_components(productId)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_product_components_stockItemId ON product_components(stockItemId)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_product_components_productId ON product_components(productId)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_product_components_stockItemId ON product_components(stockItemId)")
 
                 // One stock item per product, same id, carrying over what it had.
-                db.execSQL(
+                connection.execSQL(
                     """
                     INSERT INTO stock_items (id, name, unit, tracking, simpleQuantity, minLevel)
                     SELECT id, name,
@@ -169,7 +170,7 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // Draught products keep their keg size; the old fixed loss becomes the
                 // starting estimate that real measurements will replace.
-                db.execSQL(
+                connection.execSQL(
                     """
                     INSERT INTO container_types (stockItemId, label, nominalSize, initialYieldEstimate, fullCount)
                     SELECT id,
@@ -183,18 +184,18 @@ abstract class AppDatabase : RoomDatabase() {
                 )
 
                 // A keg already on tap keeps what was left in it.
-                db.execSQL(
+                connection.execSQL(
                     """
                     INSERT INTO tapped_containers (containerTypeId, drawn, openedAt, discardedVolume)
                     SELECT c.id, MAX(c.initialYieldEstimate - p.openContainerRemaining, 0.0),
-                           ${System.currentTimeMillis()}, 0.0
+                           ${nowMillis()}, 0.0
                     FROM products p JOIN container_types c ON c.stockItemId = p.id
                     WHERE p.stockMode = 'BULK' AND p.openContainerRemaining <> 0.0
                     """.trimIndent()
                 )
 
                 // Every product gets a one-to-one recipe against its own new item.
-                db.execSQL(
+                connection.execSQL(
                     """
                     INSERT INTO product_components (productId, stockItemId, quantityPerUnit)
                     SELECT id, id, 1.0 FROM products
@@ -202,7 +203,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
 
                 // Goods receipts move from products to stock items; the ids line up.
-                db.execSQL(
+                connection.execSQL(
                     """
                     CREATE TABLE stock_entries_new (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -212,19 +213,19 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL(
+                connection.execSQL(
                     """
                     INSERT INTO stock_entries_new (id, stockItemId, itemName, quantity, unitLabel, totalCost, note, source, timestamp)
                     SELECT id, productId, productName, quantity, unitLabel, totalCost, note, source, timestamp FROM stock_entries
                     """.trimIndent()
                 )
-                db.execSQL("DROP TABLE stock_entries")
-                db.execSQL("ALTER TABLE stock_entries_new RENAME TO stock_entries")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_stockItemId ON stock_entries(stockItemId)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_timestamp ON stock_entries(timestamp)")
+                connection.execSQL("DROP TABLE stock_entries")
+                connection.execSQL("ALTER TABLE stock_entries_new RENAME TO stock_entries")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_stockItemId ON stock_entries(stockItemId)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_timestamp ON stock_entries(timestamp)")
 
                 // Products shed their stock columns.
-                db.execSQL(
+                connection.execSQL(
                     """
                     CREATE TABLE products_new (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -233,7 +234,7 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL(
+                connection.execSQL(
                     """
                     INSERT INTO products_new (id, name, price, category, imageUrl, hasVariants, servingSize)
                     SELECT id, name, price, category, imageUrl, hasVariants,
@@ -241,8 +242,8 @@ abstract class AppDatabase : RoomDatabase() {
                     FROM products
                     """.trimIndent()
                 )
-                db.execSQL("DROP TABLE products")
-                db.execSQL("ALTER TABLE products_new RENAME TO products")
+                connection.execSQL("DROP TABLE products")
+                connection.execSQL("ALTER TABLE products_new RENAME TO products")
             }
         }
 
@@ -253,8 +254,8 @@ abstract class AppDatabase : RoomDatabase() {
          * simply means "booked without a receipt attached".
          */
         private val MIGRATION_9_10 = object : Migration(9, 10) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS deliveries (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -266,27 +267,30 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_deliveries_timestamp ON deliveries(timestamp)")
-                db.execSQL("ALTER TABLE stock_entries ADD COLUMN deliveryId INTEGER")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_deliveryId ON stock_entries(deliveryId)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_deliveries_timestamp ON deliveries(timestamp)")
+                connection.execSQL("ALTER TABLE stock_entries ADD COLUMN deliveryId INTEGER")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_stock_entries_deliveryId ON stock_entries(deliveryId)")
             }
         }
 
-        fun getDatabase(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "vereins_kassensystem_db"
-                )
-                    .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
-                    // Backstop for pre-7 development builds only; 7 -> 8 -> 9 have real
-                    // paths and will not drop anyone's balance.
-                    .fallbackToDestructiveMigration(true)
-                    .build()
-                INSTANCE = instance
-                instance
-            }
-        }
+        /**
+         * Die Wanderungen, in der Reihenfolge, in der sie angewandt werden.
+         *
+         * Liegen hier statt im Bauaufruf, weil der jetzt je Plattform eigen ist —
+         * Android und iOS sollen aber unmoeglich verschiedene Schemata bekommen.
+         */
+        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+
+        const val FILE_NAME = "vereins_kassensystem_db"
     }
+}
+
+/**
+ * Room erzeugt die Implementierung je Ziel selbst; dieses Objekt ist der Haken, an dem
+ * der erzeugte Code haengt. Unter Android und iOS steht dazu je ein `actual object` mit
+ * leerem Rumpf — den Inhalt setzt der Room-Prozessor ein.
+ */
+@Suppress("NO_ACTUAL_FOR_EXPECT", "KotlinNoActualForExpect")
+expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
+    override fun initialize(): AppDatabase
 }

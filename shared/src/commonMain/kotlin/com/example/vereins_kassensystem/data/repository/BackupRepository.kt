@@ -14,6 +14,7 @@ import java.util.Calendar
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import com.example.vereins_kassensystem.platform.nowMillis
 
 class BackupRepository(private val context: Context) {
 
@@ -22,7 +23,7 @@ class BackupRepository(private val context: Context) {
 
     suspend fun createBackup(outputUri: Uri? = null): Boolean = withContext(Dispatchers.IO) {
         try {
-            val timestamp = System.currentTimeMillis()
+            val timestamp = nowMillis()
             val backupFileName = "VereinsDeckel_Backup_$timestamp.zip"
             
             val tempFile = File(context.cacheDir, backupFileName)

@@ -1,81 +1,76 @@
 package com.example.vereins_kassensystem.ui.format
 
-import java.text.NumberFormat
-import java.util.Currency
-import java.util.Locale
+import kotlin.math.abs
 
 /**
- * Currency formatting, in one place.
+ * Währungsformatierung, an einer Stelle.
  *
- * Previously every screen built its own with `String.format("%.2f") + " €"`, which
- * ignores the device locale and disagreed with the German date formatting used a few
- * lines away. A club running this app is invoicing in euro and reading German, so the
- * format is pinned rather than left to the device: 1234.5 renders as "1.234,50 €".
+ * Vorher baute jeder Bildschirm sie sich selbst aus `String.format("%.2f") + " €"`, was
+ * die Gerätesprache ignoriert und mit der deutschen Datumsformatierung ein paar Zeilen
+ * weiter uneins war. Ein Verein, der diese App betreibt, rechnet in Euro und liest
+ * deutsch, also ist das Format festgelegt statt dem Gerät überlassen: 1234.5 wird zu
+ * "1.234,50 €".
+ *
+ * Seit der Umstellung auf zwei Plattformen kommt ein zweiter Grund dazu — `NumberFormat`
+ * gibt es auf iOS nicht. Gerechnet wird darum in [Decimals], und zwar für beide
+ * Plattformen gleich. Ein Betrag sieht auf dem iPad aus wie auf dem Android-Tablet, was
+ * beim Abgleich zweier Kassen keine Kleinigkeit ist.
  */
 object Money {
 
-    private val locale: Locale = Locale.GERMANY
+    /** "1.234,50 €" — die Standardform für alles, was der Nutzer als Betrag liest. */
+    fun format(amount: Double): String =
+        Decimals.grouped(Decimals.fixed(amount, 2)) + " €"
 
-    private val formatter: NumberFormat =
-        NumberFormat.getCurrencyInstance(locale).apply {
-            currency = Currency.getInstance("EUR")
-            minimumFractionDigits = 2
-            maximumFractionDigits = 2
-        }
-
-    /** "1.234,50 €" — the default for anything the user reads as an amount. */
-    fun format(amount: Double): String = synchronized(formatter) {
-        formatter.format(amount)
-    }
-
-    /** "+5,00 €" / "−12,50 €", for balance movements where direction is the point. */
+    /** "+5,00 €" / "−12,50 €", für Saldenbewegungen, bei denen die Richtung der Punkt ist. */
     fun formatSigned(amount: Double): String {
-        val body = format(kotlin.math.abs(amount))
+        val body = format(abs(amount))
         return when {
             amount > 0.0 -> "+$body"
-            amount < 0.0 -> "−$body" // real minus sign, not a hyphen
+            amount < 0.0 -> "−$body" // echtes Minuszeichen, kein Bindestrich
             else -> body
         }
     }
 
     /**
-     * Plain decimal with no currency symbol, for text fields and CSV where a symbol
-     * would have to be stripped again.
+     * Reine Dezimalzahl ohne Währungszeichen, für Eingabefelder und CSV, wo das Zeichen
+     * gleich wieder entfernt werden müsste.
      */
-    fun formatPlain(amount: Double): String = String.format(locale, "%.2f", amount)
+    fun formatPlain(amount: Double): String = Decimals.fixed(amount, 2)
 
     /**
-     * Reads what a user typed into an amount field, accepting either decimal separator.
-     * Returns null when the input is not a number, so callers can keep the field in an
-     * error state rather than silently charging zero.
+     * Liest, was jemand in ein Betragsfeld getippt hat, und akzeptiert beide
+     * Dezimaltrennzeichen. Gibt null zurück, wenn die Eingabe keine Zahl ist, damit der
+     * Aufrufer das Feld im Fehlerzustand lassen kann, statt stillschweigend null zu
+     * buchen.
      *
-     * Whichever separator appears last is the decimal one, so "1.234,50" and "1,234.50"
-     * both give 1234.50. A lone separator is always read as the decimal point: someone
-     * typing "12.50" on a keypad means twelve fifty, and treating that dot as a
-     * thousands separator would charge them 1250.
+     * Welches Trennzeichen zuletzt vorkommt, ist das Dezimaltrennzeichen — "1.234,50" und
+     * "1,234.50" ergeben beide 1234,50. Ein einzelnes Trennzeichen gilt immer als
+     * Dezimalpunkt: Wer "12.50" auf einem Ziffernblock tippt, meint zwölf fünfzig, und
+     * diesen Punkt als Tausendertrenner zu lesen, würde ihm 1250 berechnen.
      */
     fun parse(input: String): Double? {
         val cleaned = input.trim()
             .replace("−", "-")
             .replace(" ", "")
-            .replace("\u00A0", "") // NBSP / narrow NBSP: what the euro
-            .replace("\u202F", "") // formatter puts before the symbol
-            .replace("\u20AC", "")
+            .replace(" ", "") // geschütztes Leerzeichen, schmal und normal —
+            .replace(" ", "") // das setzt die Euro-Formatierung vor das Zeichen
+            .replace("€", "")
         if (cleaned.isEmpty()) return null
 
         val lastDot = cleaned.lastIndexOf('.')
         val lastComma = cleaned.lastIndexOf(',')
 
         val normalised = when {
-            // Both present: the later one is the decimal separator.
+            // Beide vorhanden: das spätere ist das Dezimaltrennzeichen.
             lastDot >= 0 && lastComma >= 0 ->
                 if (lastDot > lastComma) cleaned.replace(",", "")
                 else cleaned.replace(".", "").replace(',', '.')
-            // Only commas: decimal separator, but "1,234,50" still needs grouping removed.
+            // Nur Kommas: Dezimaltrenner, aber "1,234,50" muss die Gruppierung los werden.
             lastComma >= 0 ->
                 cleaned.substring(0, lastComma).replace(",", "") +
                     "." + cleaned.substring(lastComma + 1)
-            // Only dots: same treatment, mirrored.
+            // Nur Punkte: dasselbe, gespiegelt.
             lastDot >= 0 ->
                 cleaned.substring(0, lastDot).replace(".", "") +
                     "." + cleaned.substring(lastDot + 1)

@@ -68,9 +68,7 @@ import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.viewmodel.InventoryRow
 import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.vereins_kassensystem.platform.VdDate
 
 /**
  * Lagerbestand — what the cellar holds, per Lagerartikel.
@@ -555,8 +553,6 @@ private fun EntryHistory(entries: List<StockEntry>, modifier: Modifier = Modifie
         return
     }
 
-    val dateFormat = remember { SimpleDateFormat("dd. MMM · HH:mm", Locale.GERMANY) }
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(Spacing.lg),
@@ -576,7 +572,7 @@ private fun EntryHistory(entries: List<StockEntry>, modifier: Modifier = Modifie
                         Text(entry.itemName, style = MaterialTheme.typography.titleSmall)
                         Text(
                             text = buildString {
-                                append(dateFormat.format(Date(entry.timestamp)))
+                                append(VdDate.dayAndTime(entry.timestamp))
                                 append(" · ").append(entry.unitLabel)
                                 entry.note?.let { append(" · ").append(it) }
                             },

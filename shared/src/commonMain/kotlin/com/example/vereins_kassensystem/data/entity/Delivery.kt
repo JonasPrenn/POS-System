@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.data.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.nowMillis
 
 /**
  * A delivery — one Kassabon, with its lines and a photo of the receipt itself.
@@ -39,5 +40,5 @@ data class Delivery(
     val photoUri: String? = null,
 
     val note: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = nowMillis()
 )

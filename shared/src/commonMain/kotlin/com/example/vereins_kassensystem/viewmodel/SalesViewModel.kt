@@ -12,8 +12,7 @@ import com.example.vereins_kassensystem.data.stock.StockItemState
 import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.Locale
-import java.util.UUID
+import com.example.vereins_kassensystem.platform.Ids
 
 data class CartItem(
     val product: Product,
@@ -28,7 +27,7 @@ data class CartItem(
      * (`-2L`) — so two manual amounts produced duplicate keys in the cart list, and
      * editing one of them hit whichever came first.
      */
-    val lineId: String = UUID.randomUUID().toString()
+    val lineId: String = Ids.new()
 ) {
     val finalPrice: Double
         get() = ((variant?.price ?: product.price) * (1.0 - discountPercent / 100.0)) - fixedDiscount
@@ -227,7 +226,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return@launch
 
         val cartTotal = currentCart.sumOf { (it.variant?.price ?: it.product.price) * it.quantity }
-        val transactionGroupId = UUID.randomUUID().toString()
+        val transactionGroupId = Ids.new()
         val memberName = member?.name
 
         if (paymentType == "MEMBER_BALANCE" && member != null) {

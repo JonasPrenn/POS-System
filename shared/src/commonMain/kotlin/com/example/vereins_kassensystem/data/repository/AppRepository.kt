@@ -4,6 +4,8 @@ import com.example.vereins_kassensystem.data.dao.*
 import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.stock.Inventory
 import kotlinx.coroutines.flow.Flow
+import com.example.vereins_kassensystem.platform.nowMillis
+import com.example.vereins_kassensystem.platform.Ids
 
 class AppRepository(
     private val productDao: ProductDao,
@@ -33,7 +35,7 @@ class AppRepository(
     suspend fun updateMember(member: Member) = memberDao.updateMember(member)
     suspend fun deleteMember(member: Member) = memberDao.deleteMember(member)
     suspend fun updateMemberBalance(memberId: Long, amount: Double) = memberDao.updateBalance(memberId, amount)
-    suspend fun updateMemberLastUsed(memberId: Long) = memberDao.updateLastUsedTimestamp(memberId, System.currentTimeMillis())
+    suspend fun updateMemberLastUsed(memberId: Long) = memberDao.updateLastUsedTimestamp(memberId, nowMillis())
 
     suspend fun insertCategory(category: MemberCategory) = categoryDao.insertCategory(category)
     suspend fun updateCategory(category: MemberCategory) = categoryDao.updateCategory(category)
@@ -175,7 +177,7 @@ class AppRepository(
     ) {
         stockDao.updateTapped(
             container.copy(
-                closedAt = System.currentTimeMillis(),
+                closedAt = nowMillis(),
                 closeReason = reason,
                 discardedVolume = if (reason == ContainerCloseReason.SPOILED) discardedVolume else 0.0,
                 note = note
@@ -216,7 +218,7 @@ class AppRepository(
         memberDao.updateBalance(member.id, amount)
         transactionDao.insertTransaction(
             Transaction(
-                transactionGroupId = java.util.UUID.randomUUID().toString(),
+                transactionGroupId = Ids.new(),
                 memberId = member.id,
                 memberName = member.name,
                 productId = TOPUP_PRODUCT_ID,
@@ -228,7 +230,7 @@ class AppRepository(
                 note = reason
             )
         )
-        memberDao.updateLastUsedTimestamp(member.id, System.currentTimeMillis())
+        memberDao.updateLastUsedTimestamp(member.id, nowMillis())
     }
 
     companion object {

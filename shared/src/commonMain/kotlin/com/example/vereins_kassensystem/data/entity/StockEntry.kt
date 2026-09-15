@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.data.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.nowMillis
 
 /** Where a goods receipt came from. */
 enum class StockEntrySource { MANUAL, SCAN, CORRECTION }
@@ -41,7 +42,7 @@ data class StockEntry(
 
     val note: String? = null,
     val source: StockEntrySource = StockEntrySource.MANUAL,
-    val timestamp: Long = System.currentTimeMillis(),
+    val timestamp: Long = nowMillis(),
 
     /**
      * The receipt this line came from, if any.

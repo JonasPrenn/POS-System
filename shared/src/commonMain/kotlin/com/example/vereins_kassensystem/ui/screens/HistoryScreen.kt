@@ -48,9 +48,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.viewmodel.SalesViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.vereins_kassensystem.platform.VdDate
 
 @Composable
 fun HistoryScreen(viewModel: SalesViewModel) {
@@ -92,7 +90,7 @@ private fun TransactionGroupItem(items: List<Transaction>) {
     val first = items.first()
 
     val total = items.sumOf { it.price * it.quantity - it.discountAmount }
-    val dateFormat = remember { SimpleDateFormat("dd. MMM · HH:mm", Locale.GERMANY) }
+    
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
 
     Surface(
@@ -114,7 +112,7 @@ private fun TransactionGroupItem(items: List<Transaction>) {
                         maxLines = 1
                     )
                     Text(
-                        text = dateFormat.format(Date(first.timestamp)),
+                        text = VdDate.dayAndTime(first.timestamp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

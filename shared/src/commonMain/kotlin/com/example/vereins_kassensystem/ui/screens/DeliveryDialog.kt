@@ -55,6 +55,7 @@ import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import java.io.File
+import com.example.vereins_kassensystem.platform.nowMillis
 
 /** One editable row of the receipt being entered. */
 data class DeliveryLineDraft(
@@ -381,6 +382,6 @@ fun DeliveryDialog(
  */
 private fun createPhotoUri(context: android.content.Context): Uri {
     val dir = File(context.filesDir, "belege").apply { mkdirs() }
-    val file = File(dir, "bon_${System.currentTimeMillis()}.jpg")
+    val file = File(dir, "bon_${nowMillis()}.jpg")
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }

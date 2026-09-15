@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.nowMillis
 
 /**
  * How a [StockItem] is held.
@@ -120,7 +121,7 @@ data class TappedContainer(
     /** Volume drawn so far, in the stock item's unit. */
     val drawn: Double = 0.0,
 
-    val openedAt: Long = System.currentTimeMillis(),
+    val openedAt: Long = nowMillis(),
     val closedAt: Long? = null,
     val closeReason: ContainerCloseReason? = null,
 
