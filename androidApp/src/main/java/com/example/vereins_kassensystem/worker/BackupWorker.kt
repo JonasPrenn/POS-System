@@ -1,41 +1,24 @@
 package com.example.vereins_kassensystem.worker
 
 import android.content.Context
-import android.net.Uri
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.vereins_kassensystem.data.SettingsRepository
-import com.example.vereins_kassensystem.data.repository.BackupRepository
-import com.example.vereins_kassensystem.platform.AndroidSettingsStore
+import com.example.vereins_kassensystem.KassenApplication
 import kotlinx.coroutines.flow.first
 
+/**
+ * Die tägliche Sicherung, von WorkManager angestoßen (siehe AndroidBackupScheduler).
+ * Holt sich Repository und Einstellungen über die Application, statt eigene Instanzen
+ * zu bauen — sonst gäbe es zwei Datenbankverbindungen auf dieselbe Datei.
+ */
 class BackupWorker(
     context: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val settingsRepository = SettingsRepository(AndroidSettingsStore(applicationContext))
-        val backupRepository = BackupRepository(applicationContext)
-        
-        val uriString = settingsRepository.backupDestination.first()
-        val isAutoBackupEnabled = settingsRepository.autoBackupEnabled.first()
-
-        if (!isAutoBackupEnabled || uriString == null) {
-            return Result.success()
-        }
-
-        return try {
-            val uri = Uri.parse(uriString)
-            val success = backupRepository.createBackup(uri)
-            if (success) {
-                backupRepository.cleanupOldBackups(uri)
-                Result.success()
-            } else {
-                Result.retry()
-            }
-        } catch (e: Exception) {
-            Result.failure()
-        }
+        val app = applicationContext as KassenApplication
+        if (!app.settingsRepository.autoBackupEnabled.first()) return Result.success()
+        return if (app.backupRepository.createBackup()) Result.success() else Result.retry()
     }
 }

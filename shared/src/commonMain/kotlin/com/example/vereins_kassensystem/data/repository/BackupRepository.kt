@@ -1,135 +1,119 @@
 package com.example.vereins_kassensystem.data.repository
 
-import android.content.Context
-import android.net.Uri
-import android.util.Log
-import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.util.Calendar
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
+import androidx.room.useWriterConnection
+import com.example.vereins_kassensystem.data.AppDatabase
+import com.example.vereins_kassensystem.data.SettingsRepository
+import com.example.vereins_kassensystem.platform.BackupExchange
+import com.example.vereins_kassensystem.platform.VdDate
+import com.example.vereins_kassensystem.platform.databaseFilePath
+import com.example.vereins_kassensystem.platform.deleteFile
+import com.example.vereins_kassensystem.platform.fileExists
+import com.example.vereins_kassensystem.platform.moveFile
 import com.example.vereins_kassensystem.platform.nowMillis
+import com.example.vereins_kassensystem.platform.readFile
+import com.example.vereins_kassensystem.platform.writeFile
+import kotlinx.coroutines.flow.Flow
 
-class BackupRepository(private val context: Context) {
+/**
+ * Sichern und Wiederherstellen.
+ *
+ * Eine Sicherung ist genau eine Datei: die SQLite-Datenbank nach einem Checkpoint. Das
+ * frühere Zip verpackte die Datenbank samt WAL-Dateien und einen Abzug der
+ * verschlüsselten Einstellungen — der WAL ist nach dem Checkpoint leer, und die
+ * Einstellungen waren mit einem Geräteschlüssel verschlüsselt, auf einem anderen Gerät
+ * also ohnehin nicht lesbar. Übrig bleibt eine Datei, die sich auf beiden Plattformen
+ * ohne Archivbibliothek schreiben lässt.
+ *
+ * Wo die Datei landet, weiß [BackupExchange]; was zuletzt gesichert wurde, merkt sich
+ * [SettingsRepository], weil der Hintergrundplaner auf iOS darüber keine Auskunft gibt.
+ */
+class BackupRepository(
+    private val database: AppDatabase,
+    private val exchange: BackupExchange,
+    private val settings: SettingsRepository
+) {
 
-    private val dbName = "vereins_kassensystem_db"
-    private val prefsName = "secure_settings.xml"
+    /** Zeitpunkt der letzten erfolgreichen Sicherung, oder null. */
+    val lastBackupAt: Flow<Long?> get() = settings.lastBackupAt
 
-    suspend fun createBackup(outputUri: Uri? = null): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val timestamp = nowMillis()
-            val backupFileName = "VereinsDeckel_Backup_$timestamp.zip"
-            
-            val tempFile = File(context.cacheDir, backupFileName)
-            
-            ZipOutputStream(FileOutputStream(tempFile)).use { zos ->
-                // 1. Backup Database
-                val dbFile = context.getDatabasePath(dbName)
-                if (dbFile.exists()) {
-                    addToZip(zos, dbFile, dbName)
-                    // Also backup -wal and -shm files if they exist
-                    val walFile = File("${dbFile.path}-wal")
-                    if (walFile.exists()) addToZip(zos, walFile, "$dbName-wal")
-                    val shmFile = File("${dbFile.path}-shm")
-                    if (shmFile.exists()) addToZip(zos, shmFile, "$dbName-shm")
-                }
+    suspend fun hasDestination(): Boolean = exchange.hasDestination()
 
-                // 2. Backup Shared Preferences
-                val prefsFile = File(context.filesDir.parent, "shared_prefs/$prefsName")
-                if (prefsFile.exists()) {
-                    addToZip(zos, prefsFile, "prefs_$prefsName")
-                }
+    suspend fun destinationLabel(): String? = exchange.destinationLabel()
+
+    /**
+     * Schreibt eine Sicherung an den gewählten Ort und räumt dort Sicherungen weg, die
+     * älter als eine Woche sind. Liefert false, wenn kein Ort gewählt ist oder das
+     * Schreiben scheitert.
+     */
+    suspend fun createBackup(): Boolean {
+        if (!exchange.hasDestination()) return false
+        val bytes = snapshotDatabase() ?: return false
+        val fileName = FILE_PREFIX + VdDate.fileStamp(nowMillis()) + FILE_SUFFIX
+        if (!exchange.writeBackup(bytes, fileName)) return false
+        settings.setLastBackupAt(nowMillis())
+        deleteOldBackups()
+        return true
+    }
+
+    /**
+     * Die Datenbank als Bytes, konsistent.
+     *
+     * Der Checkpoint schreibt alles aus dem Write-Ahead-Log in die Hauptdatei; die
+     * Datei wird gelesen, solange die Schreibverbindung gehalten wird, damit zwischen
+     * Checkpoint und Kopie niemand einen Verkauf dazwischen bucht.
+     */
+    private suspend fun snapshotDatabase(): ByteArray? = database.useWriterConnection { transactor ->
+        transactor.usePrepared("PRAGMA wal_checkpoint(TRUNCATE)") { statement ->
+            while (statement.step()) {
+                // Die Ergebniszeile (busy, log, checkpointed) ist hier ohne Belang.
             }
-
-            if (outputUri != null) {
-                // For manual or auto-export to a chosen directory
-                val folder = DocumentFile.fromTreeUri(context, outputUri)
-                val file = folder?.createFile("application/zip", backupFileName)
-                file?.uri?.let { uri ->
-                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                        FileInputStream(tempFile).use { inputStream ->
-                            inputStream.copyTo(outputStream)
-                        }
-                    }
-                }
-            } else {
-                // Handle as a simple file return or specific internal storage if needed
-            }
-            
-            tempFile.delete()
-            true
-        } catch (e: Exception) {
-            Log.e("BackupRepository", "Error creating backup", e)
-            false
         }
+        readFile(databaseFilePath())
     }
 
-    private fun addToZip(zos: ZipOutputStream, file: File, entryName: String) {
-        val entry = ZipEntry(entryName)
-        zos.putNextEntry(entry)
-        FileInputStream(file).use { it.copyTo(zos) }
-        zos.closeEntry()
+    /**
+     * Legt eine Sicherung zum Einspielen bereit.
+     *
+     * Die laufende Datenbank wird nicht überschrieben — Room hält sie offen, und eine
+     * Datei unter einer offenen Verbindung auszutauschen ist genau die Sorte Fehler, die
+     * sich erst beim übernächsten Start zeigt. Stattdessen liegt die Datei daneben und
+     * wird beim nächsten Start vor dem Öffnen übernommen, siehe [applyStagedRestore].
+     * Die Oberfläche bittet um einen Neustart.
+     */
+    suspend fun stageRestore(bytes: ByteArray): Boolean {
+        if (!looksLikeSqlite(bytes)) return false
+        return writeFile(databaseFilePath() + RESTORE_SUFFIX, bytes)
     }
 
-    suspend fun restoreBackup(inputUri: Uri): Boolean = withContext(Dispatchers.IO) {
-        try {
-            context.contentResolver.openInputStream(inputUri)?.use { inputStream ->
-                ZipInputStream(inputStream).use { zis ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        when (entry.name) {
-                            dbName -> {
-                                val dbFile = context.getDatabasePath(dbName)
-                                FileOutputStream(dbFile).use { zis.copyTo(it) }
-                            }
-                            "$dbName-wal" -> {
-                                val walFile = File("${context.getDatabasePath(dbName).path}-wal")
-                                FileOutputStream(walFile).use { zis.copyTo(it) }
-                            }
-                            "$dbName-shm" -> {
-                                val shmFile = File("${context.getDatabasePath(dbName).path}-shm")
-                                FileOutputStream(shmFile).use { zis.copyTo(it) }
-                            }
-                            "prefs_$prefsName" -> {
-                                val prefsFile = File(context.filesDir.parent, "shared_prefs/$prefsName")
-                                FileOutputStream(prefsFile).use { zis.copyTo(it) }
-                            }
-                        }
-                        zis.closeEntry()
-                        entry = zis.nextEntry
-                    }
-                }
-            }
-            true
-        } catch (e: Exception) {
-            Log.e("BackupRepository", "Error restoring backup", e)
-            false
-        }
+    private suspend fun deleteOldBackups() {
+        val cutoff = nowMillis() - 7L * 24 * 60 * 60 * 1000
+        exchange.listBackups()
+            .filter { it.name.startsWith(FILE_PREFIX) && it.modifiedAt in 1 until cutoff }
+            .forEach { exchange.deleteBackup(it.name) }
     }
 
-    suspend fun cleanupOldBackups(directoryUri: Uri) = withContext(Dispatchers.IO) {
-        try {
-            val folder = DocumentFile.fromTreeUri(context, directoryUri)
-            val files = folder?.listFiles() ?: return@withContext
-            
-            val oneWeekAgo = Calendar.getInstance().apply {
-                add(Calendar.DAY_OF_YEAR, -7)
-            }.timeInMillis
+    companion object {
+        const val FILE_PREFIX = "VereinsDeckel_Backup_"
+        const val FILE_SUFFIX = ".sqlite3"
+        const val RESTORE_SUFFIX = ".restore"
 
-            files.forEach { file ->
-                if ((file.name?.startsWith("VereinsDeckel_Backup_") == true) && (file.lastModified() < oneWeekAgo)) {
-                    file.delete()
-                    Log.d("BackupRepository", "Deleted old backup: ${file.name}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("BackupRepository", "Error cleaning up backups", e)
+        /** Die ersten sechzehn Bytes jeder SQLite-Datei: der Text plus ein Nullbyte. */
+        private val SQLITE_MAGIC = "SQLite format 3".encodeToByteArray() + byteArrayOf(0)
+
+        /** Alles andere wird gar nicht erst als Wiederherstellung abgelegt. */
+        fun looksLikeSqlite(bytes: ByteArray): Boolean =
+            bytes.size > SQLITE_MAGIC.size && bytes.copyOfRange(0, SQLITE_MAGIC.size).contentEquals(SQLITE_MAGIC)
+
+        /**
+         * Übernimmt eine bereitgelegte Sicherung. Muss laufen, bevor Room die Datenbank
+         * öffnet; [com.example.vereins_kassensystem.data.buildDatabase] ruft es auf.
+         */
+        fun applyStagedRestore() {
+            val db = databaseFilePath()
+            val staged = db + RESTORE_SUFFIX
+            if (!fileExists(staged)) return
+            listOf(db, "$db-wal", "$db-shm", "$db-journal").forEach { if (fileExists(it)) deleteFile(it) }
+            moveFile(staged, db)
         }
     }
 }

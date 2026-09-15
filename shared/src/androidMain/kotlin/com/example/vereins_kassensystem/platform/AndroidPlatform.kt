@@ -3,6 +3,12 @@ package com.example.vereins_kassensystem.platform
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ListenableWorker
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequest
+import androidx.work.WorkManager
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -13,6 +19,7 @@ import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
 /**
  * Hält den Application-Context für die Teile des geteilten Moduls, die ihn brauchen.
@@ -106,4 +113,36 @@ class AndroidPlatform(
     override val kind: PlatformKind = PlatformKind.ANDROID
 
     override val settings: SettingsStore = AndroidSettingsStore(application)
+}
+
+/**
+ * Tägliche Sicherung über WorkManager.
+ *
+ * Der Worker selbst bleibt im App-Modul (androidApp/.../worker/BackupWorker.kt), weil er
+ * an die Application herankommen muss; hier wird nur seine Klasse angesteuert. Der
+ * eindeutige Name ist der aus der alten Fassung, damit ein bereits eingeplanter Lauf
+ * auf dem Gerät nicht doppelt existiert.
+ */
+class AndroidBackupScheduler(
+    private val context: Context,
+    private val workerClass: Class<out ListenableWorker>
+) : BackupScheduler {
+
+    override fun attach(work: suspend () -> Boolean) = Unit
+
+    override suspend fun enableDaily() {
+        val request = PeriodicWorkRequest.Builder(workerClass, 1, TimeUnit.DAYS)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
+            .build()
+        WorkManager.getInstance(context)
+            .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    override suspend fun disable() {
+        WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+    }
+
+    private companion object {
+        const val WORK_NAME = "DailyBackup"
+    }
 }

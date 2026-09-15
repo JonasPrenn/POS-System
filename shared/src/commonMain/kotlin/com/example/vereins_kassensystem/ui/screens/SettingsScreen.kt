@@ -1,8 +1,5 @@
 package com.example.vereins_kassensystem.ui.screens
 
-import androidx.core.net.toUri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,22 +7,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.work.*
 import com.example.vereins_kassensystem.data.SettingsRepository
+import com.example.vereins_kassensystem.data.repository.BackupRepository
+import com.example.vereins_kassensystem.platform.LocalPlatform
+import com.example.vereins_kassensystem.platform.VdDate
+import com.example.vereins_kassensystem.platform.rememberBackupDestinationPicker
+import com.example.vereins_kassensystem.platform.rememberBackupFileReader
 import com.example.vereins_kassensystem.ui.components.AppearanceSection
 import com.example.vereins_kassensystem.ui.components.ClubIdentitySection
 import com.example.vereins_kassensystem.ui.components.VdSection
 import com.example.vereins_kassensystem.ui.components.VdTopBar
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 import com.example.vereins_kassensystem.ui.theme.ClubIdentity
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
-import com.example.vereins_kassensystem.data.repository.BackupRepository
-import com.example.vereins_kassensystem.worker.BackupWorker
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
-import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,61 +31,42 @@ fun SettingsScreen(
     backupRepository: BackupRepository,
     onSumUpLogin: () -> Unit
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    
+    val backupScheduler = LocalPlatform.current.backupScheduler
+
     val sumUpKey by settingsRepository.sumUpAffiliateKey.collectAsState(initial = "")
     var editedKey by remember(sumUpKey) { mutableStateOf(sumUpKey) }
 
     val clubIdentity by settingsRepository.clubIdentity.collectAsState(initial = ClubIdentity())
     val themeMode by settingsRepository.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
-    val backupUri by settingsRepository.backupDestination.collectAsState(initial = null)
+    val backupDestination by settingsRepository.backupDestination.collectAsState(initial = null)
     val autoBackupEnabled by settingsRepository.autoBackupEnabled.collectAsState(initial = false)
+    val lastBackupAt by backupRepository.lastBackupAt.collectAsState(initial = null)
 
-    val folderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        uri?.let {
-            // Take persistable URI permission
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    // Der Ort ist ein plattformeigener Verweis; lesbar macht ihn erst die Plattform.
+    val destinationLabel by produceState<String?>(initialValue = null, backupDestination) {
+        value = backupRepository.destinationLabel()
+    }
+
+    val destinationPicker = rememberBackupDestinationPicker { ref ->
+        scope.launch { settingsRepository.setBackupDestination(ref) }
+    }
+    val restorePicker = rememberBackupFileReader { bytes ->
+        scope.launch {
+            val ok = backupRepository.stageRestore(bytes)
+            snackbarHostState.showSnackbar(
+                if (ok) "Sicherung bereitgelegt. Bitte die App beenden und neu starten."
+                else "Das ist keine VereinsDeckel-Sicherung."
             )
-            scope.launch {
-                settingsRepository.setBackupDestination(it.toString())
-            }
         }
     }
 
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            scope.launch {
-                val success = backupRepository.restoreBackup(it)
-                if (success) {
-                    snackbarHostState.showSnackbar("Wiederherstellung erfolgreich. Bitte App neu starten.")
-                } else {
-                    snackbarHostState.showSnackbar("Fehler bei der Wiederherstellung.")
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(autoBackupEnabled, backupUri) {
-        if ((autoBackupEnabled) && (backupUri != null)) {
-            val backupWorkRequest = PeriodicWorkRequestBuilder<BackupWorker>(1, TimeUnit.DAYS)
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
-                .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                "DailyBackup",
-                ExistingPeriodicWorkPolicy.KEEP,
-                backupWorkRequest
-            )
-        } else {
-            WorkManager.getInstance(context).cancelUniqueWork("DailyBackup")
-        }
+    // Der Planer folgt der Einstellung: unter Android ein WorkManager-Auftrag, unter iOS
+    // eine Bitte an das System. Beides lässt sich gefahrlos wiederholen.
+    LaunchedEffect(autoBackupEnabled, backupDestination) {
+        if (autoBackupEnabled && backupDestination != null) backupScheduler.enableDaily()
+        else backupScheduler.disable()
     }
 
     Scaffold(
@@ -174,12 +152,15 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Tägliches Backup", style = MaterialTheme.typography.titleSmall)
+                        Text("Automatisches Backup", style = MaterialTheme.typography.titleSmall)
+                        // Kein "täglich": iOS entscheidet selbst, wann ein Hintergrundlauf
+                        // stattfindet. Was zählt, ist, wann es zuletzt geklappt hat.
+                        val last = lastBackupAt
                         Text(
-                            text = if (backupUri == null) {
-                                "Erst einen Speicherort wählen."
-                            } else {
-                                "Läuft einmal täglich im Hintergrund."
+                            text = when {
+                                backupDestination == null -> "Erst einen Speicherort wählen."
+                                last != null -> "Zuletzt gesichert: ${VdDate.dayAndTime(last)}"
+                                else -> "Läuft im Hintergrund, sobald das Gerät Zeit dafür hat."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -189,12 +170,12 @@ fun SettingsScreen(
                     Switch(
                         checked = autoBackupEnabled,
                         onCheckedChange = { scope.launch { settingsRepository.setAutoBackupEnabled(it) } },
-                        enabled = backupUri != null
+                        enabled = backupDestination != null
                     )
                 }
 
                 OutlinedButton(
-                    onClick = { folderLauncher.launch(null) },
+                    onClick = { destinationPicker.open() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = TouchTarget.min),
@@ -202,12 +183,12 @@ fun SettingsScreen(
                 ) {
                     Icon(VdIcons.Folder, contentDescription = null)
                     Spacer(Modifier.width(Spacing.sm))
-                    Text(if (backupUri != null) "Speicherort ändern" else "Speicherort wählen")
+                    Text(if (backupDestination != null) "Speicherort ändern" else "Speicherort wählen")
                 }
 
-                if (backupUri != null) {
+                destinationLabel?.let { label ->
                     Text(
-                        text = backupUri!!.toUri().path.orEmpty(),
+                        text = label,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -219,7 +200,7 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             scope.launch {
-                                val success = backupRepository.createBackup(backupUri?.toUri())
+                                val success = backupRepository.createBackup()
                                 snackbarHostState.showSnackbar(if (success) "Backup erstellt" else "Fehler beim Backup")
                             }
                         },
@@ -227,7 +208,7 @@ fun SettingsScreen(
                             .weight(1f)
                             .heightIn(min = TouchTarget.min),
                         shape = MaterialTheme.shapes.small,
-                        enabled = backupUri != null
+                        enabled = backupDestination != null
                     ) {
                         Icon(VdIcons.CloudUpload, contentDescription = null)
                         Spacer(Modifier.width(Spacing.sm))
@@ -237,7 +218,7 @@ fun SettingsScreen(
                     // Restoring replaces the live database, so it does not get a filled
                     // button beside the harmless one — the two must not look interchangeable.
                     OutlinedButton(
-                        onClick = { restoreLauncher.launch("application/zip") },
+                        onClick = { restorePicker.open() },
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = TouchTarget.min),

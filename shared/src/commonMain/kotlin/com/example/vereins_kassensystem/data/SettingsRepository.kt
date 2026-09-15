@@ -36,7 +36,8 @@ class SettingsRepository(private val store: SettingsStore) {
         val backupDestination: String?,
         val autoBackupEnabled: Boolean,
         val sumUpAffiliateKey: String,
-        val apiBaseUrl: String?
+        val apiBaseUrl: String?,
+        val lastBackupAt: Long?
     )
 
     private val snapshot = MutableStateFlow<Snapshot?>(null)
@@ -56,7 +57,8 @@ class SettingsRepository(private val store: SettingsStore) {
         backupDestination = store.getString(KEY_BACKUP_DESTINATION),
         autoBackupEnabled = store.getString(KEY_AUTO_BACKUP)?.toBoolean() ?: false,
         sumUpAffiliateKey = store.getSecret(KEY_SUMUP_AFFILIATE_KEY).orEmpty(),
-        apiBaseUrl = store.getString(KEY_API_BASE_URL)
+        apiBaseUrl = store.getString(KEY_API_BASE_URL),
+        lastBackupAt = store.getString(KEY_LAST_BACKUP_AT)?.toLongOrNull()
     )
 
     private val settings: Flow<Snapshot> = snapshot.onStart { current() }.filterNotNull()
@@ -86,6 +88,9 @@ class SettingsRepository(private val store: SettingsStore) {
 
     /** Adresse des Servers für den Mehrgerätebetrieb; null, solange keiner eingerichtet ist. */
     val apiBaseUrl: Flow<String?> = settings.map { it.apiBaseUrl }.distinctUntilChanged()
+
+    /** Zeitpunkt der letzten erfolgreichen Sicherung; gerätelokal, weil die Sicherung es ist. */
+    val lastBackupAt: Flow<Long?> = settings.map { it.lastBackupAt }.distinctUntilChanged()
 
     private suspend fun write(persist: suspend () -> Unit, change: (Snapshot) -> Snapshot) {
         current()
@@ -120,6 +125,9 @@ class SettingsRepository(private val store: SettingsStore) {
             it.copy(apiBaseUrl = url)
         }
 
+    suspend fun setLastBackupAt(at: Long) =
+        write({ store.putString(KEY_LAST_BACKUP_AT, at.toString()) }) { it.copy(lastBackupAt = at) }
+
     private companion object {
         // Die Namen stammen aus der DataStore-Fassung und bleiben, damit ein bestehendes
         // Android-Gerät seine Einstellungen nach dem Update behält.
@@ -130,5 +138,6 @@ class SettingsRepository(private val store: SettingsStore) {
         const val KEY_AUTO_BACKUP = "auto_backup_enabled"
         const val KEY_SUMUP_AFFILIATE_KEY = "sumup_affiliate_key"
         const val KEY_API_BASE_URL = "api_base_url"
+        const val KEY_LAST_BACKUP_AT = "last_backup_at"
     }
 }

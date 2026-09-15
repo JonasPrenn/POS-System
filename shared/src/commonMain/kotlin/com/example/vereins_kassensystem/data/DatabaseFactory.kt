@@ -2,6 +2,7 @@ package com.example.vereins_kassensystem.data
 
 import androidx.room.RoomDatabase
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.example.vereins_kassensystem.data.repository.BackupRepository
 import kotlinx.coroutines.Dispatchers
 // Dispatchers.IO ist auf Kotlin/Native eine Erweiterung, kein Member; ohne diesen
 // Import sieht der Compiler dort nur die interne Fassung.
@@ -26,8 +27,11 @@ expect fun databaseBuilder(): RoomDatabase.Builder<AppDatabase>
  * genau die Art Fehler, die man nie findet. Der gebündelte Treiber ist auf beiden
  * Plattformen derselbe.
  */
-fun buildDatabase(): AppDatabase =
-    databaseBuilder()
+fun buildDatabase(): AppDatabase {
+    // Eine bereitgelegte Sicherung wird jetzt übernommen, solange noch keine Verbindung
+    // offen ist — siehe BackupRepository.stageRestore.
+    BackupRepository.applyStagedRestore()
+    return databaseBuilder()
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
         .addMigrations(*AppDatabase.MIGRATIONS)
@@ -35,3 +39,4 @@ fun buildDatabase(): AppDatabase =
         // haben echte Wege und werfen niemandem seinen Deckel weg.
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
+}

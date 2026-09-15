@@ -87,8 +87,22 @@ interface BackupExchange {
     suspend fun destinationLabel(): String?
 
     suspend fun writeBackup(bytes: ByteArray, fileName: String): Boolean
-    suspend fun readBackup(): ByteArray?
+
+    /** Was am Ablageort liegt, damit alte Sicherungen weggeräumt werden können. */
+    suspend fun listBackups(): List<BackupFile>
+
+    suspend fun deleteBackup(name: String): Boolean
 }
+
+/** Eine Datei am Ablageort; [modifiedAt] in Millisekunden seit 1970. */
+data class BackupFile(val name: String, val modifiedAt: Long)
+
+/**
+ * Baut den Austausch für den Ablageort, den [destination] liefert — das ist der Wert aus
+ * [rememberBackupDestinationPicker], wie ihn die Einstellungen halten. Eingelesen wird
+ * eine Sicherung nicht von hier, sondern über [rememberBackupFileReader].
+ */
+expect fun createBackupExchange(destination: suspend () -> String?): BackupExchange
 
 /**
  * Lässt den Ablageort für Sicherungen wählen.

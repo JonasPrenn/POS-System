@@ -112,14 +112,18 @@ sealed interface PaymentResult {
  * unterschiedlich starke Zusagen — iOS entscheidet selbst, wann und ob ein
  * Hintergrundlauf stattfindet, und knüpft das an das Nutzungsverhalten. Die Oberfläche
  * darf deshalb nicht versprechen, dass täglich gesichert wird; sie zeigt, wann zuletzt
- * gesichert wurde.
+ * gesichert wurde — das weiß das BackupRepository, nicht der Planer.
  */
 interface BackupScheduler {
+    /**
+     * Verbindet den Planer mit der Arbeit, die er auslösen soll; einmal beim Start.
+     * Der Planer löst aus, die App weiß, was zu tun ist — unter Android holt sich der
+     * Worker die Arbeit selbst über die Application, dort ist das ein Leerlauf.
+     */
+    fun attach(work: suspend () -> Boolean)
+
     suspend fun enableDaily()
     suspend fun disable()
-
-    /** Zeitpunkt der letzten erfolgreichen Sicherung, oder null. */
-    suspend fun lastBackupAt(): Long?
 }
 
 /**
