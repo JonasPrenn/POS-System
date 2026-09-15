@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.ClubTheme
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * How navigation is presented at this window size.
@@ -148,7 +147,7 @@ fun VereinsDeckelNavigation(
                 NavigationBarItem(
                     selected = current?.group == DestinationGroup.Management,
                     onClick = { showMoreSheet = true },
-                    icon = { Icon(Icons.Default.MoreHoriz, contentDescription = null) },
+                    icon = { Icon(VdIcons.MoreHoriz, contentDescription = null) },
                     label = { Text("Mehr") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = ClubTheme.onAccent,

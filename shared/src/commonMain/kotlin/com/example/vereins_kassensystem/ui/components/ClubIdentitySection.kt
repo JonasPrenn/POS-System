@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +27,7 @@ import com.example.vereins_kassensystem.ui.theme.ClubIdentity
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.theme.contrastingOn
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * Where a Verein makes the app its own.
@@ -49,7 +47,7 @@ fun ClubIdentitySection(
 ) {
     VdSection(
         title = "Verein",
-        icon = Icons.Default.Groups,
+        icon = VdIcons.Groups,
         modifier = modifier,
         // The section's own colour picker is right below it, so the mark follows the
         // pending choice rather than the theme, which only catches up once it is saved.
@@ -121,7 +119,7 @@ private fun AccentSwatch(
         Box(contentAlignment = Alignment.Center) {
             if (selected) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = VdIcons.Check,
                     contentDescription = null,
                     tint = contrastingOn(color),
                     modifier = Modifier.size(20.dp)

@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -27,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /** What the pay button is currently doing. */
 enum class PayState { Idle, Processing, Done }
@@ -89,7 +88,7 @@ fun PayButton(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Check,
+                        imageVector = VdIcons.Check,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )

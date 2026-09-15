@@ -17,10 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -56,6 +52,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import java.io.File
 import com.example.vereins_kassensystem.platform.nowMillis
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /** One editable row of the receipt being entered. */
 data class DeliveryLineDraft(
@@ -177,7 +174,7 @@ fun DeliveryDialog(
                                 onClick = { lines.remove(draft) },
                                 enabled = lines.size > 1
                             ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Position entfernen")
+                                Icon(VdIcons.Delete, contentDescription = "Position entfernen")
                             }
                         }
 
@@ -238,7 +235,7 @@ fun DeliveryDialog(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
+                        Icon(VdIcons.Add, contentDescription = null)
                         Spacer(Modifier.width(Spacing.sm))
                         Text("Position hinzufügen")
                     }
@@ -279,7 +276,7 @@ fun DeliveryDialog(
                             pendingPhotoUri = uri
                             takePicture.launch(uri)
                         }) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                            Icon(VdIcons.PhotoCamera, contentDescription = null)
                             Spacer(Modifier.width(Spacing.xs))
                             Text("Foto aufnehmen")
                         }
@@ -305,7 +302,7 @@ fun DeliveryDialog(
                                 onClick = { photoUri = null },
                                 modifier = Modifier.align(Alignment.TopEnd)
                             ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Foto entfernen")
+                                Icon(VdIcons.Delete, contentDescription = "Foto entfernen")
                             }
                         }
                     }

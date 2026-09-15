@@ -2,14 +2,11 @@ package com.example.vereins_kassensystem.data
 
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.RoomDatabaseConstructor
 import com.example.vereins_kassensystem.platform.AndroidContextHolder
 
-/**
- * Der Room-Prozessor fuellt diese Implementierung selbst aus; der Rumpf bleibt leer.
- */
-@Suppress("KotlinNoActualForExpect", "EXPECT_ACTUAL_MISMATCH")
-actual object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase>
+// Kein actual fuer AppDatabaseConstructor an dieser Stelle: Room erzeugt das
+// `actual object` je Ziel selbst, und eine handgeschriebene Fassung daneben lehnt der
+// Prozessor ab ("The @ConstructedBy definition must be an 'expect' declaration").
 
 actual fun databaseBuilder(): RoomDatabase.Builder<AppDatabase> {
     val context = AndroidContextHolder.application

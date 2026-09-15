@@ -1,10 +1,11 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.android.library)
+    // Nicht com.android.library: Seit AGP 9 verweigert das Plugin die Zusammenarbeit mit
+    // org.jetbrains.kotlin.multiplatform. Das Android-Ziel wird stattdessen unten ueber
+    // kotlin { android {} } eingerichtet, der fruehere android {}-Block entfaellt.
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
@@ -13,14 +14,20 @@ plugins {
 }
 
 kotlin {
-    androidTarget {
-        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+    android {
+        namespace = "com.example.vereins_kassensystem.shared"
+        compileSdk = 37
+        minSdk = 26
+        // Laesst commonTest auch auf der JVM laufen; ohne das kaeme :shared:allTests nur
+        // ueber den iOS-Simulator an die Tests, und der ist der langsamere Weg.
+        withHostTest {}
     }
 
-    // Drei Ziele: iPhone/iPad als Geraet (arm64), der Simulator auf Apple Silicon und
-    // der auf Intel-Macs. Wer nur auf einem Mac mit M-Chip baut, braucht iosX64 nicht,
-    // aber es kostet nichts ausser Buildzeit und erspart spaeteres Nachruesten.
-    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
+    // Zwei Ziele: iPhone/iPad als Geraet (arm64) und der Simulator auf Apple Silicon.
+    // Den Intel-Simulator (iosX64) gibt es nicht mehr: Compose 1.12, Lifecycle 2.11 und
+    // Navigation 2.10 veroeffentlichen dafuer keine Artefakte, und ein Ziel ohne
+    // Bibliotheken bricht die Aufloesung fuer alle Source-Sets.
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "Shared"
             // Statisch, weil das SumUp-iOS-SDK als Framework danebenliegt und ein
@@ -32,23 +39,25 @@ kotlin {
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
+        // Wie schon im alten App-Modul: Die Bildschirme benutzen TopAppBar & Co. ohne
+        // eigenes , das Flag gilt fuer alle Ziele gemeinsam.
+        freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api")
     }
 
     sourceSets {
         commonMain.dependencies {
-            // Ueber die Plugin-Accessors statt ueber feste Koordinaten: seit CMP 1.10
-            // liegen die Artefakte unter androidx.compose.* und das Plugin loest das
-            // selbst auf. Haette man sie hier hart eingetragen, waere der naechste
-            // Versionssprung ein Suchspiel.
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
+            // Feste Koordinaten statt der Plugin-Accessors (compose.runtime usw.): Die
+            // sind seit CMP 1.12 veraltet und zeigen ohnehin nur auf genau diese
+            // Artefakte. Die Begruendung fuer die Versionen steht im Katalog.
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.components.resources)
 
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             implementation(libs.androidx.lifecycle.runtime.compose)
-            implementation(libs.androidx.navigation.compose)
+            implementation(libs.navigation.compose)
 
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
@@ -71,7 +80,10 @@ kotlin {
         }
 
         androidMain.dependencies {
-            implementation(compose.preview)
+            // Das SumUp-SDK verlangt androidx.compose.material ohne Versionsangabe und
+            // verlaesst sich auf eine BOM. Die muss deshalb hier mit hinein.
+            implementation(project.dependencies.platform(libs.androidx.compose.bom))
+            implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.core.ktx)
             implementation(libs.kotlinx.coroutines.android)
@@ -82,7 +94,10 @@ kotlin {
             implementation(libs.androidx.work.runtime.ktx)
             implementation(libs.androidx.documentfile)
             implementation(libs.androidx.security.crypto)
-            implementation(libs.sumup.merchant.sdk) {
+            // Als Zeichenkette, weil der Multiplatform-Dependency-Handler keinen
+            // Katalog-Provider mit Konfigurationsblock annimmt; der Ausschluss muss aber
+            // bleiben, sonst zieht das SDK einen Loyalty-Stub mit.
+            implementation("com.sumup:merchant-sdk:${libs.versions.sumup.get()}") {
                 exclude(group = "com.sumup.loyalty", module = "stub")
             }
         }
@@ -90,19 +105,6 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }
-    }
-}
-
-android {
-    namespace = "com.example.vereins_kassensystem.shared"
-    compileSdk = 36
-
-    defaultConfig {
-        minSdk = 26
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
@@ -114,7 +116,6 @@ room {
 // commonMain reicht bei Multiplatform nicht aus.
 dependencies {
     add("kspAndroid", libs.androidx.room.compiler)
-    add("kspIosX64", libs.androidx.room.compiler)
     add("kspIosArm64", libs.androidx.room.compiler)
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
 }

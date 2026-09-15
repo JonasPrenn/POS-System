@@ -16,15 +16,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -69,6 +63,7 @@ import com.example.vereins_kassensystem.viewmodel.InventoryRow
 import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.platform.VdDate
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * Lagerbestand — what the cellar holds, per Lagerartikel.
@@ -120,10 +115,10 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 subtitle = if (rows.isEmpty()) null else "${rows.size} Lagerartikel",
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "Lagerartikel importieren")
+                        Icon(VdIcons.FileUpload, contentDescription = "Lagerartikel importieren")
                     }
                     IconButton(onClick = { exportLauncher.launch("lagerartikel.csv") }) {
-                        Icon(Icons.Default.FileDownload, contentDescription = "Lagerartikel exportieren")
+                        Icon(VdIcons.FileDownload, contentDescription = "Lagerartikel exportieren")
                     }
                     TextButton(onClick = { showHistory = !showHistory }) {
                         Text(if (showHistory) "Bestand" else "Eingänge")
@@ -135,11 +130,11 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
             if (!showHistory) {
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SmallFloatingActionButton(onClick = { showNewItem = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Lagerartikel anlegen")
+                        Icon(VdIcons.Add, contentDescription = "Lagerartikel anlegen")
                     }
                     ExtendedFloatingActionButton(
                         onClick = { showDelivery = true },
-                        icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null) },
+                        icon = { Icon(VdIcons.ReceiptLong, contentDescription = null) },
                         text = { Text("Wareneingang") }
                     )
                 }
@@ -151,7 +146,7 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
             showHistory -> EntryHistory(entries, Modifier.padding(padding))
 
             rows.isEmpty() -> EmptyState(
-                icon = Icons.Default.Inventory2,
+                icon = VdIcons.Inventory2,
                 title = "Keine Lagerartikel",
                 supportingText = "Lagerartikel entstehen automatisch aus deinen Produkten.",
                 modifier = Modifier.padding(padding)
@@ -271,7 +266,7 @@ private fun StockCard(
                     )
                 }
                 TextButton(onClick = onReceive) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+                    Icon(VdIcons.Add, contentDescription = null)
                     Spacer(Modifier.width(Spacing.xs))
                     Text("Eingang")
                 }
@@ -545,7 +540,7 @@ private fun CloseContainerDialog(
 private fun EntryHistory(entries: List<StockEntry>, modifier: Modifier = Modifier) {
     if (entries.isEmpty()) {
         EmptyState(
-            icon = Icons.Default.Inventory2,
+            icon = VdIcons.Inventory2,
             title = "Noch keine Eingänge",
             supportingText = "Gebuchte Lieferungen und Korrekturen erscheinen hier.",
             modifier = modifier

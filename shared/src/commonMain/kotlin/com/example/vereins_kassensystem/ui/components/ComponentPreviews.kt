@@ -6,14 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AddCard
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,6 +20,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneyLarge
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
 import com.example.vereins_kassensystem.ui.theme.VereinsDeckelTheme
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /*
  * Design QA lives here: one gallery, rendered in both themes side by side in the
@@ -67,7 +60,7 @@ private fun Gallery() {
                 MoneyStatTile(
                     label = "Umsatz heute",
                     amount = 1284.50,
-                    icon = Icons.Default.Payments,
+                    icon = VdIcons.Payments,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.weight(1f)
@@ -75,7 +68,7 @@ private fun Gallery() {
                 StatTile(
                     label = "Transaktionen",
                     value = "87",
-                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                    icon = VdIcons.ReceiptLong,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -120,7 +113,7 @@ private fun Gallery() {
                         horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                     ) {
                         VdIconAction(
-                            icon = Icons.Default.AddCard,
+                            icon = VdIcons.AddCard,
                             contentDescription = "Aufladen",
                             onClick = {},
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -128,8 +121,8 @@ private fun Gallery() {
                         )
                         VdRowMenu(
                             items = listOf(
-                                RowMenuItem("Bearbeiten", Icons.Default.Edit) {},
-                                RowMenuItem("Löschen", Icons.Default.Delete, destructive = true) {}
+                                RowMenuItem("Bearbeiten", VdIcons.Edit) {},
+                                RowMenuItem("Löschen", VdIcons.Delete, destructive = true) {}
                             )
                         )
                     }
@@ -137,7 +130,7 @@ private fun Gallery() {
             )
 
             SectionLabel("Section shell")
-            VdSection(title = "Backup", icon = Icons.Default.Backup) {
+            VdSection(title = "Backup", icon = VdIcons.Backup) {
                 Text(
                     text = "Läuft einmal täglich im Hintergrund.",
                     style = MaterialTheme.typography.bodySmall,
@@ -160,7 +153,7 @@ private fun Gallery() {
 
             SectionLabel("Empty state")
             EmptyState(
-                icon = Icons.Default.Inventory2,
+                icon = VdIcons.Inventory2,
                 title = "Noch keine Produkte",
                 supportingText = "Lege dein erstes Produkt an, damit es im Verkauf erscheint.",
                 actionLabel = "Produkt anlegen",

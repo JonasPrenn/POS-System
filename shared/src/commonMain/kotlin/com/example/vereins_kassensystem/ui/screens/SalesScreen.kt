@@ -22,16 +22,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.LocalOffer
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.PersonRemove
-import androidx.compose.material.icons.filled.PointOfSale
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCartCheckout
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,6 +71,7 @@ import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.balanceColor
 import com.example.vereins_kassensystem.viewmodel.CartItem
 import com.example.vereins_kassensystem.viewmodel.SalesViewModel
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /** Below this the cart cannot sit beside the grid without squeezing both. */
 private val TwoPaneBreakpoint = 720.dp
@@ -277,11 +268,11 @@ private fun ProductPane(
             value = search,
             onValueChange = onSearchChange,
             placeholder = { Text("Produkt suchen") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
             trailingIcon = {
                 if (search.isNotEmpty()) {
                     IconButton(onClick = { onSearchChange("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Suche löschen")
+                        Icon(VdIcons.Clear, contentDescription = "Suche löschen")
                     }
                 }
             },
@@ -305,13 +296,13 @@ private fun ProductPane(
 
         when {
             catalogueEmpty -> EmptyState(
-                icon = Icons.Default.PointOfSale,
+                icon = VdIcons.PointOfSale,
                 title = "Noch keine Produkte",
                 supportingText = "Lege unter Produkte dein Sortiment an, damit es hier erscheint."
             )
 
             products.isEmpty() -> EmptyState(
-                icon = Icons.Default.Search,
+                icon = VdIcons.Search,
                 title = "Nichts gefunden",
                 supportingText = "Keine Produkte passen zu deiner Suche."
             )
@@ -360,7 +351,7 @@ private fun CartPane(
                 modifier = Modifier.weight(1f)
             )
             FilledTonalIconButton(onClick = { showManualDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Manueller Betrag")
+                Icon(VdIcons.Add, contentDescription = "Manueller Betrag")
             }
             Spacer(Modifier.width(Spacing.sm))
             FilledTonalIconButton(
@@ -371,7 +362,7 @@ private fun CartPane(
                     contentColor = MaterialTheme.colorScheme.onErrorContainer
                 )
             ) {
-                Icon(Icons.Default.DeleteSweep, contentDescription = "Bestellung leeren")
+                Icon(VdIcons.DeleteSweep, contentDescription = "Bestellung leeren")
             }
         }
 
@@ -379,7 +370,7 @@ private fun CartPane(
 
         if (cart.isEmpty() && topUpAmount <= 0.0) {
             EmptyState(
-                icon = Icons.Default.ShoppingCartCheckout,
+                icon = VdIcons.ShoppingCartCheckout,
                 title = "Nichts ausgewählt",
                 supportingText = "Tippe links auf ein Produkt.",
                 modifier = Modifier.weight(1f)
@@ -510,7 +501,7 @@ private fun CartLine(
 
             IconButton(onClick = onDiscount) {
                 Icon(
-                    Icons.Default.LocalOffer,
+                    VdIcons.LocalOffer,
                     contentDescription = "Rabatt für ${item.displayName}",
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -543,7 +534,7 @@ private fun TopUpLine(amount: Double, onRemove: () -> Unit) {
                 MoneyText(amount = amount, style = MoneySmall)
             }
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Clear, contentDescription = "Aufladung entfernen")
+                Icon(VdIcons.Clear, contentDescription = "Aufladung entfernen")
             }
         }
     }
@@ -563,7 +554,7 @@ private fun MemberSection(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             shape = MaterialTheme.shapes.small
         ) {
-            Icon(Icons.Default.PersonAdd, contentDescription = null)
+            Icon(VdIcons.PersonAdd, contentDescription = null)
             Spacer(Modifier.width(Spacing.sm))
             Text("Mitglied auswählen")
         }
@@ -591,7 +582,7 @@ private fun MemberSection(
                 }
                 IconButton(onClick = onClear) {
                     Icon(
-                        Icons.Default.PersonRemove,
+                        VdIcons.PersonRemove,
                         contentDescription = "Mitglied entfernen",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -728,7 +719,7 @@ fun MemberSelectionDialog(
                     value = query,
                     onValueChange = { query = it },
                     placeholder = { Text("Suche") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
                     singleLine = true,
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth()

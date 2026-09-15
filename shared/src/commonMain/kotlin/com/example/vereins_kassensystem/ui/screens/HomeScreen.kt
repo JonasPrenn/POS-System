@@ -12,14 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AddShoppingCart
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -49,6 +41,7 @@ import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
 import com.example.vereins_kassensystem.platform.nowMillis
 import com.example.vereins_kassensystem.platform.VdDate
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * The at-a-glance screen. Deliberately not the start destination any more — a volunteer
@@ -94,7 +87,7 @@ fun HomeScreen(
                     MoneyStatTile(
                         label = "Umsatz heute",
                         amount = summary.totalSales,
-                        icon = Icons.Default.Payments,
+                        icon = VdIcons.Payments,
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.weight(1f)
@@ -102,7 +95,7 @@ fun HomeScreen(
                     StatTile(
                         label = "Transaktionen",
                         value = summary.transactionCount.toString(),
-                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                        icon = VdIcons.ReceiptLong,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -126,13 +119,13 @@ fun HomeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     QuickAction(
                         label = "Neuer Verkauf",
-                        icon = Icons.Default.AddShoppingCart,
+                        icon = VdIcons.AddShoppingCart,
                         onClick = onNavigateToSales,
                         modifier = Modifier.weight(1f)
                     )
                     QuickAction(
                         label = "Mitglieder",
-                        icon = Icons.Default.PersonAdd,
+                        icon = VdIcons.PersonAdd,
                         onClick = onNavigateToMembers,
                         modifier = Modifier.weight(1f)
                     )
@@ -151,21 +144,21 @@ fun HomeScreen(
             item {
                 VdListRow(
                     title = "Aktive Mitglieder",
-                    leading = { StatIcon(Icons.Default.Groups) },
+                    leading = { StatIcon(VdIcons.Groups) },
                     trailing = { Text(members.size.toString(), style = MoneySmall) }
                 )
             }
             item {
                 VdListRow(
                     title = "Produkte im Sortiment",
-                    leading = { StatIcon(Icons.Default.Inventory2) },
+                    leading = { StatIcon(VdIcons.Inventory2) },
                     trailing = { Text(products.size.toString(), style = MoneySmall) }
                 )
             }
             item {
                 VdListRow(
                     title = "Trinkgeld heute",
-                    leading = { StatIcon(Icons.Default.Favorite) },
+                    leading = { StatIcon(VdIcons.Favorite) },
                     trailing = { MoneyText(amount = summary.totalTips) }
                 )
             }
@@ -173,7 +166,7 @@ fun HomeScreen(
                 VdListRow(
                     title = "Vollständige Historie",
                     supportingText = "Alle Buchungen ansehen",
-                    leading = { StatIcon(Icons.AutoMirrored.Filled.ReceiptLong) },
+                    leading = { StatIcon(VdIcons.ReceiptLong) },
                     onClick = onNavigateToHistory
                 )
             }

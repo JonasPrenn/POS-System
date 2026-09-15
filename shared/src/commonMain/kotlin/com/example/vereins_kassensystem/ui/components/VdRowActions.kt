@@ -2,8 +2,6 @@ package com.example.vereins_kassensystem.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
@@ -22,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * The primary action on a management row.
@@ -83,7 +82,7 @@ fun VdRowMenu(
             onClick = { expanded = true },
             modifier = Modifier.size(TouchTarget.min)
         ) {
-            Icon(Icons.Default.MoreVert, contentDescription = contentDescription)
+            Icon(VdIcons.MoreVert, contentDescription = contentDescription)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             items.forEach { item ->

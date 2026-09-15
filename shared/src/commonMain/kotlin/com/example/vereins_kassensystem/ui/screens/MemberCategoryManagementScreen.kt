@@ -5,9 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +22,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,14 +43,14 @@ fun MemberCategoryManagementScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                icon = { Icon(VdIcons.Add, contentDescription = null) },
                 text = { Text("Neu") }
             )
         }
     ) { padding ->
         if (categories.isEmpty()) {
             EmptyState(
-                icon = Icons.AutoMirrored.Filled.Label,
+                icon = VdIcons.Label,
                 title = "Noch keine Kategorien",
                 supportingText = "Eine Kategorie legt fest, wie weit ein Deckel ins Minus gehen darf.",
                 actionLabel = "Kategorie anlegen",
@@ -130,7 +128,7 @@ fun CategoryItem(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.AutoMirrored.Filled.Label,
+                        VdIcons.Label,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -158,8 +156,8 @@ fun CategoryItem(
                 }
                 VdRowMenu(
                     items = listOf(
-                        RowMenuItem("Bearbeiten", Icons.Default.Edit) { onEdit(category) },
-                        RowMenuItem("Löschen", Icons.Default.Delete, destructive = true) {
+                        RowMenuItem("Bearbeiten", VdIcons.Edit) { onEdit(category) },
+                        RowMenuItem("Löschen", VdIcons.Delete, destructive = true) {
                             onDelete(category)
                         }
                     ),

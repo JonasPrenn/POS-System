@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -38,6 +35,7 @@ import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.StockTracking
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.Spacing
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * Creating or editing a Lagerartikel, together with the vessel sizes it arrives in.
@@ -193,7 +191,7 @@ fun StockItemDialog(
                                 modifier = Modifier.weight(0.8f)
                             )
                             IconButton(onClick = { types.remove(type) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Größe entfernen", tint = MaterialTheme.colorScheme.error)
+                                Icon(VdIcons.Delete, contentDescription = "Größe entfernen", tint = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -203,7 +201,7 @@ fun StockItemDialog(
                             onClick = { types.add(ContainerType(stockItemId = item?.id ?: 0, label = "", nominalSize = 0.0, initialYieldEstimate = 0.0)) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
+                            Icon(VdIcons.Add, contentDescription = null)
                             Spacer(Modifier.width(Spacing.sm))
                             Text("Gebindegröße hinzufügen")
                         }

@@ -15,12 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +43,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.viewmodel.SalesViewModel
 import com.example.vereins_kassensystem.platform.VdDate
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 @Composable
 fun HistoryScreen(viewModel: SalesViewModel) {
@@ -63,7 +58,7 @@ fun HistoryScreen(viewModel: SalesViewModel) {
     Scaffold(topBar = { VdTopBar(title = "Historie") }) { padding ->
         if (grouped.isEmpty()) {
             EmptyState(
-                icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                icon = VdIcons.ReceiptLong,
                 title = "Noch keine Buchungen",
                 supportingText = "Abgeschlossene Verkäufe erscheinen hier.",
                 modifier = Modifier.padding(padding)
@@ -129,7 +124,7 @@ private fun TransactionGroupItem(items: List<Transaction>) {
                 }
                 MoneyText(amount = total, style = MoneyMedium)
                 Icon(
-                    imageVector = Icons.Default.ExpandMore,
+                    imageVector = VdIcons.ExpandMore,
                     contentDescription = if (expanded) "Zuklappen" else "Aufklappen",
                     modifier = Modifier
                         .padding(start = Spacing.sm)
@@ -185,7 +180,7 @@ private fun PaymentBadge(paymentType: String, isBalanceMovement: Boolean = false
     val content: Color
     if (isBalanceMovement) {
         // A top-up or correction is about the Deckel, not about how a sale was rung up.
-        icon = Icons.Default.AccountBalanceWallet
+        icon = VdIcons.AccountBalanceWallet
         container = MaterialTheme.colorScheme.secondaryContainer
         content = MaterialTheme.colorScheme.onSecondaryContainer
         Surface(
@@ -205,17 +200,17 @@ private fun PaymentBadge(paymentType: String, isBalanceMovement: Boolean = false
     }
     when (paymentType) {
         "CARD" -> {
-            icon = Icons.Default.CreditCard
+            icon = VdIcons.CreditCard
             container = MaterialTheme.colorScheme.tertiaryContainer
             content = MaterialTheme.colorScheme.onTertiaryContainer
         }
         "MEMBER_BALANCE" -> {
-            icon = Icons.Default.AccountBalanceWallet
+            icon = VdIcons.AccountBalanceWallet
             container = MaterialTheme.colorScheme.secondaryContainer
             content = MaterialTheme.colorScheme.onSecondaryContainer
         }
         else -> {
-            icon = Icons.Default.Payments
+            icon = VdIcons.Payments
             container = MaterialTheme.colorScheme.primaryContainer
             content = MaterialTheme.colorScheme.onPrimaryContainer
         }

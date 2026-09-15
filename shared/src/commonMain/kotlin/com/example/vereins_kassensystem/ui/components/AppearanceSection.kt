@@ -1,8 +1,6 @@
 package com.example.vereins_kassensystem.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -10,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * Light or dark, as a real choice rather than a straight follow of the system.
@@ -26,7 +25,7 @@ fun AppearanceSection(
 ) {
     VdSection(
         title = "Darstellung",
-        icon = Icons.Default.Contrast,
+        icon = VdIcons.Contrast,
         modifier = modifier
     ) {
         val options = listOf(

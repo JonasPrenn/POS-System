@@ -2,15 +2,14 @@ package com.example.vereins_kassensystem.data
 
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.RoomDatabaseConstructor
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
 
-@Suppress("KotlinNoActualForExpect", "EXPECT_ACTUAL_MISMATCH")
-actual object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase>
+// Kein actual fuer AppDatabaseConstructor an dieser Stelle: Room erzeugt das
+// `actual object` je Ziel selbst — siehe DatabaseFactory.android.kt.
 
 /**
  * Die Datei liegt im Documents-Ordner des App-Containers.

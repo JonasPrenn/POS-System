@@ -15,12 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -51,6 +45,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import kotlin.math.ceil
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /** Which payment route the user picked. Null while still choosing. */
 private enum class PayMode { Cash, Card, Balance }
@@ -99,7 +94,7 @@ fun CheckoutDialog(
                         onSetTipAmount(0.0)
                         cashGiven = ""
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(VdIcons.ArrowBack, contentDescription = "Zurück")
                     }
                     Spacer(Modifier.width(Spacing.sm))
                 }
@@ -203,7 +198,7 @@ private fun PaymentChoice(
     ) {
         PaymentTile(
             label = "Bar",
-            icon = Icons.Default.Payments,
+            icon = VdIcons.Payments,
             onClick = { onPick(PayMode.Cash) },
             modifier = Modifier.weight(1f),
             container = MaterialTheme.colorScheme.primaryContainer,
@@ -211,7 +206,7 @@ private fun PaymentChoice(
         )
         PaymentTile(
             label = "Karte",
-            icon = Icons.Default.CreditCard,
+            icon = VdIcons.CreditCard,
             onClick = { onPick(PayMode.Card) },
             modifier = Modifier.weight(1f),
             container = MaterialTheme.colorScheme.tertiaryContainer,
@@ -240,7 +235,7 @@ private fun PaymentChoice(
                 modifier = Modifier.padding(Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null)
+                Icon(VdIcons.AccountBalanceWallet, contentDescription = null)
                 Spacer(Modifier.width(Spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Deckel · ${selectedMember.name}", style = MaterialTheme.typography.titleMedium)
@@ -250,7 +245,7 @@ private fun PaymentChoice(
                     )
                 }
                 if (!canUseBalance) {
-                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(VdIcons.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
             }
         }

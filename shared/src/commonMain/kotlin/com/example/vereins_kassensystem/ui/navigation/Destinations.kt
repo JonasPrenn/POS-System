@@ -1,16 +1,7 @@
 package com.example.vereins_kassensystem.ui.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.PointOfSale
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * Every place the app can go, in one list.
@@ -32,16 +23,16 @@ enum class Destination(
      * Sales comes first deliberately: it is what the app is for, and it is the screen a
      * volunteer opens when a queue forms. The old start destination was the dashboard.
      */
-    Sales("sales", "Verkauf", Icons.Default.PointOfSale, DestinationGroup.Primary),
-    Dashboard("dashboard", "Übersicht", Icons.Default.Dashboard, DestinationGroup.Primary),
-    History("history", "Historie", Icons.AutoMirrored.Filled.ReceiptLong, DestinationGroup.Primary),
+    Sales("sales", "Verkauf", VdIcons.PointOfSale, DestinationGroup.Primary),
+    Dashboard("dashboard", "Übersicht", VdIcons.Dashboard, DestinationGroup.Primary),
+    History("history", "Historie", VdIcons.ReceiptLong, DestinationGroup.Primary),
 
-    Products("products", "Produkte", Icons.Default.Inventory2, DestinationGroup.Management),
-    Inventory("inventory", "Lagerbestand", Icons.Default.Warehouse, DestinationGroup.Management),
-    Members("members", "Mitglieder", Icons.Default.People, DestinationGroup.Management),
-    Categories("categories", "Kategorien", Icons.AutoMirrored.Filled.Label, DestinationGroup.Management),
-    Analytics("analytics", "Auswertung", Icons.Default.BarChart, DestinationGroup.Management),
-    Settings("settings", "Einstellungen", Icons.Default.Settings, DestinationGroup.Management);
+    Products("products", "Produkte", VdIcons.Inventory2, DestinationGroup.Management),
+    Inventory("inventory", "Lagerbestand", VdIcons.Warehouse, DestinationGroup.Management),
+    Members("members", "Mitglieder", VdIcons.People, DestinationGroup.Management),
+    Categories("categories", "Kategorien", VdIcons.Label, DestinationGroup.Management),
+    Analytics("analytics", "Auswertung", VdIcons.BarChart, DestinationGroup.Management),
+    Settings("settings", "Einstellungen", VdIcons.Settings, DestinationGroup.Management);
 
     companion object {
         val primary = entries.filter { it.group == DestinationGroup.Primary }

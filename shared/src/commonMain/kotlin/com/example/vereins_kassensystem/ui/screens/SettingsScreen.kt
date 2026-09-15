@@ -6,9 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +25,7 @@ import com.example.vereins_kassensystem.data.repository.BackupRepository
 import com.example.vereins_kassensystem.worker.BackupWorker
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,7 +118,7 @@ fun SettingsScreen(
                 onThemeModeChange = { scope.launch { settingsRepository.setThemeMode(it) } }
             )
 
-            VdSection(title = "Kartenzahlung", icon = Icons.Default.Payments) {
+            VdSection(title = "Kartenzahlung", icon = VdIcons.Payments) {
                 Text(
                     text = "Der Affiliate Key verbindet die Kasse mit eurem SumUp-Konto. " +
                         "Ohne ihn bleibt nur Bar und Deckel.",
@@ -147,7 +145,7 @@ fun SettingsScreen(
                     shape = MaterialTheme.shapes.small,
                     enabled = editedKey != sumUpKey
                 ) {
-                    Icon(Icons.Default.Save, contentDescription = null)
+                    Icon(VdIcons.Save, contentDescription = null)
                     Spacer(Modifier.width(Spacing.sm))
                     Text("Key speichern")
                 }
@@ -161,13 +159,13 @@ fun SettingsScreen(
                         .heightIn(min = TouchTarget.min),
                     shape = MaterialTheme.shapes.small
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null)
+                    Icon(VdIcons.Login, contentDescription = null)
                     Spacer(Modifier.width(Spacing.sm))
                     Text("Bei SumUp anmelden")
                 }
             }
 
-            VdSection(title = "Backup", icon = Icons.Default.Backup) {
+            VdSection(title = "Backup", icon = VdIcons.Backup) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -202,7 +200,7 @@ fun SettingsScreen(
                         .heightIn(min = TouchTarget.min),
                     shape = MaterialTheme.shapes.small
                 ) {
-                    Icon(Icons.Default.Folder, contentDescription = null)
+                    Icon(VdIcons.Folder, contentDescription = null)
                     Spacer(Modifier.width(Spacing.sm))
                     Text(if (backupUri != null) "Speicherort ändern" else "Speicherort wählen")
                 }
@@ -231,7 +229,7 @@ fun SettingsScreen(
                         shape = MaterialTheme.shapes.small,
                         enabled = backupUri != null
                     ) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null)
+                        Icon(VdIcons.CloudUpload, contentDescription = null)
                         Spacer(Modifier.width(Spacing.sm))
                         Text("Sichern")
                     }
@@ -245,7 +243,7 @@ fun SettingsScreen(
                             .heightIn(min = TouchTarget.min),
                         shape = MaterialTheme.shapes.small
                     ) {
-                        Icon(Icons.Default.CloudDownload, contentDescription = null)
+                        Icon(VdIcons.CloudDownload, contentDescription = null)
                         Spacer(Modifier.width(Spacing.sm))
                         Text("Einspielen")
                     }

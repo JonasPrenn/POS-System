@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +24,7 @@ import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,10 +95,10 @@ fun MemberManagementScreen(
                 subtitle = if (members.isEmpty()) null else "${members.size} Mitglieder",
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "Mitglieder importieren")
+                        Icon(VdIcons.FileUpload, contentDescription = "Mitglieder importieren")
                     }
                     IconButton(onClick = { exportLauncher.launch("mitglieder.csv") }) {
-                        Icon(Icons.Default.FileDownload, contentDescription = "Mitglieder exportieren")
+                        Icon(VdIcons.FileDownload, contentDescription = "Mitglieder exportieren")
                     }
                 }
             )
@@ -107,7 +106,7 @@ fun MemberManagementScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                icon = { Icon(VdIcons.Add, contentDescription = null) },
                 text = { Text("Neu") }
             )
         }
@@ -124,11 +123,11 @@ fun MemberManagementScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Suche löschen")
+                            Icon(VdIcons.Clear, contentDescription = "Suche löschen")
                         }
                     }
                 },
@@ -138,7 +137,7 @@ fun MemberManagementScreen(
 
             when {
                 members.isEmpty() -> EmptyState(
-                    icon = Icons.Default.Groups,
+                    icon = VdIcons.Groups,
                     title = "Noch keine Mitglieder",
                     supportingText = "Wer einen Deckel führen soll, braucht hier einen Eintrag.",
                     actionLabel = "Mitglied anlegen",
@@ -147,7 +146,7 @@ fun MemberManagementScreen(
                 )
 
                 filteredMembers.isEmpty() -> EmptyState(
-                    icon = Icons.Default.SearchOff,
+                    icon = VdIcons.SearchOff,
                     title = "Keine Treffer",
                     supportingText = "Kein Mitglied enthält „$searchQuery“.",
                     modifier = Modifier.weight(1f)
@@ -240,7 +239,7 @@ fun MemberItem(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
                 VdIconAction(
-                    icon = Icons.Default.AddCard,
+                    icon = VdIcons.AddCard,
                     contentDescription = "Guthaben aufladen für ${member.name}",
                     onClick = { onTopUp(member) },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -248,8 +247,8 @@ fun MemberItem(
                 )
                 VdRowMenu(
                     items = listOf(
-                        RowMenuItem("Bearbeiten", Icons.Default.Edit) { onEdit(member) },
-                        RowMenuItem("Löschen", Icons.Default.Delete, destructive = true) {
+                        RowMenuItem("Bearbeiten", VdIcons.Edit) { onEdit(member) },
+                        RowMenuItem("Löschen", VdIcons.Delete, destructive = true) {
                             onDelete(member)
                         }
                     ),

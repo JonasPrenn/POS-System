@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.example.vereins_kassensystem"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.example.vereins_kassensystem"
@@ -38,9 +37,8 @@ android {
     }
 }
 
-kotlin {
-    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
-}
+// Kein org.jetbrains.kotlin.android mehr: AGP 9 uebersetzt Kotlin selbst und lehnt das
+// Plugin ab. Das JVM-Ziel folgt damit compileOptions, ein eigener kotlin{}-Block entfaellt.
 
 // Dieses Modul ist bewusst duenn: Es startet die Activity und reicht an :shared weiter.
 // Alles, was fachlich ist, gehoert dorthin — sonst entsteht wieder Android-only-Code.

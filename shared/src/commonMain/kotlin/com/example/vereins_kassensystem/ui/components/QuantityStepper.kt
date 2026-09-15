@@ -5,10 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * − n + for a cart line.
@@ -59,7 +56,7 @@ fun QuantityStepper(
                 modifier = Modifier.size(TouchTarget.min)
             ) {
                 Icon(
-                    imageVector = if (quantity <= 1) Icons.Default.Delete else Icons.Default.Remove,
+                    imageVector = if (quantity <= 1) VdIcons.Delete else VdIcons.Remove,
                     contentDescription = if (quantity <= 1) "Position entfernen" else "Menge verringern",
                     modifier = Modifier.size(18.dp),
                     tint = if (quantity <= 1) MaterialTheme.colorScheme.error
@@ -88,7 +85,7 @@ fun QuantityStepper(
                 modifier = Modifier.size(TouchTarget.min)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
+                    imageVector = VdIcons.Add,
                     contentDescription = "Menge erhöhen",
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary

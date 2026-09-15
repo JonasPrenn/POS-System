@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,6 +19,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * On-screen number pad for cash-given and other amounts.
@@ -81,7 +80,7 @@ fun NumericKeypad(
                 contentDescription = "Löschen"
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Backspace,
+                    imageVector = VdIcons.Backspace,
                     contentDescription = null
                 )
             }

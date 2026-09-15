@@ -11,11 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -36,6 +31,7 @@ import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.viewmodel.AnalyticsViewModel
 import com.example.vereins_kassensystem.viewmodel.DateRange
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 @Composable
 fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
@@ -78,7 +74,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     MoneyStatTile(
                         label = "Umsatz",
                         amount = summary.totalSales,
-                        icon = Icons.Default.Assessment,
+                        icon = VdIcons.Assessment,
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.weight(1f)
@@ -86,7 +82,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     MoneyStatTile(
                         label = "Trinkgeld",
                         amount = summary.totalTips,
-                        icon = Icons.Default.Favorite,
+                        icon = VdIcons.Favorite,
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.weight(1f)
@@ -99,13 +95,13 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     MoneyStatTile(
                         label = "Bar",
                         amount = summary.cashSales,
-                        icon = Icons.Default.Payments,
+                        icon = VdIcons.Payments,
                         modifier = Modifier.weight(1f)
                     )
                     MoneyStatTile(
                         label = "Karte",
                         amount = summary.cardSales,
-                        icon = Icons.Default.CreditCard,
+                        icon = VdIcons.CreditCard,
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.weight(1f)
@@ -125,7 +121,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             if (summary.topProducts.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = Icons.Default.Assessment,
+                        icon = VdIcons.Assessment,
                         title = "Keine Verkäufe",
                         supportingText = "Im gewählten Zeitraum wurde nichts gebucht.",
                         modifier = Modifier.height(220.dp)

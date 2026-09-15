@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +34,7 @@ import com.example.vereins_kassensystem.data.entity.ProductVariant
 import com.example.vereins_kassensystem.data.entity.ProductComponent
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,10 +91,10 @@ fun ProductManagementScreen(
                 subtitle = if (productsWithVariants.isEmpty()) null else "${productsWithVariants.size} Produkte",
                 actions = {
                     IconButton(onClick = { importLauncher.launch("text/*") }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "Produkte importieren")
+                        Icon(VdIcons.FileUpload, contentDescription = "Produkte importieren")
                     }
                     IconButton(onClick = { exportLauncher.launch("produkte.csv") }) {
-                        Icon(Icons.Default.FileDownload, contentDescription = "Produkte exportieren")
+                        Icon(VdIcons.FileDownload, contentDescription = "Produkte exportieren")
                     }
                 }
             )
@@ -103,14 +102,14 @@ fun ProductManagementScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                icon = { Icon(VdIcons.Add, contentDescription = null) },
                 text = { Text("Neu") }
             )
         }
     ) { padding ->
         if (productsWithVariants.isEmpty()) {
             EmptyState(
-                icon = Icons.Default.Inventory2,
+                icon = VdIcons.Inventory2,
                 title = "Noch keine Produkte",
                 supportingText = "Lege an, was über die Theke geht — Preis und Kategorie reichen für den Anfang.",
                 actionLabel = "Produkt anlegen",
@@ -227,8 +226,8 @@ fun ProductItem(
                 }
                 VdRowMenu(
                     items = listOf(
-                        RowMenuItem("Bearbeiten", Icons.Default.Edit) { onEdit(product) },
-                        RowMenuItem("Löschen", Icons.Default.Delete, destructive = true) {
+                        RowMenuItem("Bearbeiten", VdIcons.Edit) { onEdit(product) },
+                        RowMenuItem("Löschen", VdIcons.Delete, destructive = true) {
                             onDelete(product)
                         }
                     ),
@@ -361,14 +360,14 @@ fun ProductDialog(
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
                         )
                         IconButton(onClick = { editedComponents.remove(component) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Entfernen", tint = MaterialTheme.colorScheme.error)
+                            Icon(VdIcons.Delete, contentDescription = "Entfernen", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
 
                 item {
                     TextButton(onClick = { showComponentPicker = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Add, contentDescription = null)
+                        Icon(VdIcons.Add, contentDescription = null)
                         Spacer(Modifier.width(Spacing.sm))
                         Text("Lagerartikel hinzufuegen")
                     }
@@ -424,7 +423,7 @@ fun ProductDialog(
                             )
                         }
                         IconButton(onClick = { editedVariants.remove(variant) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
+                            Icon(VdIcons.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -434,7 +433,7 @@ fun ProductDialog(
                         onClick = { editedVariants.add(ProductVariant(productId = product?.id ?: 0, name = "", price = 0.0)) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
+                        Icon(VdIcons.Add, contentDescription = null)
                         Spacer(Modifier.width(Spacing.sm))
                         Text("Variante hinzufügen")
                     }

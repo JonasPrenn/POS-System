@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
+import com.example.vereins_kassensystem.ui.icons.VdIcons
 
 /**
  * Attention, not failure — low stock, a balance approaching its limit.
@@ -36,7 +34,7 @@ fun WarningBanner(
     title: String,
     modifier: Modifier = Modifier,
     supportingText: String? = null,
-    icon: ImageVector = Icons.Default.WarningAmber,
+    icon: ImageVector = VdIcons.WarningAmber,
     onClick: (() -> Unit)? = null
 ) {
     val content: @Composable () -> Unit = {
@@ -64,7 +62,7 @@ fun WarningBanner(
             }
             if (onClick != null) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    imageVector = VdIcons.KeyboardArrowRight,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
