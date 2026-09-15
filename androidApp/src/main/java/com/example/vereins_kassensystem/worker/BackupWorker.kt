@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.repository.BackupRepository
+import com.example.vereins_kassensystem.platform.AndroidSettingsStore
 import kotlinx.coroutines.flow.first
 
 class BackupWorker(
@@ -14,10 +15,10 @@ class BackupWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val settingsRepository = SettingsRepository(applicationContext)
+        val settingsRepository = SettingsRepository(AndroidSettingsStore(applicationContext))
         val backupRepository = BackupRepository(applicationContext)
         
-        val uriString = settingsRepository.backupUri.first()
+        val uriString = settingsRepository.backupDestination.first()
         val isAutoBackupEnabled = settingsRepository.autoBackupEnabled.first()
 
         if (!isAutoBackupEnabled || uriString == null) {

@@ -1,93 +1,134 @@
 package com.example.vereins_kassensystem.data
 
-import android.content.Context
-import android.content.SharedPreferences
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.example.vereins_kassensystem.platform.SettingsStore
 import com.example.vereins_kassensystem.ui.theme.ClubIdentity
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+/**
+ * Die Einstellungen der App: nach außen Ströme, darunter Schlüssel und Werte.
+ *
+ * Vorher hing die Klasse an Context, DataStore und EncryptedSharedPreferences. Jetzt
+ * liest sie aus [SettingsStore], den die Plattform stellt — unter Android weiterhin
+ * DataStore und verschlüsselte Preferences, unter iOS NSUserDefaults und Schlüsselbund.
+ *
+ * Der Store kennt keine Beobachtung, deshalb hält das Repository alle Werte als einen
+ * Schnappschuss in einem StateFlow: einmal beim ersten Zugriff gelesen, bei jedem
+ * Schreiben fortgeschrieben. Ein Bildschirm sieht damit nie halb geladene Werte, und
+ * die Ströme nach außen verhalten sich wie vorher.
+ */
+class SettingsRepository(private val store: SettingsStore) {
 
-class SettingsRepository(private val context: Context) {
-    private val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-    
-    private val encryptedPrefs: SharedPreferences = EncryptedSharedPreferences.create(
-        "secure_settings",
-        masterKeyAlias,
-        context,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    private data class Snapshot(
+        val themeMode: ThemeMode,
+        val clubName: String,
+        val clubAccent: Color?,
+        val backupDestination: String?,
+        val autoBackupEnabled: Boolean,
+        val sumUpAffiliateKey: String,
+        val apiBaseUrl: String?
     )
 
-    private val SUMUP_AFFILIATE_KEY = "sumup_affiliate_key"
-    private val BACKUP_URI = stringPreferencesKey("backup_uri")
-    private val AUTO_BACKUP_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("auto_backup_enabled")
-    private val THEME_MODE = stringPreferencesKey("theme_mode")
-    private val CLUB_NAME = stringPreferencesKey("club_name")
-    private val CLUB_ACCENT = androidx.datastore.preferences.core.intPreferencesKey("club_accent")
+    private val snapshot = MutableStateFlow<Snapshot?>(null)
+    private val loading = Mutex()
 
-    val backupUri: Flow<String?> = context.dataStore.data.map { it[BACKUP_URI] }
-    val autoBackupEnabled: Flow<Boolean> = context.dataStore.data.map { it[AUTO_BACKUP_ENABLED] ?: false }
+    private suspend fun current(): Snapshot {
+        snapshot.value?.let { return it }
+        return loading.withLock {
+            snapshot.value ?: readAll().also { snapshot.value = it }
+        }
+    }
+
+    private suspend fun readAll() = Snapshot(
+        themeMode = ThemeMode.fromName(store.getString(KEY_THEME_MODE)),
+        clubName = store.getString(KEY_CLUB_NAME).orEmpty(),
+        clubAccent = store.getString(KEY_CLUB_ACCENT)?.toIntOrNull()?.let { Color(it) },
+        backupDestination = store.getString(KEY_BACKUP_DESTINATION),
+        autoBackupEnabled = store.getString(KEY_AUTO_BACKUP)?.toBoolean() ?: false,
+        sumUpAffiliateKey = store.getSecret(KEY_SUMUP_AFFILIATE_KEY).orEmpty(),
+        apiBaseUrl = store.getString(KEY_API_BASE_URL)
+    )
+
+    private val settings: Flow<Snapshot> = snapshot.onStart { current() }.filterNotNull()
 
     /**
      * Light/dark preference. A tablet mounted behind the bar wants to be pinned to dark
      * for the evening whatever the system is doing, so this is a real setting rather
      * than a straight follow of [ThemeMode.SYSTEM].
      */
-    val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.fromName(it[THEME_MODE]) }
-
-    suspend fun setThemeMode(mode: ThemeMode) {
-        context.dataStore.edit { it[THEME_MODE] = mode.name }
-    }
+    val themeMode: Flow<ThemeMode> = settings.map { it.themeMode }.distinctUntilChanged()
 
     /**
      * The club's own name and colour. Stored per install because the app is built for any
      * Verein — see [ClubIdentity] for why the accent stays out of the semantic roles.
      */
-    val clubIdentity: Flow<ClubIdentity> = context.dataStore.data.map { prefs ->
-        ClubIdentity(
-            name = prefs[CLUB_NAME].orEmpty(),
-            accent = prefs[CLUB_ACCENT]?.let { Color(it) } ?: ClubIdentity().accent
-        )
+    val clubIdentity: Flow<ClubIdentity> = settings
+        .map { ClubIdentity(name = it.clubName, accent = it.clubAccent ?: ClubIdentity().accent) }
+        .distinctUntilChanged()
+
+    /**
+     * Der plattformeigene Verweis auf den Sicherungsordner — unter Android eine Baum-URI,
+     * unter iOS ein Lesezeichen als Base64. Nur die Plattform kann ihn deuten.
+     */
+    val backupDestination: Flow<String?> = settings.map { it.backupDestination }.distinctUntilChanged()
+    val autoBackupEnabled: Flow<Boolean> = settings.map { it.autoBackupEnabled }.distinctUntilChanged()
+    val sumUpAffiliateKey: Flow<String> = settings.map { it.sumUpAffiliateKey }.distinctUntilChanged()
+
+    /** Adresse des Servers für den Mehrgerätebetrieb; null, solange keiner eingerichtet ist. */
+    val apiBaseUrl: Flow<String?> = settings.map { it.apiBaseUrl }.distinctUntilChanged()
+
+    private suspend fun write(persist: suspend () -> Unit, change: (Snapshot) -> Snapshot) {
+        current()
+        persist()
+        snapshot.update { it?.let(change) }
     }
 
-    suspend fun setClubName(name: String) {
-        context.dataStore.edit { it[CLUB_NAME] = name }
-    }
+    suspend fun setThemeMode(mode: ThemeMode) =
+        write({ store.putString(KEY_THEME_MODE, mode.name) }) { it.copy(themeMode = mode) }
 
-    suspend fun setClubAccent(color: Color) {
+    suspend fun setClubName(name: String) =
+        write({ store.putString(KEY_CLUB_NAME, name) }) { it.copy(clubName = name) }
+
+    suspend fun setClubAccent(color: Color) =
         // Stored as a plain ARGB int; Color is a value class over a Long with the colour
         // space packed in, which is not something to persist.
-        context.dataStore.edit { it[CLUB_ACCENT] = color.toArgb() }
-    }
+        write({ store.putString(KEY_CLUB_ACCENT, color.toArgb().toString()) }) { it.copy(clubAccent = color) }
 
-    suspend fun saveBackupUri(uri: String?) {
-        context.dataStore.edit { prefs ->
-            if (uri == null) prefs.remove(BACKUP_URI) else prefs[BACKUP_URI] = uri
+    suspend fun setBackupDestination(ref: String?) =
+        write({ if (ref == null) store.remove(KEY_BACKUP_DESTINATION) else store.putString(KEY_BACKUP_DESTINATION, ref) }) {
+            it.copy(backupDestination = ref)
         }
-    }
 
-    suspend fun setAutoBackupEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[AUTO_BACKUP_ENABLED] = enabled }
-    }
+    suspend fun setAutoBackupEnabled(enabled: Boolean) =
+        write({ store.putString(KEY_AUTO_BACKUP, enabled.toString()) }) { it.copy(autoBackupEnabled = enabled) }
 
-    private val _sumUpAffiliateKey = MutableStateFlow(encryptedPrefs.getString(SUMUP_AFFILIATE_KEY, "") ?: "")
-    val sumUpAffiliateKey: Flow<String> = _sumUpAffiliateKey.asStateFlow()
+    suspend fun saveSumUpAffiliateKey(key: String) =
+        write({ store.putSecret(KEY_SUMUP_AFFILIATE_KEY, key) }) { it.copy(sumUpAffiliateKey = key) }
 
-    suspend fun saveSumUpAffiliateKey(key: String) {
-        encryptedPrefs.edit().putString(SUMUP_AFFILIATE_KEY, key).apply()
-        _sumUpAffiliateKey.value = key
+    suspend fun setApiBaseUrl(url: String?) =
+        write({ if (url == null) store.remove(KEY_API_BASE_URL) else store.putString(KEY_API_BASE_URL, url) }) {
+            it.copy(apiBaseUrl = url)
+        }
+
+    private companion object {
+        // Die Namen stammen aus der DataStore-Fassung und bleiben, damit ein bestehendes
+        // Android-Gerät seine Einstellungen nach dem Update behält.
+        const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_CLUB_NAME = "club_name"
+        const val KEY_CLUB_ACCENT = "club_accent"
+        const val KEY_BACKUP_DESTINATION = "backup_uri"
+        const val KEY_AUTO_BACKUP = "auto_backup_enabled"
+        const val KEY_SUMUP_AFFILIATE_KEY = "sumup_affiliate_key"
+        const val KEY_API_BASE_URL = "api_base_url"
     }
 }

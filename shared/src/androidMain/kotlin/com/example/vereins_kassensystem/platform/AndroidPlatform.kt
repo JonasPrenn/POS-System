@@ -49,20 +49,33 @@ class AndroidSettingsStore(private val context: Context) : SettingsStore {
      * in jeder Sicherung und in jedem adb-Backup auf.
      */
     private val secrets by lazy {
+        // Derselbe Dateiname und derselbe Schlüsselalias wie in der alten Fassung mit
+        // MasterKeys.AES256_GCM_SPEC — so bleibt der einmal eingetragene SumUp-Key nach
+        // dem Update lesbar, statt dass der Kassier ihn neu abtippen muss.
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
         EncryptedSharedPreferences.create(
             context,
-            "vd_secrets",
+            "secure_settings",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
     }
 
+    /**
+     * Liest nach Namen, nicht nach Typ. Die alte Fassung hat `auto_backup_enabled` als
+     * Boolean und `club_accent` als Int abgelegt; ein `stringPreferencesKey` darauf würde
+     * beim Lesen mit ClassCastException scheitern. Der Wert wird deshalb aus der Map
+     * geholt und als Text zurückgegeben — "true" und "-16777216" versteht das Repository.
+     * Beim nächsten Schreiben ersetzt der String-Eintrag den alten, weil DataStore
+     * Schlüssel nur am Namen vergleicht.
+     */
     override suspend fun getString(key: String): String? =
-        context.dataStore.data.first()[stringPreferencesKey(key)]
+        context.dataStore.data.first().asMap().entries
+            .firstOrNull { it.key.name == key }
+            ?.value?.toString()
 
     override suspend fun putString(key: String, value: String) {
         context.dataStore.edit { it[stringPreferencesKey(key)] = value }

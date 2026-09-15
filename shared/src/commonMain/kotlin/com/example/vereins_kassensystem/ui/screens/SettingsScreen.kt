@@ -43,7 +43,7 @@ fun SettingsScreen(
 
     val clubIdentity by settingsRepository.clubIdentity.collectAsState(initial = ClubIdentity())
     val themeMode by settingsRepository.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
-    val backupUri by settingsRepository.backupUri.collectAsState(initial = null)
+    val backupUri by settingsRepository.backupDestination.collectAsState(initial = null)
     val autoBackupEnabled by settingsRepository.autoBackupEnabled.collectAsState(initial = false)
 
     val folderLauncher = rememberLauncherForActivityResult(
@@ -56,7 +56,7 @@ fun SettingsScreen(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
             scope.launch {
-                settingsRepository.saveBackupUri(it.toString())
+                settingsRepository.setBackupDestination(it.toString())
             }
         }
     }

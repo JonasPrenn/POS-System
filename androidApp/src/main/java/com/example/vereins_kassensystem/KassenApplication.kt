@@ -7,6 +7,7 @@ import com.example.vereins_kassensystem.data.repository.BackupRepository
 
 import com.sumup.reader.sdk.api.SumUpState
 import com.example.vereins_kassensystem.data.SettingsRepository
+import com.example.vereins_kassensystem.platform.AndroidSettingsStore
 
 class KassenApplication : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
@@ -21,7 +22,7 @@ class KassenApplication : Application() {
             database.deliveryDao()
         )
     }
-    val settingsRepository by lazy { SettingsRepository(this) }
+    val settingsRepository by lazy { SettingsRepository(AndroidSettingsStore(this)) }
     val backupRepository by lazy { BackupRepository(this) }
 
     override fun onCreate() {
