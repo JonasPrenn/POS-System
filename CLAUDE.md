@@ -14,23 +14,23 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 |---|---|
 | Designsystem, Phasen 0–5 | fertig, siehe `docs/` und die PR-Beschreibung |
 | Server- und API-Spezifikation | fertig, `docs/VereinsDeckel-Server-und-API.pdf` |
-| Portierung auf iOS | **etwa zur Hälfte**, siehe `docs/PORTIERUNG.md` |
+| Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
 | Sync gegen einen Server | noch nicht begonnen |
 
-**Nichts vom Multiplatform-Umbau ist je übersetzt worden.** Er entstand in einer
-Umgebung ohne Android SDK, ohne Xcode und ohne Zugriff auf Google Maven. Wer lokal
-weiterarbeitet, fängt mit einem Übersetzungslauf an — siehe `docs/PORTIERUNG.md`,
-Abschnitt „Erster Schritt lokal".
+Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
+`docs/PORTIERUNG.md`; Kartenzahlung gibt es auf iOS erst, wenn das SumUp-iOS-SDK per
+Swift-Brücke angebunden ist.
 
 ## Aufbau
 
 ```
 shared/          Kotlin Multiplatform. Datenhaltung, Logik, gesamte Oberfläche.
-  commonMain/    Alles Gemeinsame. 69 Dateien.
+  commonMain/    Alles Gemeinsame, 79 Dateien. AppGraph und ui/VereinsDeckelApp sind die Wurzel.
   androidMain/   Android-Umsetzungen der expect-Deklarationen.
   iosMain/       iOS-Umsetzungen. Bindet Swift über Interfaces ein, nicht umgekehrt.
-androidApp/      Nur Hülle: MainActivity, Application, Manifest, Ressourcen.
-iosApp/          Fehlt noch. Wird von Xcode gebaut, nicht von Gradle.
+  iosTest/       Room-Integrationstest, läuft im Simulator.
+androidApp/      Nur Hülle: MainActivity, Application, BackupWorker, Manifest, Ressourcen.
+iosApp/          Xcode-Projekt und Swift-Host. Baut das Kotlin-Framework über Gradle.
 docs/            Spezifikation, Portierungsplan, Werkzeuge.
 ```
 
@@ -72,6 +72,16 @@ beantwortet.
 Nicht von Hand ändern — beim nächsten Lauf wäre es weg. Grund für das Selbermachen:
 `material-icons-extended` gibt es für Compose Multiplatform nur bis 1.7.3.
 
+**Compose kommt von JetBrains-Koordinaten.** `org.jetbrains.compose.*:1.12.0` und
+`org.jetbrains.compose.material3:material3:1.9.0` stehen fest im Katalog. Google
+veröffentlicht foundation, ui und material3 nicht für iOS, und die Plugin-Accessors
+(`compose.material3`) sind seit CMP 1.12 veraltet. Ein Intel-Simulator (`iosX64`) gibt
+es dafür nicht mehr.
+
+**Sicherung ist eine Datei.** Die SQLite-Datenbank nach einem Checkpoint, nichts weiter.
+Wiederherstellen legt sie als `<db>.restore` daneben und `buildDatabase()` übernimmt sie
+beim nächsten Start — die offene Datenbank wird nie unter Room ausgetauscht.
+
 **Plattformgrenzen sind fachlich geschnitten.** `PaymentProcessor` heißt so, weil die App
 eine Karte belasten will, nicht weil SumUp ein SDK hat. Schlüsselbund und SumUp-iOS-SDK
 werden über Swift-Interfaces hereingereicht statt über Kotlin/Native-Interop angebunden —
@@ -88,9 +98,17 @@ Bezeichner bleiben englisch (`fun charge`, `val balance`), Nutzertexte sind deut
 ## Vor jedem Commit
 
 ```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"  # System-java ist 8
 ./gradlew :shared:compileKotlinIosArm64   # bricht am ehesten
 ./gradlew :androidApp:assembleDebug
-./gradlew :shared:allTests
+./gradlew :shared:allTests                # braucht eine iOS-Simulator-Runtime
+```
+
+Wer iosApp anfasst, zusätzlich:
+
+```bash
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' build CODE_SIGNING_ALLOWED=NO
 ```
 
 Es gibt keine CI in diesem Repo. Was nicht lokal geprüft wurde, ist ungeprüft.

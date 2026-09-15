@@ -21,12 +21,11 @@ a till attached, built for a volunteer on a shift rather than a trained cashier.
 | | |
 |---|---|
 | Android | works, builds from `:androidApp` |
-| iOS | **in progress**, roughly half ported — see `docs/PORTIERUNG.md` |
+| iOS | builds and runs in the iPad simulator from `iosApp/`; card payments need the SumUp iOS SDK still — see `docs/PORTIERUNG.md` |
 | Multi-device server | specified, not built — see the PDF below |
 
-The move to Kotlin Multiplatform is underway on branch `1.0.1-suh2bh` and **has not been
-compiled yet**. Anyone picking it up should start with the first section of
-`docs/PORTIERUNG.md`.
+Both platforms build from the same shared module. `docs/PORTIERUNG.md` lists exactly what
+has been verified and what has not.
 
 ## Tech stack
 
@@ -41,8 +40,8 @@ compiled yet**. Anyone picking it up should start with the first section of
 
 ```
 shared/          everything common: data, logic, the whole UI
-androidApp/      Android host — activity, manifest, resources
-iosApp/          Xcode project (not yet present)
+androidApp/      Android host — activity, application, backup worker, resources
+iosApp/          Xcode project and Swift host; builds the Kotlin framework via Gradle
 docs/            specification, porting plan, tooling
 ```
 
@@ -50,9 +49,11 @@ docs/            specification, porting plan, tooling
 
 ### Android
 
-Android Studio with SDK 36, JDK 17.
+Android Studio with SDK 37 and its bundled JDK 21. From a shell, point `JAVA_HOME` at
+Android Studio's JDK first (the system `java` is 8):
 
 ```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :androidApp:assembleDebug
 ```
 
@@ -60,11 +61,15 @@ Add your SumUp affiliate key under Einstellungen to enable card payments.
 
 ### iOS
 
-Not runnable yet. Once `iosApp/` exists it needs macOS with Xcode, plus an Apple
-Developer account to install on a device.
+macOS with Xcode 26 and an iOS simulator runtime. Open `iosApp/iosApp.xcodeproj`, pick
+an iPad simulator and run — the build script phase compiles the Kotlin framework. To
+install on a device, sign in with your Apple ID in Xcode and put your team ID into
+`iosApp/Configuration/Config.xcconfig`.
 
 ```bash
 ./gradlew :shared:compileKotlinIosArm64
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' build CODE_SIGNING_ALLOWED=NO
 ```
 
 ## Documentation
