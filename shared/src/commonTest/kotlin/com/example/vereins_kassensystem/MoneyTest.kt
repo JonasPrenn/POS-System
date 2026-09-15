@@ -1,9 +1,9 @@
 package com.example.vereins_kassensystem
 
 import com.example.vereins_kassensystem.ui.format.Money
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.Test
 
 /**
  * Separator handling decides what a member actually gets charged, so it is pinned down
@@ -14,7 +14,7 @@ class MoneyTest {
     private fun assertParses(expected: Double, input: String) {
         val actual = Money.parse(input)
             ?: throw AssertionError("expected $input to parse, got null")
-        assertEquals(input, expected, actual, 0.0001)
+        assertEquals(expected, actual, 0.0001, input)
     }
 
     @Test
@@ -24,7 +24,7 @@ class MoneyTest {
     }
 
     @Test
-    fun `a lone dot is a decimal separator, not a grouping mark`() {
+    fun `a lone dot is a decimal separator and not a grouping mark`() {
         // The 100x bug: reading this as a thousands separator would charge 1250.
         assertParses(12.50, "12.50")
         assertParses(5.00, "5.00")

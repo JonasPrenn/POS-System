@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.platform
 
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -55,7 +56,7 @@ fun NSData.toByteArray(): ByteArray {
     }
 }
 
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 fun ByteArray.toNSData(): NSData {
     if (isEmpty()) return NSData()
     return usePinned { pinned -> NSData.create(bytes = pinned.addressOf(0), length = size.toULong()) }
@@ -94,7 +95,7 @@ fun bookmarkOf(url: NSURL): String? {
  * Der Aufrufer muss um jeden Zugriff `startAccessingSecurityScopedResource()` und
  * `stopAccessingSecurityScopedResource()` legen; siehe [withSecurityScope].
  */
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 fun resolveBookmark(base64: String): NSURL? {
     val data = NSData.create(base64EncodedString = base64, options = 0u) ?: return null
     return NSURL.URLByResolvingBookmarkData(

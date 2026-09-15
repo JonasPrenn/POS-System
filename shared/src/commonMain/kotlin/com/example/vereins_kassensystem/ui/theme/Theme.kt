@@ -1,15 +1,12 @@
 package com.example.vereins_kassensystem.ui.theme
 
-import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
+import com.example.vereins_kassensystem.platform.SystemBarsEffect
 
 /**
  * How the app picks between light and dark. Persisted in settings so a tablet mounted
@@ -136,19 +133,9 @@ fun VereinsDeckelTheme(
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     val extendedColors = if (darkTheme) DarkExtendedColors else LightExtendedColors
 
-    // The bars themselves are drawn transparent by enableEdgeToEdge(); all that is left
-    // is telling the system which way to tint its icons. Setting statusBarColor here
-    // would be a no-op at this target SDK.
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
-            }
-        }
-    }
+    // Die Leisten selbst zeichnet das System transparent; hier wird ihm nur gesagt, in
+    // welche Richtung es seine Symbole färben soll. Wie, weiß die Plattform.
+    SystemBarsEffect(darkTheme)
 
     CompositionLocalProvider(
         LocalExtendedColors provides extendedColors,

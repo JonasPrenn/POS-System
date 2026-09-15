@@ -54,6 +54,11 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
+            // Die @Preview-Annotation fuer commonMain. Seit CMP 1.12 ist das die
+            // androidx-Annotation aus dem JetBrains-Artefakt ui-tooling-preview; die
+            // aeltere components-ui-tooling-preview ist veraltet. Android Studio rendert
+            // sie wie gewohnt, iOS ignoriert sie.
+            implementation(libs.compose.ui.tooling.preview)
 
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             implementation(libs.androidx.lifecycle.runtime.compose)
@@ -81,7 +86,6 @@ kotlin {
             // Das SumUp-SDK verlangt androidx.compose.material ohne Versionsangabe und
             // verlaesst sich auf eine BOM. Die muss deshalb hier mit hinein.
             implementation(project.dependencies.platform(libs.androidx.compose.bom))
-            implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.core.ktx)
             implementation(libs.kotlinx.coroutines.android)

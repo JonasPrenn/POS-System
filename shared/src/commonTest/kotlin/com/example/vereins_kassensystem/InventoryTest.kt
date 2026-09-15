@@ -8,10 +8,10 @@ import com.example.vereins_kassensystem.data.entity.StockTracking
 import com.example.vereins_kassensystem.data.entity.TappedContainer
 import com.example.vereins_kassensystem.data.stock.Inventory
 import com.example.vereins_kassensystem.data.stock.StockItemState
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 /**
  * The cellar model: learned yields, several vessel sizes at once, and recipes drawing
@@ -69,7 +69,7 @@ class InventoryTest {
     }
 
     @Test
-    fun `a spoiled keg is a loss, not a measurement`() {
+    fun `a spoiled keg is a loss and not a measurement`() {
         val type = keg(1, 1, 50.0, estimate = 49.0)
         val spoiled = TappedContainer(
             containerTypeId = 1, drawn = 12.0, closedAt = 1L,

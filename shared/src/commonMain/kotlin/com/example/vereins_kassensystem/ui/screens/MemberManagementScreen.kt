@@ -280,7 +280,7 @@ fun MemberDialog(
                         label = { Text("Kategorie") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                             .fillMaxWidth()
                     )
                     ExposedDropdownMenu(
@@ -432,7 +432,7 @@ fun TopUpDialog(
 
                 if (amountValid) {
                     Text(
-                        text = "Neues Guthaben: ${Money.format(member.balance + parsed!!)}",
+                        text = "Neues Guthaben: ${Money.format(member.balance + parsed)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )

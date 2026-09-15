@@ -1,9 +1,10 @@
 package com.example.vereins_kassensystem.platform
 
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 /**
  * Die Uhr der App, an genau einer Stelle.
@@ -50,7 +51,7 @@ object VdDate {
     /** "15. Sep · 18:22" — für Listenzeilen in Historie und Wareneingang. */
     fun dayAndTime(epochMillis: Long): String {
         val t = localOf(epochMillis)
-        return "${pad(t.dayOfMonth)}. ${monthsShort[t.monthNumber - 1]} · " +
+        return "${pad(t.day)}. ${monthsShort[t.month.number - 1]} · " +
             "${pad(t.hour)}:${pad(t.minute)}"
     }
 
@@ -59,7 +60,7 @@ object VdDate {
         val t = localOf(epochMillis)
         // isoDayNumber ist 1 = Montag, die Liste beginnt ebenfalls mit Montag.
         val weekday = weekdays[t.dayOfWeek.ordinal]
-        return "$weekday, ${t.dayOfMonth}. ${monthsLong[t.monthNumber - 1]}"
+        return "$weekday, ${t.day}. ${monthsLong[t.month.number - 1]}"
     }
 
     /**
@@ -78,7 +79,7 @@ object VdDate {
     /** "2026-09-15_1822" — für Dateinamen von Sicherungen, sortierbar und harmlos. */
     fun fileStamp(epochMillis: Long): String {
         val t = localOf(epochMillis)
-        return "${t.year}-${pad(t.monthNumber)}-${pad(t.dayOfMonth)}_" +
+        return "${t.year}-${pad(t.month.number)}-${pad(t.day)}_" +
             "${pad(t.hour)}${pad(t.minute)}"
     }
 }
