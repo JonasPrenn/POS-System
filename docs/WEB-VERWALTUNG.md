@@ -1,8 +1,14 @@
 # Web-Verwaltung für VereinsDeckel — Konzept
 
-Stand 16. September 2026. Ein Vorschlag, was die Web-Oberfläche leisten soll, in welcher
+Stand 17. September 2026. Ein Vorschlag, was die Web-Oberfläche leisten soll, in welcher
 Reihenfolge sie entstehen sollte und was vorher entschieden werden muss. Nichts davon ist
 gebaut; das Dokument ist die Grundlage für die Entscheidung, nicht ihr Ergebnis.
+
+**Was feststeht:** Österreich. Der Verein ist eine katholische Studentenverbindung, also
+ein Verein nach dem Vereinsgesetz 2002, in aller Regel nicht gemeinnützig im steuerlichen
+Sinn. Rechnungslegung als Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht. Der Server
+steht bei einem Bundesbruder mit einem kleinen Rechenzentrum. Das Dokument ist auf diese
+Antworten zugeschnitten; die deutschen Regeln stehen nicht mehr drin.
 
 Kurzfassung: Die Theke bleibt das Tablet. Das Web ist der Schreibtisch des Kassiers und
 des Vorstands — Mitglieder pflegen, Deckel abrechnen, Einkauf und Lager führen, die
@@ -37,62 +43,96 @@ Drei Folgerungen daraus:
 
 ---
 
-## 2 · Rahmen, der vorher entschieden werden muss
+## 2 · Rahmen: was in Österreich für die Verbindung gilt
 
-Diese Punkte bestimmen den Umfang stärker als jede Feature-Liste. Sie sind Fragen an den
-Verein, nicht an den Code.
+Diese Punkte bestimmen den Umfang stärker als jede Feature-Liste. Was davon offen ist,
+steht als Frage in Kapitel 8; alles hier ist mit dem Steuerberater des Vereins
+gegenzulesen, bevor gebaut wird.
 
-### 2.1 Österreich oder Deutschland
+### 2.1 Kasse und Belege
 
-Der Code sagt „Kassabon", also vermutlich Österreich. Die Regeln unterscheiden sich in
-genau den Bereichen, um die es hier geht:
+- **Registrierkassenpflicht (§ 131b BAO)** trifft einen Betrieb erst, wenn **beide** Grenzen
+  überschritten sind: mehr als 15.000 € Jahresumsatz *und* mehr als 7.500 € Barumsatz.
+  Als Barumsatz zählen Bargeld, Bankomat- und Kreditkarte (also auch SumUp), Gutscheine —
+  **nicht** aber Überweisung und Einziehungsauftrag.
+- **Für eine Verbindung ist das die entscheidende Rechenregel.** Was Bundesbrüder auf den
+  Deckel schreiben und nach der Abrechnung überweisen, ist kein Barumsatz. Barumsatz sind
+  Gäste, die bar oder mit Karte zahlen, und Aufladungen in bar. Ob die Bude unter
+  7.500 € bleibt, entscheidet über Registrierkasse ja oder nein. Die Zahlen dafür liefert
+  die App (Umsatz nach Zahlart, 4.5); die Einordnung, ob der Budenbetrieb überhaupt ein
+  „Betrieb" im Sinn der BAO ist, der Steuerberater.
+- **Belegerteilungspflicht (§ 132a BAO):** Unternehmer müssen bei Barzahlung ab dem ersten
+  Euro einen Beleg ausstellen, auf Papier oder elektronisch. Ob die Verbindung mit der
+  Bude Unternehmer ist, hängt an 2.2. Wenn ja, gehört ein E-Bon (QR-Code am Tablet) oder
+  ein Bondrucker für Bar- und Kartenzahlungen an Gäste in die App; für Deckelbuchungen
+  ist die Abrechnung der Beleg.
+- **Einzelaufzeichnungspflicht (§ 131 BAO):** jede Bareinnahme einzeln. Macht die App.
+- **Wenn Registrierkassenpflicht gilt:** Signaturerstellungseinheit (als Cloud-Dienst
+  erhältlich), Datenerfassungsprotokoll, QR-Code am Beleg, Registrierung über
+  FinanzOnline — und zwar vor der Abrechnung (Phase 3), nicht danach.
+- Die Ausnahmen für kleine Vereinskantinen und Vereinsfeste gelten nur begünstigten
+  (gemeinnützigen) Vereinen. Für die Verbindung ist damit nicht zu rechnen.
 
-| | Österreich | Deutschland |
-|---|---|---|
-| Elektronische Kasse | Registrierkassenpflicht (RKSV) ab 15.000 € Jahresumsatz und 7.500 € Barumsatz: Signatureinrichtung, Datenerfassungsprotokoll, QR-Code am Beleg, Meldung über FinanzOnline. | KassenSichV: jedes elektronische Kassensystem braucht eine zertifizierte TSE, Belegausgabepflicht, Meldung des Systems beim Finanzamt (§ 146a AO). Die Pflicht hängt am System, nicht an der Rechtsform. |
-| Ausnahmen für Vereine | Unentbehrliche Hilfsbetriebe ganz befreit; kleine Vereinskantinen bis 52 Öffnungstage im Jahr und einer Umsatzgrenze (BMF nennt 30.000 €, Sport Austria 45.000 €); kleine Vereinsfeste bis 72 Stunden im Jahr. | Keine vereinsspezifische Ausnahme. Nur die offene Ladenkasse (Geldkassette ohne Elektronik) ist frei von TSE und Belegpflicht, verlangt aber täglichen Kassenbericht und Kassensturzfähigkeit. |
-| Rechnungslegung | § 21 VerG: Einnahmen-Ausgaben-Rechnung samt Vermögensübersicht binnen fünf Monaten nach Jahresende. Bilanz erst ab 1 Mio. € Einnahmen oder Ausgaben in zwei Folgejahren (§ 22 VerG). | Vier Sphären (ideell, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); die Vereinsgaststätte ist wirtschaftlicher Geschäftsbetrieb. Einnahmen-Überschuss-Rechnung; Körperschaftsteuer erst über 45.000 € Einnahmen im wGB. |
-| Aufbewahrung | 7 Jahre (§ 132 BAO). | 10 Jahre, Buchungsbelege 8 Jahre (§ 147 AO). |
-| E-Rechnung | Keine Pflicht für Kleinunternehmer. | Nur B2B; Rechnungen an private Mitglieder sind nicht betroffen. Kleinunternehmer müssen nur empfangen können. |
+### 2.2 Steuerlicher Status
 
-**Die unbequeme Konsequenz:** VereinsDeckel *ist* eine elektronische Kasse. Ein
-Vereinsheim, das jedes Wochenende offen hat, liegt über 52 Öffnungstagen; wenn dazu die
-Umsatzgrenzen überschritten sind, ist die Kasse in Österreich registrierkassenpflichtig
-und in Deutschland TSE-pflichtig. Je mehr Buchhaltung die App übernimmt, desto weniger
-lässt sich später argumentieren, sie sei nur eine Anschreibhilfe. Das ist mit dem
-Steuerberater des Vereins zu klären, **bevor** die Kassenfunktionen ausgebaut werden —
-und wenn die Pflicht gilt, gehört die Anbindung einer Signatur- bzw. TSE-Lösung (in
-beiden Ländern als Cloud-Dienst verfügbar) auf die Liste, und zwar vor der Abrechnung.
+- **Kleinunternehmer** bis 55.000 € Nettoumsatz im Jahr (seit 2025): keine Umsatzsteuer,
+  keine Rechnung mit Steuerausweis. Die „Rechnung an Mitglieder" ist dann das, was sie
+  ohnehin sein sollte — ein **Kontoauszug des Deckels mit Zahlungsaufforderung**.
+- Wird die Grenze überschritten, kommt Umsatzsteuer auf die Budenumsätze (Getränke 20 %,
+  Speisen 10 %) und die Abrechnung braucht Steuerausweis. Dafür bekommt jedes Produkt
+  ein Steuersatzfeld, das erst benutzt wird, wenn es so weit ist.
+- Echte Mitgliedsbeiträge (Semesterbeiträge) sind nicht steuerbar und gehören in den
+  Büchern in einen anderen Bereich als der Budenbetrieb — siehe 4.6.
+- Ob auf Gewinne des Budenbetriebs Körperschaftsteuer anfällt, klärt der Steuerberater;
+  die Web-Verwaltung liefert ihm die Zahlen getrennt nach Bereich.
 
-### 2.2 Steuerlicher Status des Vereins
+### 2.3 Rechnungslegung
 
-Gemeinnützig oder nicht, Kleinunternehmer oder umsatzsteuerpflichtig (Grenze 2025:
-55.000 € in Österreich, 25.000 € Vorjahr in Deutschland). Davon hängt ab, ob eine
-„Rechnung an Mitglieder" eine Rechnung im Sinne des Umsatzsteuergesetzes mit
-Steuerausweis sein muss oder — der Normalfall — ein **Kontoauszug des Deckels mit
-Zahlungsaufforderung**. Das Datenmodell muss beides können (Steuersatz je Produkt,
-optional), die Oberfläche zeigt nur, was der Verein braucht.
+- **§ 21 VerG:** Einnahmen-Ausgaben-Rechnung samt Vermögensübersicht binnen fünf Monaten
+  nach Ende des Rechnungsjahres. Die **Rechnungsprüfer** prüfen binnen vier Monaten ab
+  Erstellung; der Convent beziehungsweise die Generalversammlung entlastet. Eine Bilanz
+  wird erst ab 1 Mio. € Einnahmen oder Ausgaben in zwei Folgejahren fällig (§ 22 VerG) —
+  für die Verbindung nicht.
+- **Aufbewahrung sieben Jahre** (§ 132 BAO) für Kassabuch, Belege und Abrechnungen. Der
+  Server muss das halten können, auch wenn Chargen wechseln.
+- **E-Rechnung:** keine Pflicht.
 
-### 2.3 Wer die Web-Oberfläche benutzt
+### 2.4 Wer die Web-Oberfläche benutzt
 
 | Rolle | Braucht |
 |---|---|
-| Kassier | Alles zu Geld: Salden, Abrechnungen, Zahlungseingänge, Kassenbuch, Belege, Jahresabschluss. |
-| Vorstand | Übersicht, Mitglieder, Freigaben; liest mehr, als er schreibt. |
-| Getränkewart | Lager, Bestellvorschlag, Wareneingang, Inventur. |
-| Rechnungsprüfer | Lesend, zeitlich begrenzt: Kassenbuch, Belege, Abschlüsse. |
-| Mitglied | Später, optional: eigenen Deckel sehen, Auszug laden, per Überweisung aufladen. |
+| Kassier | Alles zu Geld: Salden, Abrechnungen, Zahlungseingänge, Kassabuch, Belege, Einnahmen-Ausgaben-Rechnung. |
+| Senior und Chargen (Vorstand) | Übersicht, Mitglieder, Freigaben; lesen mehr, als sie schreiben. |
+| Budenwart | Lager, Bestellvorschlag, Wareneingang, Inventur. |
+| Rechnungsprüfer | Lesend, zeitlich begrenzt: Kassabuch, Belege, Abschlüsse. |
+| Bundesbrüder (Aktive, Alte Herren) | Später, optional: eigenen Deckel sehen, Auszug laden, per Überweisung aufladen. |
+| Gäste | Kein Zugang. Zahlen bar oder mit Karte. |
 
-Rollen und Rechte sind damit keine Zusatzfunktion, sondern Grundfunktion der ersten
-Version.
+Chargen wechseln jedes Semester. Rollen und Rechte sind deshalb Grundfunktion, und die
+Übergabe eines Kontos an den Nachfolger ein eigener, dokumentierter Vorgang.
 
-### 2.4 Wo der Server steht
+### 2.5 Der Server beim Bundesbruder
 
-Ein Raspberry Pi im Vereinsheim oder ein gemieteter Server. Der Unterschied ist nicht
-technisch: Mit Kontaktdaten und Kontoständen auf einem fremden Server braucht der Verein
-einen Auftragsverarbeitungsvertrag, ein Verzeichnis der Verarbeitungstätigkeiten hat er
-ohnehin (siehe Spezifikation, 7.3). E-Mail-Versand an Mitglieder braucht deren
-Einwilligung, die pro Mitglied gespeichert wird.
+- **Auftragsverarbeitung.** Steht der Server in einem fremden Rechenzentrum — auch dem
+  eines Bundesbruders —, ist dessen Firma Auftragsverarbeiter nach Art. 28 DSGVO. Es
+  braucht einen Auftragsverarbeitungsvertrag, benannte Administratoren und die Zusage,
+  dass niemand sonst in die Daten schaut.
+- **Besondere Kategorie.** Die Mitgliedschaft in einer katholischen Verbindung sagt etwas
+  über die religiöse Überzeugung; die Mitgliederliste ist damit Daten nach Art. 9 DSGVO.
+  Die Verarbeitung innerhalb der Verbindung ist zulässig (Art. 9 Abs. 2 lit. d), eine
+  Weitergabe nach außen nicht. Praktisch: TLS, verschlüsselte Datenträger, Zugriff nur
+  für benannte Personen, Protokollierung — und so wenig wie möglich davon auf den
+  Tablets (Kapitel 1, Punkt 3).
+- **Aufstellung** wie in Kapitel 7 der Spezifikation: PostgreSQL, ein Dienst, Caddy mit
+  Let's-Encrypt-Zertifikat unter einem echten Hostnamen. iOS lehnt selbstsignierte
+  Zertifikate ab; ein öffentlicher HTTPS-Zugang mit knapper Firewall ist einfacher als
+  ein VPN auf jedem Tablet.
+- **Sicherung außer Haus.** Ein nächtlicher `pg_dump`, verschlüsselt, an einen zweiten
+  Ort, der nicht im selben Rechenzentrum liegt — etwa beim Kassier. Das Rechenzentrum ist
+  ein Ort und eine Person; beides kann wegfallen.
+- **Bus-Faktor.** Zwei Administratoren, eine geschriebene Betriebsanleitung, ein
+  Datenexport, der jederzeit ohne Hilfe des Betreibers geht. Verbindungen leben lange,
+  Zuständigkeiten nicht.
 
 ---
 
@@ -126,7 +166,8 @@ Heute: Name, Kategorie, Saldo. Für Abrechnung und Verwaltung fehlt der Rest.
   (gibt es schon), Guthaben und Außenstände auf einen Blick.
 - **Sperre:** Deckel gesperrt, mit Grund. Wird auf die Tablets synchronisiert; die Theke
   zeigt es, bevor angeschrieben wird.
-- **Kategorien und Limits** pflegen — heute schon in der App, im Web bequemer.
+- **Kategorien und Limits** pflegen — Fuchs, Bursch, Alter Herr, Gast, mit eigenem
+  Deckellimit je Kategorie. Heute schon in der App, im Web bequemer.
 - **Import und Export** als CSV (vorhanden), zusätzlich der Datenschutz-Export für ein
   einzelnes Mitglied (Auskunft) und das **Löschen nach Austritt**: Das Profil wird
   gelöscht, der Name in den Buchungen bleibt als Schnappschuss, weil die Buchungen der
@@ -138,7 +179,9 @@ auf `members` (synchronisiert).
 ### 4.2 Deckel abrechnen und Rechnungen an Mitglieder
 
 Ein negativer Deckel ist eine Forderung des Vereins, ein positiver eine Verbindlichkeit.
-Die Abrechnung macht daraus einen Vorgang, den man nachvollziehen und mahnen kann.
+Die Abrechnung — in Verbindungen die Bierrechnung nach jedem Monat oder Semester — macht
+daraus einen Vorgang, den man nachvollziehen und mahnen kann. Für Alte Herren, die selten
+auf der Bude sind, ist der Versand per E-Mail der Normalfall, nicht die Ausnahme.
 
 - **Abrechnungslauf** zum Stichtag: alle Mitglieder mit Saldo unter einer Schwelle, oder
   alle, oder eine Auswahl. Je Mitglied ein PDF: Positionen seit der letzten Abrechnung,
@@ -158,10 +201,14 @@ Die Abrechnung macht daraus einen Vorgang, den man nachvollziehen und mahnen kan
   Nur wenn der Verein umsatzsteuerpflichtig ist, wird daraus eine Rechnung mit
   Steuerausweis; dafür braucht jedes Produkt einen Steuersatz. Das Feld wird angelegt,
   aber erst benutzt, wenn 2.2 es verlangt.
-- **Später, optional:** SEPA-Lastschrift (Gläubiger-ID, Mandate, pain.008-Export) und
-  Mitgliedsbeiträge über dieselbe Maschinerie. Das ist das Kerngeschäft der
-  Vereinsverwaltungs-Software (easyVerein, ClubDesk, campai, WISO MeinVerein), und
-  VereinsDeckel muss es nicht nachbauen — es sei denn, der Verein hat sonst nichts.
+- **Semesterbeitrag** als eigene Zeile derselben Abrechnung, wenn die Verbindung das
+  will: ein Beitrag ist buchhalterisch etwas anderes als ein Bier und bekommt deshalb
+  einen eigenen Bereich (4.6), aber der Weg zum Bundesbruder — PDF, E-Mail, QR-Code,
+  Zahlungsabgleich — ist derselbe. Frage 5 in Kapitel 8.
+- **Später, optional:** SEPA-Lastschrift (Gläubiger-ID, Mandate, pain.008-Export). Das ist
+  das Kerngeschäft der Vereinsverwaltungs-Software (easyVerein, ClubDesk, campai, WISO
+  MeinVerein), und VereinsDeckel muss es nicht nachbauen — es sei denn, die Verbindung
+  hat sonst nichts.
 
 Dazu: `statements` (Mitglied, Zeitraum, Saldo, Betrag, Fälligkeit, Status, Versand),
 `payments` und `bank_transactions` (Import mit Zuordnung), `members.number`,
@@ -228,38 +275,40 @@ niemand hat.
 Dazu: `cash_sessions`, `cash_movements`. **Das ist der einzige Bereich, der auch die App
 verändert** (Schicht, Entnahme, Zählung als Bildschirme im Verkaufsweg).
 
-### 4.6 „Bilanzierung": was gemeint sein sollte
+### 4.6 Die Einnahmen-Ausgaben-Rechnung
 
-Ein Verein dieser Größe erstellt keine Bilanz. Er erstellt eine
-Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht (Österreich) beziehungsweise eine
-Einnahmen-Überschuss-Rechnung nach Sphären (Deutschland), und ein Rechnungsprüfer sieht
-sich Kassenbuch und Belege an. Genau das liefert die Web-Verwaltung — und nicht mehr:
+Die Verbindung erstellt eine Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht, und die
+Rechnungsprüfer sehen sich Kassabuch und Belege an. Genau das liefert die Web-Verwaltung
+— und nicht mehr:
 
-- **Kontenrahmen für Vereine**, klein, vorbelegt (Getränkeeinkauf, Speiseneinkauf,
-  Kantinenerlöse, Aufladungen, Reinigung, Energie, Miete, Versicherung, Sonstiges), mit
-  Zuordnung zur **Sphäre** beziehungsweise zum Betrieb (Deutschland: die vier Sphären;
-  Österreich: unentbehrlicher Hilfsbetrieb, entbehrlicher Hilfsbetrieb,
-  begünstigungsschädlicher Betrieb). Jede Bewegung — Verkauf, Beleg, Entnahme — trägt ein
-  Konto; Verkäufe werden über die Produktkategorie automatisch kontiert.
-- **Jahresübersicht:** Einnahmen und Ausgaben je Konto und Sphäre, Vergleich zum Vorjahr,
-  Umsatzsteuer-Übersicht falls steuerpflichtig, **Vermögensübersicht** mit
-  Kassenbestand, Bankbestand, Lagerwert, Forderungen (negative Deckel) und
-  Verbindlichkeiten (positive Deckel, offene Lieferantenbelege). Die Deckelsalden sind
-  hier zum ersten Mal das, was sie buchhalterisch sind.
-- **Veranstaltungen als Kostenstelle:** ein Fest bekommt eine Kennung, Verkäufe und Belege
-  lassen sich ihm zuordnen. In Österreich ist das die Voraussetzung, die 72-Stunden-Regel
-  überhaupt belegen zu können; in Deutschland trennt es Zweckbetrieb von
-  Geschäftsbetrieb.
-- **Export** für den Steuerberater: CSV mit Konto, Sphäre, Betrag, Beleg; die Formate,
-  die die Branchenprogramme lesen (DATEV-Buchungsstapel in Deutschland, BMD in
-  Österreich), sind Textformate und lassen sich mit vertretbarem Aufwand erzeugen.
-- **Nicht:** doppelte Buchführung, Bilanz nach UGB oder HGB, Anlagenverzeichnis mit
+- **Kontenrahmen**, klein, vorbelegt: Getränkeeinkauf, Speiseneinkauf, Budenerlöse,
+  Aufladungen, Semesterbeiträge, Spenden, Reinigung, Energie, Miete, Versicherung,
+  Veranstaltungen, Sonstiges. Jede Bewegung — Verkauf, Beleg, Entnahme — trägt ein Konto;
+  Verkäufe werden über die Produktkategorie automatisch kontiert.
+- **Bereiche** statt der deutschen Sphären: *Budenbetrieb* (Getränke, Speisen, Einkauf
+  dafür), *Vereinsleben* (Beiträge, Spenden, Verwaltung) und *Veranstaltungen*. So sieht
+  der Steuerberater auf einen Blick, was Betrieb ist und was nicht (2.2).
+- **Veranstaltungen als Kostenstelle:** Kneipe, Kommers, Stiftungsfest bekommen eine
+  Kennung; Verkäufe und Belege lassen sich ihr zuordnen. Dann steht am Ende, was das
+  Stiftungsfest gekostet und gebracht hat.
+- **Jahresübersicht:** Einnahmen und Ausgaben je Konto und Bereich, Vergleich zum
+  Vorjahr, dazu die **Vermögensübersicht** mit Kassabestand, Bankbestand, Lagerwert,
+  Forderungen (negative Deckel) und Verbindlichkeiten (positive Deckel, offene
+  Lieferantenbelege). Die Deckelsalden sind hier zum ersten Mal das, was sie
+  buchhalterisch sind. Das Rechnungsjahr — Kalenderjahr oder Studienjahr — ist
+  einstellbar (Frage 3 in Kapitel 8).
+- **Mappe für die Rechnungsprüfer:** die Einnahmen-Ausgaben-Rechnung, das Kassabuch, die
+  Belegliste mit Dateien, die Abrechnungen — als PDF-Bündel für die Prüfung binnen vier
+  Monaten (2.3).
+- **Export** für den Steuerberater: CSV mit Konto, Bereich, Betrag, Beleg; das
+  BMD-Importformat ist ein Textformat und mit vertretbarem Aufwand erzeugbar.
+- **Nicht:** doppelte Buchführung, Bilanz nach UGB, Anlagenverzeichnis mit
   Abschreibungen, Lohn. Wer das braucht, hat einen Steuerberater mit Software; die
   Web-Verwaltung füttert sie.
 
-Dazu: `accounts` (Kontenrahmen mit Sphäre), `account_id` auf Bewegungen und
+Dazu: `accounts` (Kontenrahmen mit Bereich), `account_id` auf Bewegungen und
 Produktkategorien, `events` (Veranstaltungen) mit optionalem Bezug auf Buchungen und
-Belege.
+Belege, das Rechnungsjahr als Einstellung.
 
 ### 4.7 Querschnitt
 
@@ -283,12 +332,12 @@ Kandidaten aus dem Vergleich mit Vereins- und Kassensoftware, mit Einschätzung:
 | Kandidat | Einschätzung |
 |---|---|
 | **Mitgliederportal** (eigenen Deckel sehen, Auszug laden, Aufladen per QR-Überweisung) | Hoher Nutzen, geringes Risiko, sobald Abrechnung und Zahlungsimport stehen. Verringert die Rückfragen beim Kassier. Phase 5. |
-| **Belegdruck / E-Bon** am Tablet | Nur nötig, wenn Belegpflicht gilt (2.1). Dann Pflicht, sonst Ballast. |
-| **RKSV- bzw. TSE-Anbindung** | Folgt aus 2.1. Wenn ja, vor der Abrechnung, nicht danach. |
+| **E-Bon am Tablet** (QR-Code oder Bondrucker) | Nötig, sobald die Belegerteilungspflicht gilt (2.1) — dann für jede Bar- und Kartenzahlung an Gäste. Klein, wenn die Buchung ohnehin da ist. |
+| **RKSV-Anbindung** (Signatur, Datenerfassungsprotokoll) | Folgt aus 2.1. Wenn ja, vor der Abrechnung, nicht danach. |
 | **Dienstplan** (wer steht wann an der Theke) | Sinnvoll, weil Schichten (4.5) ohnehin Personen haben. Klein. |
 | **Preislisten mit Gültigkeit** (Fest, Happy Hour) | Klein, und die Veranstaltungs-Kennung aus 4.6 macht es abrechenbar. |
 | **Gutscheine, Pfand** | Beides braucht eigene Buchungslogik; erst, wenn der Verein es tatsächlich verkauft. |
-| **Spendenbescheinigungen, Newsletter, Vereinswebseite, Beitragsverwaltung** | Kerngeschäft der Vereinsverwaltungs-Software. Nicht nachbauen. |
+| **Spendenbescheinigungen, Newsletter, Vereinswebseite, Lastschrift** | Kerngeschäft der Vereinsverwaltungs-Software. Nicht nachbauen. |
 | **Mandantenfähigkeit** (mehrere Vereine auf einem Server) | Nicht, solange es einen Verein gibt. Ein Server pro Verein ist einfacher und datenschutzrechtlich sauberer. |
 
 ---
@@ -303,8 +352,8 @@ Jede Phase liefert etwas, das für sich benutzbar ist, und baut auf der vorigen 
 | **1 — Lesen** | Anmeldung, Rollen, Gerätekopplung, Übersicht; Mitglieder mit Salden, Historie, Lager, Belege — alles nur lesend. | Der Kassier sieht zum ersten Mal alles ohne Tablet. Wenig Risiko, weil nichts geschrieben wird. |
 | **2 — Stammdaten** | Mitglieder und Profile pflegen, Sperren, Produkte und Preise, Lieferanten, Eingangsbelege vervollständigen, Dateien. | Schreiben in Stammdaten läuft über den vorhandenen Sync-Konfliktweg. |
 | **3 — Geld** | Deckelabrechnung mit PDF, E-Mail und QR; Zahlungseingang und Kontoauszug-Import; Erinnerungen. Schichten, Entnahmen, Kassenbuch (mit den App-Bildschirmen). | Der eigentliche Nutzen. Braucht Profile (2) und den unveränderlichen Buchungsstrom (0). |
-| **4 — Bücher** | Kontenrahmen, Sphären, Veranstaltungen, Jahresübersicht mit Vermögensübersicht, Inventur und Lagerwert, Exporte. | Baut auf allem auf; erst hier zahlt sich die Disziplin der anfügenden Tabellen aus. |
-| **5 — Optional** | Mitgliederportal, Dienstplan, Preislisten, SEPA-Lastschrift, Signatur/TSE je nach 2.1. | Nach Bedarf. |
+| **4 — Bücher** | Kontenrahmen, Bereiche, Veranstaltungen, Jahresübersicht mit Vermögensübersicht, Inventur und Lagerwert, Exporte. | Baut auf allem auf; erst hier zahlt sich die Disziplin der anfügenden Tabellen aus. |
+| **5 — Optional** | Mitgliederportal für Bundesbrüder, Dienstplan, Preislisten, SEPA-Lastschrift, RKSV je nach 2.1. | Nach Bedarf. |
 
 Größenordnung: Phase 0 ist die größte einzelne Arbeit (Migration beider Plattformen plus
 Server); die Phasen 1 und 2 sind Fleißarbeit mit wenig Entwurfsrisiko; Phase 3 hat mit
@@ -335,29 +384,32 @@ andere bleibt auf dem Server.**
 
 ## 8 · Offene Fragen an den Verein
 
-1. Österreich oder Deutschland — und wie steht der Verein zur Registrierkassen- bzw.
-   TSE-Pflicht? (Öffnungstage, Umsatz, Barumsatz.)
-2. Gemeinnützig? Kleinunternehmer? Umsatzsteuerpflichtig?
-3. Wer soll die Oberfläche benutzen — nur Kassier und Vorstand, oder auch Mitglieder?
-4. Server im Vereinsheim oder gemietet?
-5. Soll die Beitragsverwaltung (Mitgliedsbeiträge, SEPA) mit hinein, oder bleibt die
-   bei der bestehenden Vereinssoftware?
-6. Was heißt „Bilanzierung" für den Kassier konkret — die Jahresübersicht mit
-   Vermögensübersicht aus 4.6, oder verlangt jemand tatsächlich eine Bilanz?
+Land, Rechtsform, Rechnungslegung und Serverstandort sind beantwortet. Offen bleibt:
 
-Die Antworten auf 1 und 2 ändern den Umfang um Wochen; die anderen ändern die
-Reihenfolge.
+1. **Die Zahlen für den Steuerberater:** Jahresumsatz der Bude, davon Barumsatz
+   einschließlich Kartenzahlungen, Öffnungstage. Daraus folgt, ob Registrierkassen- und
+   Belegerteilungspflicht gelten — und damit, ob RKSV und E-Bon in Phase 3 gehören.
+2. **Umsatzsteuer:** Kleinunternehmer, oder über 55.000 € Nettoumsatz? Und fällt auf den
+   Budenbetrieb Körperschaftsteuer an?
+3. **Rechnungsjahr:** Kalenderjahr oder Studienjahr?
+4. **Zugang für Bundesbrüder:** Sollen Aktive und Alte Herren ihren Deckel selbst sehen
+   und Auszüge laden können (Phase 5), oder bleibt alles beim Kassier?
+5. **Semesterbeitrag:** über die Deckelabrechnung mit abrechnen, oder getrennt?
+6. **Betrieb:** Wer ist neben dem Bundesbruder mit dem Rechenzentrum der zweite
+   Administrator, und wohin geht die Sicherung außer Haus?
+
+Frage 1 ändert den Umfang um Wochen; die anderen ändern die Reihenfolge.
 
 ---
 
 ## Quellen
 
 - [Sport Austria — Registrierkassenpflicht](https://www.sportaustria.at/de/service-center/recht-und-finanzen/registrierkassenpflicht): Schwellen 15.000 € / 7.500 €, Ausnahmen für Hilfsbetriebe, kleine Vereinskantinen und Vereinsfeste.
+- [Linde — Registrierkassenpflicht nach § 131b BAO](https://linda.lindeverlag.at/Dokument/115077/) und [Brandauer Rechtsanwälte — Registrierkassenpflicht 2026](https://brandauer-rechtsanwaelte.at/2026/06/05/registrierkassenpflicht-belegpflicht-unternehmer-oesterreich/): was als Barumsatz zählt (Karte ja, Überweisung nein), beide Grenzen zugleich.
+- [JUSLINE — § 132a BAO Belegerteilungspflicht](https://www.jusline.at/gesetz/bao/paragraf/132a), [obono — Registrierkassenpflicht und Belegerteilung](https://obono.at/wissen/fuer-wen-gilt-die-registrierkassenpflicht/).
 - [LBG — Erleichterungen für gemeinnützige Vereine und Vereinsfeste](https://www.lbg.at/servicecenter/lbg_steuertipps_praxis/registrierkassenpflicht_erleichterungen_insbesondere_f%C3%BCr_gemeinn%C3%BCtzige_vereine_und_vereinsfeste_izm_ums%C3%A4tzen_im_freien_keine_generelle_anhebung_auf_30_000_jahresumsatz/index_ger.html), [TPA — Vereinsfeste und Registrierkasse](https://www.tpa-group.at/news/vereinsfeste-und-registrierkasse/), [helloCash — Registrierkassenpflicht Vereine](https://hellocash.at/blog/registrierkassenpflicht-vereine/5427).
-- [ebing — TSE-Pflicht im Verein](https://ebing.io/blog/tse-pflicht-verein), [Vereinswelt — Kassenbonpflicht für Vereine](https://www.vereinswelt.de/kassenbon-pflicht-fuer-vereine-ja-oder-nein), [Wikipedia — Kassensicherungsverordnung](https://de.wikipedia.org/wiki/Kassensicherungsverordnung).
 - [JUSLINE — § 21 VerG](https://www.jusline.at/gesetz/verg/paragraf/21), [§ 22 VerG](https://www.jusline.at/gesetz/verg/paragraf/22), [ICON — Rechnungslegung von Vereinen](https://www.icon.at/news/detail/bilanzierung-rechnungslegung-von-vereinen).
-- [WISO MeinVerein — Steuerbereiche im Verein](https://www.meinverein.de/blog/vereinsbuchhaltung-finanzierung/steuerbereiche/), [Vereinswelt — EÜR im Verein](https://www.vereinswelt.de/finanzen/steuern/einnahmen-ueberschuss-rechnung/), [Vereinswelt — Bilanz im Verein](https://www.vereinswelt.de/finanzen/kassenwart/bilanz-im-verein/), [WINHELLER — Buchführungspflicht gemeinnütziger Vereine](https://winheller.com/blog/buchfuehrungspflicht-gemeinnuetzige-vereine/).
-- [kostenlose-erechnung.de — E-Rechnung für Vereine](https://kostenlose-erechnung.de/ratgeber/e-rechnung-vereine/), [BMF — FAQ E-Rechnung](https://www.bundesfinanzministerium.de/Content/DE/FAQ/e-rechnung.html), [IONOS — E-Rechnung Kleinunternehmer Österreich](https://www.ionos.at/digitalguide/e-mail/e-mail-technik/e-rechnung-kleinunternehmer/).
+- [IONOS — E-Rechnung Kleinunternehmer Österreich](https://www.ionos.at/digitalguide/e-mail/e-mail-technik/e-rechnung-kleinunternehmer/).
 - [heise — Vereinsmanagement-Software im Vergleich](https://www.heise.de/download/specials/Vereinsmanagement-Software-im-Vergleich-9308467), [trusted.de — Vereinsverwaltung](https://trusted.de/vereinsverwaltung), [vereinvereint — Vereinssoftware Vergleich](https://vereinvereint.de/vereinssoftware-vergleich/).
 - [Flatpay — Kassensystem für Vereine](https://www.flatpay.com/de/business-type/kassensystem-fur-vereine), [ready2order — Kassensystem Vereine](https://ready2order.com/de/post/kassensystem-vereine/), [tillhub — Kassensystem für Vereine](https://www.tillhub.de/kassensystem-fuer-vereine/).
 - [JetBrains — Compose Multiplatform 1.9.0, Compose for Web Beta](https://blog.jetbrains.com/kotlin/2025/09/compose-multiplatform-1-9-0-compose-for-web-beta/), [Kotlin/Wasm](https://kotlinlang.org/docs/wasm-overview.html).
