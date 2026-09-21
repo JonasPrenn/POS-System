@@ -31,7 +31,7 @@ shared/          Kotlin Multiplatform. Datenhaltung, Logik, gesamte Oberfläche.
   commonMain/    Alles Gemeinsame, 79 Dateien. AppGraph und ui/VereinsDeckelApp sind die Wurzel.
   androidMain/   Android-Umsetzungen der expect-Deklarationen.
   iosMain/       iOS-Umsetzungen. Bindet Swift über Interfaces ein, nicht umgekehrt.
-  iosTest/       Room-Integrationstest, läuft im Simulator.
+  iosTest/       Room-Integrationstest und Bedientest (Bar, Deckel), laufen im Simulator.
 androidApp/      Nur Hülle: MainActivity, Application, BackupWorker, Manifest, Ressourcen.
 iosApp/          Xcode-Projekt und Swift-Host. Baut das Kotlin-Framework über Gradle.
 server/          Der Sync-Server nach der Spezifikation: Kotlin/JVM, Ktor, PostgreSQL. Eigene README.
@@ -113,7 +113,7 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"  
 ./gradlew :shared:compileKotlinIosArm64   # bricht am ehesten
 ./gradlew :androidApp:assembleDebug
 ./gradlew :core:jvmTest :shared:testAndroidHostTest   # ohne Simulator
-./gradlew :shared:allTests                # braucht eine iOS-Simulator-Runtime
+./gradlew :core:allTests :shared:allTests   # braucht eine iOS-Simulator-Runtime
 ```
 
 Wer `server/` oder `core/` anfasst, zusätzlich `./gradlew :server:test` (startet einen

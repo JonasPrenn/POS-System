@@ -112,6 +112,12 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }
+
+        iosTest.dependencies {
+            // Der Bedientest SalesFlowOnIosTest: Verkauf bar und auf den Deckel durch die
+            // echten Bildschirme, auf Kotlin/Native im Simulator.
+            implementation(libs.compose.ui.test)
+        }
     }
 }
 

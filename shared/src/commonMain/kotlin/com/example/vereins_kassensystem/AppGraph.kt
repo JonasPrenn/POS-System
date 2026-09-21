@@ -18,9 +18,16 @@ import kotlinx.coroutines.flow.first
  * Alles ist lazy: Die Datenbank wird erst geöffnet, wenn der erste Bildschirm sie
  * braucht — nicht schon im Konstruktor, den iOS vor dem Ende des App-Starts durchläuft.
  */
-class AppGraph(val platform: Platform) {
+class AppGraph(
+    val platform: Platform,
+    /**
+     * Woher die Datenbank kommt. Im Betrieb die Datei im App-Verzeichnis; ein Test reicht
+     * hier eine Datenbank im Speicher herein und bekommt sonst die ganze echte Verdrahtung.
+     */
+    private val openDatabase: () -> AppDatabase = ::buildDatabase,
+) {
 
-    val database: AppDatabase by lazy { buildDatabase() }
+    val database: AppDatabase by lazy { openDatabase() }
 
     val repository: AppRepository by lazy {
         AppRepository(

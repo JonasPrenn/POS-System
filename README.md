@@ -64,7 +64,7 @@ Add your SumUp affiliate key under Einstellungen to enable card payments.
 
 ### iOS
 
-macOS with Xcode 26 and an iOS simulator runtime. Open `iosApp/iosApp.xcodeproj`, pick
+macOS with Xcode 26 or 27 and an iOS simulator runtime. Open `iosApp/iosApp.xcodeproj`, pick
 an iPad simulator and run — the build script phase compiles the Kotlin framework. To
 install on a device, sign in with your Apple ID in Xcode and put your team ID into
 `iosApp/Configuration/Config.xcconfig`.

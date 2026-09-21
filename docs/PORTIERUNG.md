@@ -14,19 +14,23 @@ Saldoregel liegt in `core/.../data/Ledger.kt`.
 |---|---|
 | `./gradlew :shared:compileKotlinIosArm64` | fehlerfrei, ohne Warnungen |
 | `./gradlew :androidApp:assembleDebug` | erfolgreich |
-| `./gradlew :shared:allTests` | grün: 20 Tests auf der JVM, 21 im iOS-Simulator (inkl. Room-Integrationstest) |
+| `./gradlew :shared:allTests` | grün, auf der JVM und im iOS-Simulator: `InventoryTest`, der Room-Integrationstest und der Bedientest `SalesFlowOnIosTest` (die Zahlformat-Tests laufen seit dem 21. September in `:core`) |
+| `SalesFlowOnIosTest` (Kotlin/Native im Simulator) | Barverkauf und Verkauf auf den Deckel durch die echte Oberfläche — `VereinsDeckelApp` mit Navigation, ViewModels und Dialogen über einer Datenbank im Speicher: Kachel, Bezahlen, Bar, Passend, Abschließen; dann Mitglied wählen, Kachel, Bezahlen, Deckel, Abschließen. Geprüft gegen die Datenbank: eine `CASH`-Zeile ohne Mitglied, eine `MEMBER_BALANCE`-Zeile, Saldo 23,50 → 19,30 € |
 | `xcodebuild` für iosApp, Debug, iPad-Simulator | BUILD SUCCEEDED |
 | Start im iPad-Simulator (iPad Pro 13", iOS 26.5) | Verkaufsbildschirm mit Leiste, Bestellung, Icons; Datenbank angelegt; Produkte aus der Datenbank erscheinen |
+| Dasselbe mit **Xcode 27.0** (SDK iOS 27.0), 21. September | `xcodebuild` BUILD SUCCEEDED, `:shared:allTests` grün, der neue Build startet im Simulator (Runtime iOS 26.5) und öffnet die vorhandene Datenbank |
 | Android im Emulator (Medium_Tablet, API 37) mit **bestehender** Datenbank | Barverkauf mit Keypad und Rückgeld, Verkauf auf den Deckel (Saldo 43,50 → 40,00 €), Historie, Mitglieder, Einstellungen — alles ohne Absturz |
 
 **Nicht geprüft:**
 
 - **Start auf einem echten iPad.** Auf diesem Mac gibt es keine Signaturidentität und
   kein angemeldetes Apple-Konto; das kann nur der Besitzer nachholen (unten).
-- **Die Bedienung Bar und Deckel im iOS-Simulator.** Die App startet und liest die
-  Datenbank; Schreiben, Ströme und Saldo sind über den Room-Integrationstest im
-  Simulator belegt, aber der Weg über die Oberfläche (Kachel → Bezahlen → Bar/Deckel)
-  wurde nur unter Android durchgespielt.
+- **Die Berührung durch UIKit hindurch.** Bar und Deckel sind auf iOS über
+  `SalesFlowOnIosTest` belegt, aber der baut die Oberfläche in einer Szene ohne Fenster
+  auf und klickt über die Semantik. Dass ein Finger auf dem Glas dieselben Knoten
+  trifft, die Bildschirmtastatur und das Verhalten unter dem echten
+  `ComposeUIViewController` zeigt erst die Hand am Gerät oder am Simulatorfenster — das
+  wurde auf iOS nicht durchgespielt, nur unter Android.
 - **Dateiauswahl, Kamera, Sicherungsordner, BGTaskScheduler auf iOS.** Übersetzt,
   nie ausgeführt. Delegates und Sicherheits-Scope zeigen ihr Verhalten erst auf einem
   Gerät.
@@ -105,11 +109,13 @@ Von der Shell aus braucht Gradle das JDK aus Android Studio (das System-`java` i
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :shared:compileKotlinIosArm64
 ./gradlew :androidApp:assembleDebug
-./gradlew :shared:allTests            # braucht eine iOS-Simulator-Runtime
+./gradlew :core:allTests :shared:allTests   # braucht eine iOS-Simulator-Runtime
 ```
 
 **iOS im Simulator:** `iosApp/iosApp.xcodeproj` in Xcode öffnen, Schema `iosApp`, ein
-iPad wählen, Run. Die Skriptphase baut das Kotlin-Framework über
+iPad wählen, Run. (Geprüft mit Xcode 26.6 und 27.0. In Xcode 27 gibt es keine
+`Simulator.app` mehr; die Simulatoren erscheinen in Device Hub.) Die Skriptphase baut
+das Kotlin-Framework über
 `:shared:embedAndSignAppleFrameworkForXcode` und setzt `JAVA_HOME` selbst. Von der Shell:
 
 ```bash
