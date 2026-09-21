@@ -1,6 +1,7 @@
 package com.example.vereins_kassensystem.ui.format
 
 import kotlin.math.abs
+import kotlin.math.round
 
 /**
  * Währungsformatierung, an einer Stelle.
@@ -37,6 +38,23 @@ object Money {
      * gleich wieder entfernt werden müsste.
      */
     fun formatPlain(amount: Double): String = Decimals.fixed(amount, 2)
+
+    /**
+     * Der Betrag, wie er über den Draht geht: "4.20", immer zwei Stellen, Punkt als
+     * Trennzeichen, kein Währungszeichen (Spezifikation 5.4). Als Zeichenkette, weil eine
+     * JSON-Zahl Gleitkomma ist und 4,20 dort nicht exakt darstellbar.
+     */
+    fun wire(amount: Double): String = Decimals.fixed(amount, 2).replace(',', '.')
+
+    /** Liest einen Betrag vom Draht; null, wenn dort keine Zahl steht. */
+    fun fromWire(text: String): Double? = text.trim().toDoubleOrNull()
+
+    /**
+     * Auf Cent gerundet. Beträge werden so gebucht, damit App und Server dieselbe Zahl
+     * führen: Der Server speichert NUMERIC(12,2), und ein Rabatt von einem Drittel wäre
+     * sonst hier 1,386 und dort 1,39.
+     */
+    fun cents(amount: Double): Double = round(amount * 100.0) / 100.0
 
     /**
      * Liest, was jemand in ein Betragsfeld getippt hat, und akzeptiert beide

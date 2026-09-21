@@ -1,25 +1,20 @@
 package com.example.vereins_kassensystem.data.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.Ids
 
+// Seit Schema 11 ohne Fremdschlüssel: Nach einer Änderung bekommt das Produkt auf dem
+// Server eine neue Sequenznummer und kann beim Ziehen nach seiner Variante ankommen.
 @Entity(
     tableName = "product_variants",
-    foreignKeys = [
-        ForeignKey(
-            entity = Product::class,
-            parentColumns = ["id"],
-            childColumns = ["productId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [Index("productId")]
 )
 data class ProductVariant(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val productId: Long,
+    @PrimaryKey val id: String = Ids.new(),
+    val productId: String,
     val name: String, // e.g., "0.3l", "0.5l"
     val price: Double,
 
@@ -30,5 +25,7 @@ data class ProductVariant(
      * a "0,5l" draws 0.5. Null falls back to the product's own serving size, which is
      * what piece-counted products want.
      */
-    val servingSize: Double? = null
+    val servingSize: Double? = null,
+
+    @Embedded val sync: SyncMeta = SyncMeta()
 )

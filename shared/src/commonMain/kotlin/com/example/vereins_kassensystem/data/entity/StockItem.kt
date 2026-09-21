@@ -1,137 +1,58 @@
 package com.example.vereins_kassensystem.data.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.Ids
 import com.example.vereins_kassensystem.platform.nowMillis
 
-/**
- * How a [StockItem] is held.
+/*
+ * Die Tabellenzeilen des Kellers. Was die Oberfläche sieht — StockItem, ContainerType,
+ * TappedContainer mit ihren hergeleiteten Zahlen — sind die Lesemodelle in :core
+ * (StockModels.kt); diese Zeilen hier tragen nur noch, was wirklich gespeichert wird.
  *
- * [SIMPLE] is a plain count — sausages in the freezer, pretzels in the basket.
- *
- * [CONTAINER] is held in vessels that are broached and run dry: kegs of beer, kegs of
- * soda. Several sizes can be in the cellar at once, and how much a vessel really gives
- * up is learned rather than assumed. See [ContainerType].
+ * Ohne Fremdschlüssel, wie alle Tabellen seit Schema 11: Beim Ziehen kann ein Kind vor
+ * seiner Elternzeile ankommen, und gelöscht wird nur noch weich.
  */
-enum class StockTracking { SIMPLE, CONTAINER }
 
-/**
- * A Lagerartikel — something the cellar holds, as opposed to something the counter sells.
- *
- * The two were the same thing until now, which could not describe a Radler: it is one
- * product drawn from two different kegs. Products reach stock through a recipe
- * ([ProductComponent]) instead of owning a stock figure themselves.
- */
 @Entity(tableName = "stock_items")
-data class StockItem(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+data class StockItemRow(
+    @PrimaryKey val id: String = Ids.new(),
     val name: String,
-
-    /** "l", "kg", "Stk" — what quantities of this item are expressed in. */
     val unit: String = "Stk",
-
     val tracking: StockTracking = StockTracking.SIMPLE,
-
-    /** On hand, for [StockTracking.SIMPLE] items. May go negative. */
-    val simpleQuantity: Double = 0.0,
-
-    /** Warn below this, expressed in [unit]. */
-    val minLevel: Double = 0.0
+    val minLevel: Double = 0.0,
+    @Embedded val sync: SyncMeta = SyncMeta()
 )
 
-/**
- * A size of vessel a [StockItem] arrives in — a 50 l keg, a 30 l keg, a 20 l keg.
- *
- * Several sizes coexist for the same item, and each has its own real yield: a 20 l keg
- * loses proportionally more to tapping and residue than a 50 l one, so they cannot share
- * a single loss figure.
- */
 @Entity(
     tableName = "container_types",
-    foreignKeys = [
-        ForeignKey(
-            entity = StockItem::class,
-            parentColumns = ["id"],
-            childColumns = ["stockItemId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [Index("stockItemId")]
 )
-data class ContainerType(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val stockItemId: Long,
-
-    /** What people call it: "50 l Fass". */
+data class ContainerTypeRow(
+    @PrimaryKey val id: String = Ids.new(),
+    val stockItemId: String,
     val label: String,
-
-    /** What it says on the vessel. */
     val nominalSize: Double,
-
-    /**
-     * What one is expected to actually give up, before anything has been observed.
-     *
-     * Used as a prior with weight 1 rather than as the answer — see `Inventory`. Set it
-     * roughly; real emptied kegs will outweigh it within a few deliveries.
-     */
     val initialYieldEstimate: Double,
-
-    /** Unopened vessels of this size on hand. */
-    val fullCount: Int = 0
+    @Embedded val sync: SyncMeta = SyncMeta()
 )
 
-/** Why a vessel stopped being on tap. */
-enum class ContainerCloseReason {
-    /** Poured out normally. This is a real yield measurement. */
-    EMPTIED,
-
-    /**
-     * Went off — stood too long, got warm, foamed out. The rest was thrown away.
-     *
-     * Deliberately **not** a yield measurement: counting a spoiled keg would teach the
-     * app that this size only gives up what happened to be poured before it turned, and
-     * every future forecast would be short.
-     */
-    SPOILED
-}
-
-/**
- * A vessel that has been broached: what has been drawn from it, and how it ended.
- *
- * Closed rows are the app's memory of what vessels of a size really yield.
- */
 @Entity(
     tableName = "tapped_containers",
-    foreignKeys = [
-        ForeignKey(
-            entity = ContainerType::class,
-            parentColumns = ["id"],
-            childColumns = ["containerTypeId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [Index("containerTypeId"), Index("openedAt")]
 )
-data class TappedContainer(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val containerTypeId: Long,
-
-    /** Volume drawn so far, in the stock item's unit. */
-    val drawn: Double = 0.0,
-
+data class TappedContainerRow(
+    @PrimaryKey val id: String = Ids.new(),
+    val containerTypeId: String,
     val openedAt: Long = nowMillis(),
     val closedAt: Long? = null,
     val closeReason: ContainerCloseReason? = null,
-
-    /** Estimated volume thrown away, recorded when closed as [ContainerCloseReason.SPOILED]. */
     val discardedVolume: Double = 0.0,
-
-    val note: String? = null
-) {
-    val isOpen: Boolean get() = closedAt == null
-}
+    val note: String? = null,
+    @Embedded val sync: SyncMeta = SyncMeta()
+)
 
 /**
  * One line of a product's recipe: how much of a [StockItem] one unit of the product uses.
@@ -149,27 +70,51 @@ data class TappedContainer(
  */
 @Entity(
     tableName = "product_components",
-    foreignKeys = [
-        ForeignKey(
-            entity = Product::class,
-            parentColumns = ["id"],
-            childColumns = ["productId"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = StockItem::class,
-            parentColumns = ["id"],
-            childColumns = ["stockItemId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [Index("productId"), Index("stockItemId")]
 )
 data class ProductComponent(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val productId: Long,
-    val stockItemId: Long,
+    @PrimaryKey val id: String = Ids.new(),
+    val productId: String,
+    override val stockItemId: String,
 
     /** Share of one serving unit taken from this item — 0.5 for half a Radler. */
-    val quantityPerUnit: Double
+    override val quantityPerUnit: Double,
+
+    @Embedded val sync: SyncMeta = SyncMeta()
+) : RecipeLine
+
+/**
+ * Was ein Verkauf dem Keller entnommen hat — anfügend, wie eine Buchung.
+ *
+ * Früher zog der Verkauf die Menge von einem Zähler ab (`simpleQuantity`, `drawn`). Zwei
+ * Geräte, die gleichzeitig zapfen, verlieren so Verbrauch, ohne dass es ein Kassenbon
+ * verrät (Spezifikation 2.3). Jetzt entsteht je Rezepturzeile ein Abgang, und der Bestand
+ * ist die Summe der Wareneingänge minus die Summe der Abgänge.
+ *
+ * Die Spezifikation wollte den Verbrauch nachträglich aus Buchung mal Rezeptur herleiten.
+ * Das trägt nicht: Die Glasgröße der Variante steht in keiner Buchungszeile, und jede
+ * spätere Rezepturänderung schriebe den Verbrauch der Vergangenheit um.
+ *
+ * Zu welchem angestochenen Gebinde ein Abgang gehört, steht nicht in der Zeile, sondern
+ * ergibt sich aus der Zeit: Er zählt zu dem Anstich des Artikels, in dessen Fenster
+ * [timestamp] fällt. Verwirft der Server einen doppelten Anstich, zählen die Abgänge des
+ * unterlegenen Geräts damit trotzdem zum Fass, das wirklich am Hahn hing.
+ */
+@Entity(
+    tableName = "stock_draws",
+    indices = [Index("stockItemId", "timestamp"), Index("transactionId")]
+)
+data class StockDraw(
+    @PrimaryKey val id: String = Ids.new(),
+    val stockItemId: String,
+
+    /** Die Buchungszeile, die den Abgang ausgelöst hat; null bei Übernahme und Korrektur. */
+    val transactionId: String? = null,
+
+    /** In der Einheit des Lagerartikels. */
+    val volume: Double,
+
+    val timestamp: Long = nowMillis(),
+    val note: String? = null,
+    @Embedded val sync: SyncMeta = SyncMeta()
 )

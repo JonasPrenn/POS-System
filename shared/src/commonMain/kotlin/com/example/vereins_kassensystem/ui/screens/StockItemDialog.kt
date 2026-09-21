@@ -198,7 +198,7 @@ fun StockItemDialog(
 
                     item {
                         TextButton(
-                            onClick = { types.add(ContainerType(stockItemId = item?.id ?: 0, label = "", nominalSize = 0.0, initialYieldEstimate = 0.0)) },
+                            onClick = { types.add(ContainerType(stockItemId = item?.id ?: "", label = "", nominalSize = 0.0, initialYieldEstimate = 0.0)) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(VdIcons.Add, contentDescription = null)

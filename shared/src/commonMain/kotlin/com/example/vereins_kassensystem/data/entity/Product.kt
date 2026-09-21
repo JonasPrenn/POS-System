@@ -1,7 +1,9 @@
 package com.example.vereins_kassensystem.data.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.Ids
 
 /**
  * Something the counter sells.
@@ -13,7 +15,7 @@ import androidx.room.PrimaryKey
  */
 @Entity(tableName = "products")
 data class Product(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey val id: String = Ids.new(),
     val name: String,
     val price: Double,
     val category: String,
@@ -26,5 +28,7 @@ data class Product(
      *
      * Variants override it, which is what lets one recipe serve every glass size.
      */
-    val servingSize: Double = 1.0
+    val servingSize: Double = 1.0,
+
+    @Embedded val sync: SyncMeta = SyncMeta()
 )

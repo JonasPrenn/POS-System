@@ -1,9 +1,7 @@
 package com.example.vereins_kassensystem.data.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.vereins_kassensystem.data.entity.Delivery
@@ -12,22 +10,22 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DeliveryDao {
 
-    @Query("SELECT * FROM deliveries ORDER BY timestamp DESC")
+    @Query("SELECT * FROM deliveries WHERE deleted = 0 ORDER BY timestamp DESC")
     fun getAllDeliveries(): Flow<List<Delivery>>
 
     @Query("SELECT * FROM deliveries WHERE id = :id")
-    suspend fun getDelivery(id: Long): Delivery?
+    suspend fun getDelivery(id: String): Delivery?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertDelivery(delivery: Delivery): Long
+    /** Belege, deren Foto der Server noch nicht hat. */
+    @Query("SELECT * FROM deliveries WHERE deleted = 0 AND photoUri IS NOT NULL AND photoKey IS NULL")
+    suspend fun getDeliveriesAwaitingUpload(): List<Delivery>
+
+    @Insert
+    suspend fun insertDelivery(delivery: Delivery)
 
     @Update
     suspend fun updateDelivery(delivery: Delivery)
 
-    @Delete
-    suspend fun deleteDelivery(delivery: Delivery)
-
-    /** Sum actually booked as stock, to compare against what the receipt says. */
-    @Query("SELECT COALESCE(SUM(totalCost), 0) FROM stock_entries WHERE deliveryId = :deliveryId")
-    suspend fun bookedTotal(deliveryId: Long): Double
+    @Query("UPDATE deliveries SET deleted = 1, deletedAt = :now WHERE id = :id")
+    suspend fun softDelete(id: String, now: Long)
 }

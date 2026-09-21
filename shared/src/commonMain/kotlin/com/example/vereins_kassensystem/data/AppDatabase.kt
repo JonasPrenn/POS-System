@@ -9,22 +9,26 @@ import androidx.room.RoomDatabaseConstructor
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.example.vereins_kassensystem.data.dao.CategoryDao
+import com.example.vereins_kassensystem.data.dao.DeliveryDao
 import com.example.vereins_kassensystem.data.dao.MemberDao
 import com.example.vereins_kassensystem.data.dao.ProductDao
 import com.example.vereins_kassensystem.data.dao.StockDao
 import com.example.vereins_kassensystem.data.dao.StockEntryDao
+import com.example.vereins_kassensystem.data.dao.SyncDao
 import com.example.vereins_kassensystem.data.dao.TransactionDao
-import com.example.vereins_kassensystem.data.dao.DeliveryDao
-import com.example.vereins_kassensystem.data.entity.ContainerType
+import com.example.vereins_kassensystem.data.entity.ContainerTypeRow
 import com.example.vereins_kassensystem.data.entity.Delivery
-import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.MemberCategory
+import com.example.vereins_kassensystem.data.entity.MemberRow
+import com.example.vereins_kassensystem.data.entity.PendingChange
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.ProductComponent
 import com.example.vereins_kassensystem.data.entity.ProductVariant
+import com.example.vereins_kassensystem.data.entity.StockDraw
 import com.example.vereins_kassensystem.data.entity.StockEntry
-import com.example.vereins_kassensystem.data.entity.StockItem
-import com.example.vereins_kassensystem.data.entity.TappedContainer
+import com.example.vereins_kassensystem.data.entity.StockItemRow
+import com.example.vereins_kassensystem.data.entity.SyncState
+import com.example.vereins_kassensystem.data.entity.TappedContainerRow
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.platform.nowMillis
 
@@ -32,17 +36,20 @@ import com.example.vereins_kassensystem.platform.nowMillis
     entities = [
         Product::class,
         ProductVariant::class,
-        Member::class,
+        MemberRow::class,
         Transaction::class,
         MemberCategory::class,
         StockEntry::class,
-        StockItem::class,
-        ContainerType::class,
-        TappedContainer::class,
+        StockItemRow::class,
+        ContainerTypeRow::class,
+        TappedContainerRow::class,
         ProductComponent::class,
-        Delivery::class
+        Delivery::class,
+        StockDraw::class,
+        PendingChange::class,
+        SyncState::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -55,6 +62,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun stockEntryDao(): StockEntryDao
     abstract fun stockDao(): StockDao
     abstract fun deliveryDao(): DeliveryDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
 
@@ -279,7 +287,7 @@ abstract class AppDatabase : RoomDatabase() {
          * Liegen hier statt im Bauaufruf, weil der jetzt je Plattform eigen ist —
          * Android und iOS sollen aber unmoeglich verschiedene Schemata bekommen.
          */
-        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, Migration10To11)
 
         const val FILE_NAME = "vereins_kassensystem_db"
     }

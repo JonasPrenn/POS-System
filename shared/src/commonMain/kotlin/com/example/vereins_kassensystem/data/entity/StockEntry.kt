@@ -1,8 +1,10 @@
 package com.example.vereins_kassensystem.data.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.Ids
 import com.example.vereins_kassensystem.platform.nowMillis
 
 /** Where a goods receipt came from. */
@@ -15,15 +17,17 @@ enum class StockEntrySource { MANUAL, SCAN, CORRECTION }
  * even though it feeds both the Helles and the Radler.
  *
  * Kept as its own table so a stock figure can always be traced back to what was booked in,
- * and corrections leave a trail instead of silently overwriting.
+ * and corrections leave a trail instead of silently overwriting. Seit Schema 11 ist die
+ * Tabelle nicht mehr nur die Spur, sondern die Quelle: Der Bestand *ist* die Summe dieser
+ * Zeilen minus die Lagerabgänge ([StockDraw]).
  */
 @Entity(
     tableName = "stock_entries",
-    indices = [Index("stockItemId"), Index("timestamp"), Index("deliveryId")]
+    indices = [Index("stockItemId"), Index("timestamp"), Index("deliveryId"), Index("containerTypeId")]
 )
 data class StockEntry(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val stockItemId: Long,
+    @PrimaryKey val id: String = Ids.new(),
+    val stockItemId: String,
 
     /** Snapshot, so history stays readable after an item is renamed or deleted. */
     val itemName: String,
@@ -49,5 +53,13 @@ data class StockEntry(
      *
      * Null for a standalone stocktake correction, which belongs to no delivery.
      */
-    val deliveryId: Long? = null
+    val deliveryId: String? = null,
+
+    /**
+     * Welche Gebindegröße ankam; null bei Stückware. Früher stand die Größe nur als Text in
+     * [unitLabel] — für eine Spur genug, für eine Herleitung der vollen Gebinde nicht.
+     */
+    val containerTypeId: String? = null,
+
+    @Embedded val sync: SyncMeta = SyncMeta()
 )

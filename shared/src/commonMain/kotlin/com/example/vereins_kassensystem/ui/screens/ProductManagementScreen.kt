@@ -414,7 +414,7 @@ fun ProductDialog(
                 
                 item {
                     TextButton(
-                        onClick = { editedVariants.add(ProductVariant(productId = product?.id ?: 0, name = "", price = 0.0)) },
+                        onClick = { editedVariants.add(ProductVariant(productId = product?.id ?: "", name = "", price = 0.0)) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(VdIcons.Add, contentDescription = null)
@@ -474,7 +474,7 @@ fun ProductDialog(
                                     .clickable {
                                         editedComponents.add(
                                             ProductComponent(
-                                                productId = product?.id ?: 0,
+                                                productId = product?.id ?: "",
                                                 stockItemId = candidate.id,
                                                 quantityPerUnit = 1.0
                                             )

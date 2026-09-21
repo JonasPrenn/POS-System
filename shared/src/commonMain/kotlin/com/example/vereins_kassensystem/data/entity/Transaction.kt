@@ -1,8 +1,10 @@
 package com.example.vereins_kassensystem.data.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.Ids
 import com.example.vereins_kassensystem.platform.nowMillis
 
 @Entity(
@@ -13,11 +15,16 @@ import com.example.vereins_kassensystem.platform.nowMillis
     ]
 )
 data class Transaction(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey val id: String = Ids.new(),
     val transactionGroupId: String, // Group items from same checkout
-    val memberId: Long?, // Null for cash sales
+    val memberId: String?, // Null for cash sales
     val memberName: String?, // Snapshot of member name at time of transaction
-    val productId: Long,
+
+    /**
+     * Das verkaufte Produkt — oder einer der festen Schlüssel aus `Ledger` für
+     * Guthabenbewegung, manuellen Betrag und Trinkgeld, die kein Produkt sind.
+     */
+    val productId: String,
     val productName: String,
     val productCategory: String, // To group by category in analytics
     val price: Double,
@@ -35,5 +42,7 @@ data class Transaction(
      * appeared from nowhere and could not be reconciled against the cash box. Every
      * top-up now carries a reason and lands here.
      */
-    val note: String? = null
+    val note: String? = null,
+
+    @Embedded val sync: SyncMeta = SyncMeta()
 )

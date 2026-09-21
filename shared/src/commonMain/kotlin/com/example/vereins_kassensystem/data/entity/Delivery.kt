@@ -1,8 +1,10 @@
 package com.example.vereins_kassensystem.data.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.vereins_kassensystem.platform.Ids
 import com.example.vereins_kassensystem.platform.nowMillis
 
 /**
@@ -22,7 +24,7 @@ import com.example.vereins_kassensystem.platform.nowMillis
     indices = [Index("timestamp")]
 )
 data class Delivery(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey val id: String = Ids.new(),
 
     /** Who it came from — "Metro", "Getränke Huber". */
     val supplier: String = "",
@@ -36,9 +38,16 @@ data class Delivery(
      */
     val receiptTotal: Double? = null,
 
-    /** Photo of the Kassabon, as a content or file URI. */
+    /**
+     * Photo of the Kassabon, as a content or file URI. Gilt nur auf dem Gerät, das es
+     * aufgenommen hat, und wird deshalb nicht abgeglichen.
+     */
     val photoUri: String? = null,
 
+    /** Schlüssel des Fotos auf dem Server (Spezifikation 5.5); damit sehen es auch die anderen Geräte. */
+    val photoKey: String? = null,
+
     val note: String? = null,
-    val timestamp: Long = nowMillis()
+    val timestamp: Long = nowMillis(),
+    @Embedded val sync: SyncMeta = SyncMeta()
 )

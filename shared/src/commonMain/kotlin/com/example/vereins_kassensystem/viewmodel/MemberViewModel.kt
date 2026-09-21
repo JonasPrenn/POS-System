@@ -60,8 +60,11 @@ class MemberViewModel(private val repository: AppRepository) : ViewModel() {
         repository.updateCategory(category)
     }
 
+    /** Eine Gruppe mit Mitgliedern bleibt stehen; die Meldung sagt, warum. */
     fun deleteCategory(category: MemberCategory) = viewModelScope.launch {
-        repository.deleteCategory(category)
+        if (!repository.deleteCategory(category)) {
+            _importStatus.emit("„${category.name}“ hat noch Mitglieder und bleibt deshalb bestehen.")
+        }
     }
 
     /**

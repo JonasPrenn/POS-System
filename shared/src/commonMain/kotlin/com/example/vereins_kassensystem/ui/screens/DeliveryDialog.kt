@@ -55,8 +55,8 @@ import com.example.vereins_kassensystem.platform.rememberPhotoPicker
 /** One editable row of the receipt being entered. */
 data class DeliveryLineDraft(
     val key: Long,
-    val itemId: Long? = null,
-    val containerTypeId: Long? = null,
+    val itemId: String? = null,
+    val containerTypeId: String? = null,
     val quantity: String = "",
     val cost: String = ""
 )

@@ -2,6 +2,7 @@ package com.example.vereins_kassensystem.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
@@ -47,8 +48,12 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
 
-    private val _selectedMember = MutableStateFlow<Member?>(null)
-    val selectedMember: StateFlow<Member?> = _selectedMember.asStateFlow()
+    /**
+     * Gemerkt wird der Schlüssel, nicht das Mitglied: Der Saldo ist hergeleitet und ändert
+     * sich, sobald eine Theke bucht — auch die andere. Ein festgehaltenes Objekt zeigte
+     * den Stand vom Antippen.
+     */
+    private val _selectedMemberId = MutableStateFlow<String?>(null)
 
     private val _topUpAmount = MutableStateFlow(0.0)
     val topUpAmount: StateFlow<Double> = _topUpAmount.asStateFlow()
@@ -61,6 +66,10 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
 
     val allMembers: StateFlow<List<Member>> = repository.allMembers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val selectedMember: StateFlow<Member?> = combine(_selectedMemberId, repository.allMembers) { id, members ->
+        members.firstOrNull { it.id == id }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val allCategories: StateFlow<List<MemberCategory>> = repository.allCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -88,7 +97,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     /** Stock state per Lagerartikel, rebuilt whenever the cellar changes. */
-    private val stockStates: StateFlow<Map<Long, StockItemState>> = combine(
+    private val stockStates: StateFlow<Map<String, StockItemState>> = combine(
         repository.allStockItems,
         repository.allContainerTypes,
         repository.allTappedContainers
@@ -110,7 +119,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
      * so a Radler is limited by whichever of beer or soda runs out first — and it never
      * prevents a sale, it only drives the warning badge.
      */
-    val productAvailability: StateFlow<Map<Long, Int?>> = combine(
+    val productAvailability: StateFlow<Map<String, Int?>> = combine(
         allProductsWithVariants,
         repository.allComponents,
         stockStates
@@ -184,7 +193,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
     }
 
     fun selectMember(member: Member?) {
-        _selectedMember.value = member
+        _selectedMemberId.value = member?.id
         if (member == null) {
             _topUpAmount.value = 0.0
         }
@@ -204,7 +213,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun addManualItem(name: String, price: Double) {
         val manualProduct = Product(
-            id = -2L, // Special ID for manual items
+            id = Ledger.MANUAL_REF, // kein Produkt, sondern ein eingetippter Betrag
             name = name,
             price = price,
             category = "Manuell"
@@ -212,10 +221,6 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         val currentCart = _cart.value.toMutableList()
         currentCart.add(CartItem(manualProduct))
         _cart.value = currentCart.toList()
-    }
-
-    fun topUpBalance(member: Member, amount: Double) = viewModelScope.launch {
-        repository.updateMemberBalance(member.id, amount)
     }
 
     /**
@@ -241,89 +246,41 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         val currentCart = _cart.value
         val currentTopUp = _topUpAmount.value
         val currentTip = _tipAmount.value
-        val member = _selectedMember.value
-        
+        // Frisch gelesen statt aus dem Zustand: Der Saldo soll der von jetzt sein.
+        val member = _selectedMemberId.value?.let { repository.getMember(it) }
+
         if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return@launch
 
-        val cartTotal = currentCart.sumOf { (it.variant?.price ?: it.product.price) * it.quantity }
-        val memberName = member?.name
-
-        if (paymentType == "MEMBER_BALANCE" && member != null) {
-            val category = member.categoryId?.let { repository.getCategoryById(it) }
-            val limit = category?.negativeBalanceLimit ?: 0.0
-            if (member.balance - cartTotal < limit) {
+        if (paymentType == Ledger.MEMBER_BALANCE && member != null) {
+            val limit = member.categoryId?.let { repository.getCategoryById(it) }?.negativeBalanceLimit ?: 0.0
+            // Was der Deckel wirklich trägt: die Positionen nach Rabatt, plus Trinkgeld.
+            val charge = currentCart.sumOf { it.lineTotal } + currentTip
+            if (Money.cents(member.balance - charge) < limit) {
                 _checkoutError.emit("Guthaben nicht ausreichend. Limit: ${Money.format(limit)}")
                 return@launch
             }
         }
 
-        // 1. Process cart items
-        currentCart.forEach { item ->
-            val totalItemDiscount = ((item.variant?.price ?: item.product.price) - item.finalPrice) * item.quantity
-            val transaction = Transaction(
-                transactionGroupId = transactionGroupId,
-                memberId = member?.id,
-                memberName = memberName,
-                productId = item.product.id,
-                productName = if (item.variant != null) "${item.product.name} (${item.variant.name})" else item.product.name,
-                productCategory = item.product.category,
-                price = item.variant?.price ?: item.product.price,
-                quantity = item.quantity,
-                discountAmount = totalItemDiscount,
-                paymentType = paymentType
-            )
-            repository.insertTransaction(transaction)
+        // Eine Transaktion im Repository: Positionen, Aufladung, Trinkgeld und Lagerabgänge
+        // stehen alle da oder keine. Einen Abzug vom Deckel gibt es nicht mehr — der Saldo
+        // ergibt sich aus den Zeilen.
+        repository.bookCheckout(
+            lines = currentCart.map { item ->
+                val unitPrice = item.variant?.price ?: item.product.price
+                AppRepository.SaleLine(
+                    product = item.product,
+                    variant = item.variant,
+                    quantity = item.quantity,
+                    discount = (unitPrice - item.finalPrice) * item.quantity
+                )
+            },
+            topUp = currentTopUp,
+            tip = currentTip,
+            member = member,
+            paymentType = paymentType,
+            transactionGroupId = transactionGroupId
+        )
 
-            // Every product draws through its recipe now, so one Radler takes from the
-            // beer keg and the soda keg at once. The variant's size scales the recipe.
-            val servingSize = item.variant?.servingSize ?: item.product.servingSize
-            repository.drawForSale(item.product.id, servingSize, item.quantity)
-        }
-
-        // 2. Process top-up
-        if (currentTopUp > 0.0 && member != null) {
-            val topUpTransaction = Transaction(
-                transactionGroupId = transactionGroupId,
-                memberId = member.id,
-                memberName = memberName,
-                productId = -1L,
-                productName = "Guthabenaufladung",
-                productCategory = "Aufladung",
-                price = currentTopUp,
-                quantity = 1,
-                discountAmount = 0.0,
-                paymentType = paymentType
-            )
-            repository.insertTransaction(topUpTransaction)
-            repository.updateMemberBalance(member.id, currentTopUp)
-        }
-
-        // 3. Process tip
-        if (currentTip > 0.0) {
-            val tipTransaction = Transaction(
-                transactionGroupId = transactionGroupId,
-                memberId = member?.id,
-                memberName = memberName,
-                productId = -3L,
-                productName = "Trinkgeld",
-                productCategory = "Trinkgeld",
-                price = currentTip,
-                quantity = 1,
-                discountAmount = 0.0,
-                paymentType = paymentType
-            )
-            repository.insertTransaction(tipTransaction)
-        }
-
-        // 4. Subtract from balance if payment type is MEMBER_BALANCE
-        if (paymentType == "MEMBER_BALANCE" && member != null) {
-            repository.updateMemberBalance(member.id, -cartTotal)
-        }
-
-        if (member != null) {
-            repository.updateMemberLastUsed(member.id)
-        }
-        
         clearCart()
         selectMember(null)
     }

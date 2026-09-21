@@ -2,6 +2,7 @@ package com.example.vereins_kassensystem.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import kotlinx.coroutines.flow.*
@@ -66,9 +67,9 @@ class AnalyticsViewModel(private val repository: AppRepository) : ViewModel() {
         val categoryMap = mutableMapOf<String, Double>()
 
         filtered.forEach { tx ->
-            if (tx.productId == -3L) { // Tip
+            if (tx.productId == Ledger.TIP_REF) { // Tip
                 tips += tx.price
-            } else if (tx.productId == -1L) { // Top-up (not a sale of product, but revenue)
+            } else if (tx.productId == Ledger.TOPUP_REF) { // Top-up (not a sale of product, but revenue)
                 // Decide if top-ups are "sales". Usually not, they are balance increases.
                 // But for cash flow, they are cash in.
                 // Let's exclude them from product sales but include in payment totals if desired.

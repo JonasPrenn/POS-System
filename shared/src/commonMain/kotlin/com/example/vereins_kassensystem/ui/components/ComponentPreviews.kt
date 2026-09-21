@@ -29,19 +29,19 @@ import com.example.vereins_kassensystem.ui.icons.VdIcons
  */
 
 private val SampleBeer = Product(
-    id = 1, name = "Weißbier 0,5l", price = 4.20, category = "Getränke",
+    id = "p1", name = "Weißbier 0,5l", price = 4.20, category = "Getränke",
     hasVariants = false, servingSize = 0.5
 )
 private val SampleLowStock = Product(
-    id = 2, name = "Radler", price = 3.80, category = "Getränke",
+    id = "p2", name = "Radler", price = 3.80, category = "Getränke",
     hasVariants = false, servingSize = 0.5
 )
 private val SampleVariants = Product(
-    id = 3, name = "Pommes", price = 0.0, category = "Küche",
+    id = "p3", name = "Pommes", price = 0.0, category = "Küche",
     hasVariants = true
 )
-private val SampleMember = Member(id = 1, name = "Maria Bauer", balance = 23.50, categoryId = 1)
-private val SampleMemberOwing = Member(id = 2, name = "Jonas Prenn", balance = -18.00, categoryId = 1)
+private val SampleMember = Member(id = "m1", name = "Maria Bauer", balance = 23.50, categoryId = "c1")
+private val SampleMemberOwing = Member(id = "m2", name = "Jonas Prenn", balance = -18.00, categoryId = "c1")
 
 @Composable
 private fun Gallery() {

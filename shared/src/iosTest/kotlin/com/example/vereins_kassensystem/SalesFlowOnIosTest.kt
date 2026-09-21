@@ -90,12 +90,14 @@ class SalesFlowOnIosTest {
             val graph = AppGraph(TestPlatform()) { db }
             val repository = graph.repository
 
-            repository.insertCategory(MemberCategory(name = "Mitglied", negativeBalanceLimit = 0.0))
-            val categoryId = repository.allCategories.first().single().id
+            val categoryId = repository.insertCategory(MemberCategory(name = "Mitglied", negativeBalanceLimit = 0.0))
             repository.insertProduct(
                 Product(name = "Weißbier 0,5l", price = 4.2, category = "Getränke", servingSize = 0.5)
             )
-            repository.insertMember(Member(name = "Maria Bauer", balance = 23.5, categoryId = categoryId))
+            // Guthaben entsteht nur noch durch eine Buchung — auch im Test.
+            val maria = Member(name = "Maria Bauer", categoryId = categoryId)
+            repository.insertMember(maria)
+            repository.adjustMemberBalance(maria, 23.5, "Startguthaben", "CASH")
             val beer = "Weißbier 0,5l, ${Money.format(4.2)}"
 
             setContent { VereinsDeckelApp(graph) }
@@ -107,9 +109,9 @@ class SalesFlowOnIosTest {
             clickText("Passend")
             clickText("Abschließen")
             waitUntil("Barverkauf in der Datenbank", 10_000) {
-                runBlocking { repository.allTransactions.first().size == 1 }
+                runBlocking { repository.allTransactions.first().any { it.paymentType == "CASH" && it.memberId == null } }
             }
-            val cash = repository.allTransactions.first().single()
+            val cash = repository.allTransactions.first().single { it.memberId == null }
             assertEquals("CASH", cash.paymentType)
             assertEquals("Weißbier 0,5l", cash.productName)
             assertEquals(4.2, cash.price, 0.0001)
@@ -128,7 +130,7 @@ class SalesFlowOnIosTest {
                 runBlocking { abs(repository.allMembers.first().single().balance - 19.3) < 0.0001 }
             }
             val history = repository.allTransactions.first()
-            assertEquals(2, history.size)
+            assertEquals(3, history.size, "Startguthaben, Barverkauf, Deckelverkauf")
             val tab = history.single { it.paymentType == "MEMBER_BALANCE" }
             assertEquals("Maria Bauer", tab.memberName)
             assertEquals(repository.allMembers.first().single().id, tab.memberId)

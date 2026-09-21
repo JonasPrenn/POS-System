@@ -33,7 +33,14 @@ fun MemberCategoryManagementScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var categoryToEdit by remember { mutableStateOf<MemberCategory?>(null) }
 
+    // Eine Gruppe mit Mitgliedern lässt sich nicht löschen; das ViewModel sagt es hier.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.importStatus.collect { snackbarHostState.showSnackbar(it) }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             VdTopBar(
                 title = "Kategorien",

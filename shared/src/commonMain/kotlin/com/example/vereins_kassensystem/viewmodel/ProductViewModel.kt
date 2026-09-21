@@ -31,16 +31,7 @@ class ProductViewModel(private val repository: AppRepository) : ViewModel() {
         components: List<ProductComponent>,
         isNew: Boolean
     ) = viewModelScope.launch {
-        val id = if (isNew) {
-            repository.insertProduct(product)
-        } else {
-            repository.updateProduct(product); product.id
-        }
-        repository.deleteVariantsForProduct(id)
-        variants.filter { it.name.isNotBlank() }.forEach {
-            repository.insertVariant(it.copy(id = 0, productId = id))
-        }
-        repository.setComponents(id, components.filter { it.quantityPerUnit > 0.0 })
+        repository.saveProduct(product, variants.filter { it.name.isNotBlank() }, components, isNew)
     }
 
     private val _importStatus = MutableSharedFlow<String>()
@@ -48,21 +39,6 @@ class ProductViewModel(private val repository: AppRepository) : ViewModel() {
 
     val allProductsWithVariants: StateFlow<List<ProductWithVariants>> = repository.allProductsWithVariants
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    fun insertProductWithVariants(product: Product, variants: List<ProductVariant>) = viewModelScope.launch {
-        val productId = repository.insertProduct(product)
-        for (variant in variants) {
-            repository.insertVariant(variant.copy(productId = productId))
-        }
-    }
-
-    fun updateProductWithVariants(product: Product, variants: List<ProductVariant>) = viewModelScope.launch {
-        repository.updateProduct(product)
-        repository.deleteVariantsForProduct(product.id)
-        for (variant in variants) {
-            repository.insertVariant(variant.copy(productId = product.id))
-        }
-    }
 
     fun deleteProduct(product: Product) = viewModelScope.launch {
         repository.deleteProduct(product)
@@ -94,7 +70,7 @@ class ProductViewModel(private val repository: AppRepository) : ViewModel() {
                         if (vSubParts.size == 2) {
                             val vName = vSubParts[0].trim()
                             val vPrice = vSubParts[1].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
-                            variantList.add(ProductVariant(name = vName, price = vPrice, productId = 0))
+                            variantList.add(ProductVariant(name = vName, price = vPrice, productId = ""))
                         }
                     }
                 }

@@ -29,17 +29,7 @@ class AppGraph(
 
     val database: AppDatabase by lazy { openDatabase() }
 
-    val repository: AppRepository by lazy {
-        AppRepository(
-            database.productDao(),
-            database.memberDao(),
-            database.transactionDao(),
-            database.categoryDao(),
-            database.stockEntryDao(),
-            database.stockDao(),
-            database.deliveryDao()
-        )
-    }
+    val repository: AppRepository by lazy { AppRepository(database) }
 
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(platform.settings) }
 

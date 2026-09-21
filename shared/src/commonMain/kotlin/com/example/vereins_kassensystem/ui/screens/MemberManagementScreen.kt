@@ -67,7 +67,7 @@ fun MemberManagementScreen(
 
     // The allowance is a property of the member's category, and the balance colour is
     // meaningless without it: "−8 €" is fine on a €20 Deckel and over the line on a €5 one.
-    val limitByCategory: Map<Long, Double> = remember(categories) {
+    val limitByCategory: Map<String, Double> = remember(categories) {
         categories.associate { it.id to it.negativeBalanceLimit }
     }
 
@@ -250,10 +250,10 @@ fun MemberDialog(
     member: Member? = null,
     categories: List<MemberCategory>,
     onDismiss: () -> Unit,
-    onConfirm: (String, Long?) -> Unit
+    onConfirm: (String, String?) -> Unit
 ) {
     var name by remember { mutableStateOf(member?.name ?: "") }
-    var selectedCategoryId by remember { mutableStateOf<Long?>(member?.categoryId) }
+    var selectedCategoryId by remember { mutableStateOf<String?>(member?.categoryId) }
     var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(

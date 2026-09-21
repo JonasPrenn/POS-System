@@ -2,10 +2,11 @@ package com.example.vereins_kassensystem.data.stock
 
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
 import com.example.vereins_kassensystem.data.entity.ContainerType
-import com.example.vereins_kassensystem.data.entity.ProductComponent
+import com.example.vereins_kassensystem.data.entity.RecipeLine
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.StockTracking
 import com.example.vereins_kassensystem.data.entity.TappedContainer
+import com.example.vereins_kassensystem.data.entity.isOpen
 import kotlin.math.floor
 
 /** A stock item together with everything needed to say how much of it is left. */
@@ -114,8 +115,8 @@ object Inventory {
      * product with no recipe is unlimited — nothing is being tracked for it.
      */
     fun servingsPossible(
-        components: List<ProductComponent>,
-        states: Map<Long, StockItemState>,
+        components: List<RecipeLine>,
+        states: Map<String, StockItemState>,
         servingSize: Double
     ): Int? {
         if (components.isEmpty() || servingSize <= 0.0) return null
@@ -130,8 +131,8 @@ object Inventory {
 
     /** Which recipe line is the binding constraint — the one to reorder first. */
     fun limitingItem(
-        components: List<ProductComponent>,
-        states: Map<Long, StockItemState>,
+        components: List<RecipeLine>,
+        states: Map<String, StockItemState>,
         servingSize: Double
     ): StockItem? {
         if (components.isEmpty() || servingSize <= 0.0) return null
@@ -153,10 +154,10 @@ object Inventory {
      * the number in the cellar.
      */
     fun drawForSale(
-        components: List<ProductComponent>,
+        components: List<RecipeLine>,
         servingSize: Double,
         quantity: Int
-    ): Map<Long, Double> = components.associate { component ->
+    ): Map<String, Double> = components.associate { component ->
         component.stockItemId to component.quantityPerUnit * servingSize * quantity
     }
 

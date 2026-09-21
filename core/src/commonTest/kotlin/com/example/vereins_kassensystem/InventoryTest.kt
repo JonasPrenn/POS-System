@@ -2,7 +2,7 @@ package com.example.vereins_kassensystem
 
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
 import com.example.vereins_kassensystem.data.entity.ContainerType
-import com.example.vereins_kassensystem.data.entity.ProductComponent
+import com.example.vereins_kassensystem.data.entity.RecipeLine
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.StockTracking
 import com.example.vereins_kassensystem.data.entity.TappedContainer
@@ -19,17 +19,20 @@ import kotlin.test.Test
  */
 class InventoryTest {
 
-    private val beer = StockItem(id = 1, name = "Bier", unit = "l", tracking = StockTracking.CONTAINER)
-    private val soda = StockItem(id = 2, name = "Soda", unit = "l", tracking = StockTracking.CONTAINER)
+    /** Rezeptzeile ohne Room: die Entität selbst wohnt in :shared. */
+    private class Line(override val stockItemId: String, override val quantityPerUnit: Double) : RecipeLine
 
-    private fun keg(id: Long, itemId: Long, size: Double, estimate: Double, full: Int = 0) =
+    private val beer = StockItem(id = "i1", name = "Bier", unit = "l", tracking = StockTracking.CONTAINER)
+    private val soda = StockItem(id = "i2", name = "Soda", unit = "l", tracking = StockTracking.CONTAINER)
+
+    private fun keg(id: Int, itemId: Int, size: Double, estimate: Double, full: Int = 0) =
         ContainerType(
-            id = id, stockItemId = itemId, label = "$size l",
+            id = "t$id", stockItemId = "i$itemId", label = "$size l",
             nominalSize = size, initialYieldEstimate = estimate, fullCount = full
         )
 
-    private fun emptied(typeId: Long, drawn: Double) = TappedContainer(
-        containerTypeId = typeId, drawn = drawn,
+    private fun emptied(typeId: Int, drawn: Double) = TappedContainer(
+        containerTypeId = "t$typeId", drawn = drawn,
         closedAt = 1L, closeReason = ContainerCloseReason.EMPTIED
     )
 
@@ -72,7 +75,7 @@ class InventoryTest {
     fun `a spoiled keg is a loss and not a measurement`() {
         val type = keg(1, 1, 50.0, estimate = 49.0)
         val spoiled = TappedContainer(
-            containerTypeId = 1, drawn = 12.0, closedAt = 1L,
+            containerTypeId = "t1", drawn = 12.0, closedAt = 1L,
             closeReason = ContainerCloseReason.SPOILED, discardedVolume = 37.0
         )
 
@@ -114,13 +117,13 @@ class InventoryTest {
     @Test
     fun `an open keg counts only what is left in it`() {
         val fifty = keg(1, 1, 50.0, estimate = 49.0, full = 1)
-        val onTap = TappedContainer(id = 9, containerTypeId = 1, drawn = 20.0)
+        val onTap = TappedContainer(id = "tap9", containerTypeId = "t1", drawn = 20.0)
 
         val state = StockItemState(beer, listOf(fifty), listOf(onTap))
 
         // 49 - 20 still on tap, plus one full keg.
         assertEquals(29.0 + 49.0, Inventory.available(state), 0.0001)
-        assertEquals(9L, Inventory.openContainer(state)?.id)
+        assertEquals("tap9", Inventory.openContainer(state)?.id)
     }
 
     // --------------------------------------------------------------- recipes
@@ -130,12 +133,12 @@ class InventoryTest {
         // Plenty of beer, almost no soda.
         val beerState = StockItemState(beer, listOf(keg(1, 1, 50.0, 49.0, full = 2)))
         val sodaState = StockItemState(soda, listOf(keg(2, 2, 20.0, 19.2, full = 0)),
-            listOf(TappedContainer(containerTypeId = 2, drawn = 18.2)))  // 1,0 l left
+            listOf(TappedContainer(containerTypeId = "t2", drawn = 18.2)))  // 1,0 l left
 
-        val states = mapOf(1L to beerState, 2L to sodaState)
+        val states = mapOf("i1" to beerState, "i2" to sodaState)
         val radler = listOf(
-            ProductComponent(productId = 1, stockItemId = 1, quantityPerUnit = 0.5),
-            ProductComponent(productId = 1, stockItemId = 2, quantityPerUnit = 0.5)
+            Line("i1", 0.5),
+            Line("i2", 0.5)
         )
 
         // A 0,5 l Radler needs 0,25 l of each. Soda has 1,0 l -> 4 servings.
@@ -146,9 +149,9 @@ class InventoryTest {
     @Test
     fun `the recipe scales with the glass size`() {
         val beerState = StockItemState(beer, listOf(keg(1, 1, 50.0, 49.0, full = 0)),
-            listOf(TappedContainer(containerTypeId = 1, drawn = 40.0))) // 9,0 l left
-        val states = mapOf(1L to beerState)
-        val helles = listOf(ProductComponent(productId = 1, stockItemId = 1, quantityPerUnit = 1.0))
+            listOf(TappedContainer(containerTypeId = "t1", drawn = 40.0))) // 9,0 l left
+        val states = mapOf("i1" to beerState)
+        val helles = listOf(Line("i1", 1.0))
 
         assertEquals(18, Inventory.servingsPossible(helles, states, servingSize = 0.5))
         assertEquals(27, Inventory.servingsPossible(helles, states, servingSize = 0.33))
@@ -157,14 +160,14 @@ class InventoryTest {
     @Test
     fun `a sale draws every component of the recipe`() {
         val radler = listOf(
-            ProductComponent(productId = 1, stockItemId = 1, quantityPerUnit = 0.5),
-            ProductComponent(productId = 1, stockItemId = 2, quantityPerUnit = 0.5)
+            Line("i1", 0.5),
+            Line("i2", 0.5)
         )
 
         val draw = Inventory.drawForSale(radler, servingSize = 0.5, quantity = 3)
 
-        assertEquals(0.75, draw[1L]!!, 0.0001)
-        assertEquals(0.75, draw[2L]!!, 0.0001)
+        assertEquals(0.75, draw["i1"]!!, 0.0001)
+        assertEquals(0.75, draw["i2"]!!, 0.0001)
     }
 
     @Test
@@ -174,7 +177,7 @@ class InventoryTest {
 
     @Test
     fun `simple items are just a count and may go negative`() {
-        val wurst = StockItem(id = 3, name = "Bratwurst", unit = "Stk", simpleQuantity = -2.0)
+        val wurst = StockItem(id = "i3", name = "Bratwurst", unit = "Stk", simpleQuantity = -2.0)
         val state = StockItemState(wurst)
 
         assertEquals(-2.0, Inventory.available(state), 0.0001)

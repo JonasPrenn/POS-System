@@ -180,8 +180,8 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
                 val item = (existing ?: StockItem(name = name)).copy(
                     name = name, unit = unit, tracking = tracking, minLevel = minLevel
                 )
-                val id = if (existing == null) repository.insertStockItem(item)
-                else { repository.updateStockItem(item); item.id }
+                // Der Bestand kommt nicht aus der Datei; ein neuer Artikel startet bei null.
+                val id = repository.insertStockItem(item)
 
                 parts.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() }?.split(",")?.forEach { spec ->
                     val fields = spec.split(":")
@@ -233,25 +233,18 @@ class InventoryViewModel(private val repository: AppRepository) : ViewModel() {
 
     /** Saves an item together with the vessel sizes it arrives in. */
     fun saveItemWithContainers(item: StockItem, types: List<ContainerType>) = viewModelScope.launch {
-        val id = if (item.id == 0L) repository.insertStockItem(item) else {
-            repository.updateStockItem(item); item.id
-        }
-        val existing = repository.allContainerTypes.first().filter { it.stockItemId == id }
-        existing.filter { old -> types.none { it.id == old.id } }.forEach { repository.deleteContainerType(it) }
-        types.forEach { repository.insertContainerType(it.copy(stockItemId = id)) }
+        repository.saveItemWithContainers(item, types)
     }
 
     // ------------------------------------------------------------ item admin
 
-    fun saveItem(item: StockItem) = viewModelScope.launch {
-        if (item.id == 0L) repository.insertStockItem(item) else repository.updateStockItem(item)
-    }
+    // Anlegen und Ändern sind derselbe Aufruf: Der Schlüssel entsteht mit dem Objekt, und ob
+    // es die Zeile schon gibt, weiß die Datenbank besser als eine Null im Schlüsselfeld.
+    fun saveItem(item: StockItem) = viewModelScope.launch { repository.insertStockItem(item) }
 
     fun deleteItem(item: StockItem) = viewModelScope.launch { repository.deleteStockItem(item) }
 
-    fun saveContainerType(type: ContainerType) = viewModelScope.launch {
-        if (type.id == 0L) repository.insertContainerType(type) else repository.updateContainerType(type)
-    }
+    fun saveContainerType(type: ContainerType) = viewModelScope.launch { repository.insertContainerType(type) }
 
     fun deleteContainerType(type: ContainerType) = viewModelScope.launch {
         repository.deleteContainerType(type)

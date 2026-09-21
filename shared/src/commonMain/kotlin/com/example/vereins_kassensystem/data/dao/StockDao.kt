@@ -1,102 +1,95 @@
 package com.example.vereins_kassensystem.data.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Update
 import com.example.vereins_kassensystem.data.entity.ContainerType
+import com.example.vereins_kassensystem.data.entity.ContainerTypeRow
 import com.example.vereins_kassensystem.data.entity.ProductComponent
 import com.example.vereins_kassensystem.data.entity.StockItem
+import com.example.vereins_kassensystem.data.entity.StockItemRow
 import com.example.vereins_kassensystem.data.entity.TappedContainer
+import com.example.vereins_kassensystem.data.entity.TappedContainerRow
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Der Keller. Gelesen werden die Lesemodelle aus :core mit ihren hergeleiteten Zahlen
+ * (DerivedSql.kt), geschrieben die Zeilen. Zähler, die man fortschreiben könnte, gibt es
+ * nicht mehr — wer Bestand ändern will, bucht einen Wareneingang oder einen Abgang.
+ */
 @Dao
 interface StockDao {
 
     // ------------------------------------------------------------- stock items
 
-    @Query("SELECT * FROM stock_items ORDER BY name ASC")
+    @Query("$STOCK_ITEM_SELECT WHERE s.deleted = 0 ORDER BY s.name ASC")
     fun getAllItems(): Flow<List<StockItem>>
 
-    @Query("SELECT * FROM stock_items WHERE id = :id")
-    suspend fun getItem(id: Long): StockItem?
+    @Query("$STOCK_ITEM_SELECT WHERE s.id = :id AND s.deleted = 0")
+    suspend fun getItem(id: String): StockItem?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertItem(item: StockItem): Long
+    @Query("SELECT * FROM stock_items WHERE id = :id")
+    suspend fun getItemRow(id: String): StockItemRow?
+
+    @Insert
+    suspend fun insertItem(item: StockItemRow)
 
     @Update
-    suspend fun updateItem(item: StockItem)
+    suspend fun updateItem(item: StockItemRow)
 
-    @Delete
-    suspend fun deleteItem(item: StockItem)
-
-    @Query("UPDATE stock_items SET simpleQuantity = simpleQuantity + :delta WHERE id = :id")
-    suspend fun addSimpleQuantity(id: Long, delta: Double)
+    @Query("UPDATE stock_items SET deleted = 1, deletedAt = :now WHERE id = :id")
+    suspend fun softDeleteItem(id: String, now: Long)
 
     // -------------------------------------------------------- container types
 
-    @Query("SELECT * FROM container_types ORDER BY nominalSize DESC")
+    @Query("$CONTAINER_TYPE_SELECT WHERE c.deleted = 0 ORDER BY c.nominalSize DESC")
     fun getAllContainerTypes(): Flow<List<ContainerType>>
 
     @Query("SELECT * FROM container_types WHERE id = :id")
-    suspend fun getContainerType(id: Long): ContainerType?
+    suspend fun getContainerTypeRow(id: String): ContainerTypeRow?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertContainerType(type: ContainerType): Long
+    @Query("SELECT * FROM container_types WHERE stockItemId = :stockItemId AND deleted = 0")
+    suspend fun getContainerTypeRowsFor(stockItemId: String): List<ContainerTypeRow>
+
+    @Insert
+    suspend fun insertContainerType(type: ContainerTypeRow)
 
     @Update
-    suspend fun updateContainerType(type: ContainerType)
+    suspend fun updateContainerType(type: ContainerTypeRow)
 
-    @Delete
-    suspend fun deleteContainerType(type: ContainerType)
-
-    @Query("UPDATE container_types SET fullCount = fullCount + :delta WHERE id = :id")
-    suspend fun addFullCount(id: Long, delta: Int)
+    @Query("UPDATE container_types SET deleted = 1, deletedAt = :now WHERE id = :id")
+    suspend fun softDeleteContainerType(id: String, now: Long)
 
     // ------------------------------------------------------ tapped containers
 
-    @Query("SELECT * FROM tapped_containers ORDER BY openedAt DESC")
+    /** Auch Anstiche gelöschter Gebindegrößen: Sie sind das Gedächtnis der Erträge. */
+    @Query("$TAPPED_SELECT WHERE t.deleted = 0 ORDER BY t.openedAt DESC")
     fun getAllTapped(): Flow<List<TappedContainer>>
 
-    @Query(
-        """
-        SELECT t.* FROM tapped_containers t
-        JOIN container_types c ON c.id = t.containerTypeId
-        WHERE c.stockItemId = :stockItemId AND t.closedAt IS NULL
-        LIMIT 1
-        """
-    )
-    suspend fun getOpenContainerFor(stockItemId: Long): TappedContainer?
+    @Query("SELECT * FROM tapped_containers WHERE id = :id")
+    suspend fun getTappedRow(id: String): TappedContainerRow?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTapped(container: TappedContainer): Long
+    @Insert
+    suspend fun insertTapped(container: TappedContainerRow)
 
     @Update
-    suspend fun updateTapped(container: TappedContainer)
-
-    @Query("UPDATE tapped_containers SET drawn = drawn + :delta WHERE id = :id")
-    suspend fun addDrawn(id: Long, delta: Double)
+    suspend fun updateTapped(container: TappedContainerRow)
 
     // ------------------------------------------------------ product components
 
-    @Query("SELECT * FROM product_components")
+    @Query("SELECT * FROM product_components WHERE deleted = 0")
     fun getAllComponents(): Flow<List<ProductComponent>>
 
-    @Query("SELECT * FROM product_components WHERE productId = :productId")
-    suspend fun getComponentsFor(productId: Long): List<ProductComponent>
+    @Query("SELECT * FROM product_components WHERE productId = :productId AND deleted = 0")
+    suspend fun getComponentsFor(productId: String): List<ProductComponent>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertComponent(component: ProductComponent): Long
+    @Query("SELECT * FROM product_components WHERE stockItemId = :stockItemId AND deleted = 0")
+    suspend fun getComponentsUsing(stockItemId: String): List<ProductComponent>
 
-    @Query("DELETE FROM product_components WHERE productId = :productId")
-    suspend fun deleteComponentsFor(productId: Long)
+    @Insert
+    suspend fun insertComponent(component: ProductComponent)
 
-    @Transaction
-    suspend fun replaceComponents(productId: Long, components: List<ProductComponent>) {
-        deleteComponentsFor(productId)
-        components.forEach { insertComponent(it.copy(id = 0, productId = productId)) }
-    }
+    @Query("UPDATE product_components SET deleted = 1, deletedAt = :now WHERE id = :id")
+    suspend fun softDeleteComponent(id: String, now: Long)
 }
