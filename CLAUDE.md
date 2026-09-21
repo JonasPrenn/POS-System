@@ -15,7 +15,8 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Designsystem, Phasen 0–5 | fertig, siehe `docs/` und die PR-Beschreibung |
 | Server- und API-Spezifikation | fertig, `docs/VereinsDeckel-Server-und-API.pdf` |
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
-| Sync gegen einen Server | noch nicht begonnen |
+| Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Die App spricht ihn noch nicht an: Schritt 7 |
+| Web-Verwaltung | Konzept in `docs/WEB-VERWALTUNG.md`, nicht begonnen |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
 `docs/PORTIERUNG.md`; Kartenzahlung gibt es auf iOS erst, wenn das SumUp-iOS-SDK per
@@ -33,6 +34,7 @@ shared/          Kotlin Multiplatform. Datenhaltung, Logik, gesamte Oberfläche.
   iosTest/       Room-Integrationstest, läuft im Simulator.
 androidApp/      Nur Hülle: MainActivity, Application, BackupWorker, Manifest, Ressourcen.
 iosApp/          Xcode-Projekt und Swift-Host. Baut das Kotlin-Framework über Gradle.
+server/          Der Sync-Server nach der Spezifikation: Kotlin/JVM, Ktor, PostgreSQL. Eigene README.
 docs/            Spezifikation, Portierungsplan, Werkzeuge.
 ```
 
@@ -84,6 +86,13 @@ es dafür nicht mehr.
 Wiederherstellen legt sie als `<db>.restore` daneben und `buildDatabase()` übernimmt sie
 beim nächsten Start — die offene Datenbank wird nie unter Room ausgetauscht.
 
+**Sequenznummern entstehen unter einer Sperre.** Jeder Schreibzugriff auf eine Sync-Tabelle
+des Servers läuft über `Database.write`, das eine Advisory-Sperre nimmt. Ohne sie könnte
+eine höhere Nummer vor einer niedrigeren sichtbar werden, und ein Client, der sich die
+höchste gesehene Nummer merkt, sähe die niedrigere nie. Die Web-Verwaltung nimmt
+denselben Weg. Dazu gehört: Die Saldoregel steht genau zweimal, in `core/.../data/Ledger.kt`
+und als SQL-Sicht `member_balances`, und `SyncTest` prüft, dass beide dasselbe ergeben.
+
 **Plattformgrenzen sind fachlich geschnitten.** `PaymentProcessor` heißt so, weil die App
 eine Karte belasten will, nicht weil SumUp ein SDK hat. Schlüsselbund und SumUp-iOS-SDK
 werden über Swift-Interfaces hereingereicht statt über Kotlin/Native-Interop angebunden —
@@ -106,6 +115,9 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"  
 ./gradlew :core:jvmTest :shared:testAndroidHostTest   # ohne Simulator
 ./gradlew :shared:allTests                # braucht eine iOS-Simulator-Runtime
 ```
+
+Wer `server/` oder `core/` anfasst, zusätzlich `./gradlew :server:test` (startet einen
+eingebetteten PostgreSQL, braucht weder Docker noch eine Installation).
 
 Wer iosApp anfasst, zusätzlich:
 

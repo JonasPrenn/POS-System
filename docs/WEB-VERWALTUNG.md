@@ -1,8 +1,9 @@
 # Web-Verwaltung für VereinsDeckel — Konzept
 
-Stand 17. September 2026. Ein Vorschlag, was die Web-Oberfläche leisten soll, in welcher
-Reihenfolge sie entstehen sollte und was vorher entschieden werden muss. Nichts davon ist
-gebaut; das Dokument ist die Grundlage für die Entscheidung, nicht ihr Ergebnis.
+Stand 21. September 2026. Ein Vorschlag, was die Web-Oberfläche leisten soll, in welcher
+Reihenfolge sie entstehen sollte und was vorher entschieden werden muss. Von Phase 0 sind
+der Server (`server/`) und das Modul `:core` gebaut; die Web-Oberfläche selbst ist es
+nicht. Das Dokument ist die Grundlage für die Entscheidung, nicht ihr Ergebnis.
 
 **Was feststeht:** Österreich. Der Verein ist eine katholische Studentenverbindung, also
 ein Verein nach dem Vereinsgesetz 2002, in aller Regel nicht gemeinnützig im steuerlichen
@@ -25,7 +26,7 @@ Was heute existiert und worauf die Web-Verwaltung aufsetzt:
 | Bestandteil | Stand |
 |---|---|
 | App (Android, iOS) | Verkauf, Deckel, Lager mit Rezepturen und Gebinden, Wareneingang mit Belegfoto, Historie, Auswertung, Sicherung. Läuft lokal, Schema-Version 10. |
-| Server- und API-Spezifikation | `docs/VereinsDeckel-Server-und-API.pdf`: PostgreSQL, REST, Offline-First-Sync, Gerätekopplung, Objektspeicher für Belegfotos. Nicht gebaut. |
+| Server | `server/`: PostgreSQL-Schema nach der Spezifikation, Gerätekopplung, Sync mit Konfliktregeln, Belegfotos, Compose-Aufstellung. Gebaut und getestet; die App spricht ihn noch nicht an. |
 | Datenmodell | Mitglieder haben Name, Kategorie, Saldo und letzte Nutzung — **keine Kontaktdaten**. Preise sind Bruttobeträge, **keine Umsatzsteuer** im Modell. Ein Wareneingang (`deliveries`) ist Lieferant als Freitext, Bonsumme, Foto, Positionen. |
 
 Drei Folgerungen daraus:
@@ -348,7 +349,7 @@ Jede Phase liefert etwas, das für sich benutzbar ist, und baut auf der vorigen 
 
 | Phase | Inhalt | Warum in dieser Reihenfolge |
 |---|---|---|
-| **0 — Grundlage** | Schritt 7 aus `PORTIERUNG.md` und der Server nach Spezifikation (Kapitel 2 bis 5), `:core`-Modul mit der geteilten Logik. | Ohne Server keine Web-Oberfläche; ohne abgeleiteten Saldo keine korrekten Zahlen. |
+| **0 — Grundlage** | Schritt 7 aus `PORTIERUNG.md` und der Server nach Spezifikation (Kapitel 2 bis 5), `:core`-Modul mit der geteilten Logik. *Stand: Server und `:core` (Ids, Zeit, Zahlformate, Saldoregel) stehen; Schritt 7 und der Umzug von `Inventory` nach `:core` sind offen.* | Ohne Server keine Web-Oberfläche; ohne abgeleiteten Saldo keine korrekten Zahlen. |
 | **1 — Lesen** | Anmeldung, Rollen, Gerätekopplung, Übersicht; Mitglieder mit Salden, Historie, Lager, Belege — alles nur lesend. | Der Kassier sieht zum ersten Mal alles ohne Tablet. Wenig Risiko, weil nichts geschrieben wird. |
 | **2 — Stammdaten** | Mitglieder und Profile pflegen, Sperren, Produkte und Preise, Lieferanten, Eingangsbelege vervollständigen, Dateien. | Schreiben in Stammdaten läuft über den vorhandenen Sync-Konfliktweg. |
 | **3 — Geld** | Deckelabrechnung mit PDF, E-Mail und QR; Zahlungseingang und Kontoauszug-Import; Erinnerungen. Schichten, Entnahmen, Kassenbuch (mit den App-Bildschirmen). | Der eigentliche Nutzen. Braucht Profile (2) und den unveränderlichen Buchungsstrom (0). |

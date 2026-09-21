@@ -2,7 +2,9 @@
 
 Stand 15. September 2026. Die Schritte 0 bis 6 des ursprünglichen Plans sind umgesetzt,
 je einer pro Commit auf `1.0.1-suh2bh`. Die App läuft aus demselben Code auf Android
-und im iPad-Simulator. Schritt 7 (Datenmodell und Sync) ist unverändert offen.
+und im iPad-Simulator. Schritt 7 (Datenmodell und Sync) ist unverändert offen — seit dem
+21. September steht aber der Server (`server/`), gegen den er gebaut wird, und die
+Saldoregel liegt in `core/.../data/Ledger.kt`.
 
 ---
 
@@ -135,7 +137,12 @@ Einstellungen → Allgemein → VPN & Geräteverwaltung dem Entwickler vertrauen
    BGTasks nicht selbstständig aus.
 4. **Schritt 7: Datenmodell auf UUID, abgeleiteter Saldo, dann Sync.** Unverändert nach
    `docs/VereinsDeckel-Server-und-API.pdf`, Kapitel 2 und 4. Jetzt erst, weil beide
-   Plattformen starten.
+   Plattformen starten. Die Gegenseite gibt es inzwischen: `server/` mit dem Schema, dem
+   Tabellenregister (`sync/Entities.kt`, Spaltennamen und Vorgabewerte), dem JSON-Format
+   (`sync/Values.kt`) und den Sentinel-Schlüsseln für Aufladung, manuellen Betrag und
+   Trinkgeld in `Ledger`. Zwei Punkte sind dabei zu entscheiden, weil Server und heutige App
+   verschieden rechnen: ob ein Rabatt die Deckelbelastung mindert (Server: ja, App: nein)
+   und ob ein Trinkgeld auf den Deckel belastet wird (Server: ja, App: nein).
 
 Kleinigkeiten, die man wissen sollte: Die Statuszeile auf iOS wird über das veraltete
 `UIApplication.setStatusBarStyle` gesetzt (die Info.plist hat dafür
