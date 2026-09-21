@@ -101,6 +101,24 @@ class SyncEngineTest {
     }
 
     @Test
+    fun `more rows than one call carries go up and come down in several`() = devices { server, theke, ipad ->
+        // Geschoben wird zu 200, gezogen zu 500 — ein Verein mit ein paar Jahren Buchungen liegt weit darüber.
+        repeat(520) { theke.repository.insertMember(Member(name = "Mitglied ${it + 1}")) }
+        assertIs<PairingResult.Source>(theke.pair())
+        assertTrue(theke.engine.syncOnce())
+        assertEquals(0, theke.pending())
+        assertEquals(520, server.count("members"))
+        assertEquals(3, server.pushCalls, "200 + 200 + 120")
+
+        val pullsBefore = server.pullCalls
+        assertEquals(PairingResult.Joined, ipad.pair())
+        assertTrue(ipad.engine.syncOnce())
+        assertEquals(520, ipad.repository.allMembers.first().size)
+        // Ein Aufruf der Kopplung (ist der Server leer?), dann zwei Seiten: 500 + 20.
+        assertEquals(3, server.pullCalls - pullsBefore)
+    }
+
+    @Test
     fun `sales made offline arrive once even when the answer gets lost`() = devices { server, theke, _ ->
         // A2, A4, A7, A8.
         val beer = Product(name = "Weißbier 0,5l", price = 4.2, category = "Getränke")

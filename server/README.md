@@ -41,6 +41,19 @@ cp .env.example .env            # DOMAIN, DB_PASSWORD, PAIRING_ADMIN_TOKEN eintr
 docker compose up -d --build
 ```
 
+### Zum Ausprobieren auf dem eigenen Rechner
+
+`compose.dev.yaml` legt den Port der API frei und lässt den Proxy weg — ohne Hostnamen
+gibt es kein Zertifikat, und die App lässt `http://` nur für Entwickleradressen zu:
+
+```bash
+DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
+  docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
+```
+
+Vom iPad-Simulator aus ist das `http://127.0.0.1:8080`, vom Android-Emulator aus
+`http://10.0.2.2:8080`. So ist der Zwei-Geräte-Test in `docs/PORTIERUNG.md` gelaufen.
+
 ## Die ersten Anfragen
 
 ```bash
@@ -67,6 +80,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | Datei | Inhalt |
 |---|---|
 | `src/main/resources/db/migration/V1__grundgeruest.sql` | Schema nach Kapitel 3, Sicht `member_balances` nach 2.2 |
+| `src/main/resources/db/migration/V2__lagerabgaenge.sql` | `stock_draws` und `stock_entries.container_type_id` (siehe Abweichungen) |
 | `sync/Entities.kt` | Die zwölf Tabellen mit Spalten, Vorgabewerten und Konfliktart |
 | `sync/SyncStore.kt` | Ziehen, Schieben, Konfliktregeln (Kapitel 4) |
 | `sync/Values.kt` | Zahlenformate nach 5.4: Geld als Zeichenkette, Zeit als ISO 8601 |
@@ -103,4 +117,11 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
   hochgeladen, nicht als Multipart.
 - Die Saldoregel (Sicht `member_balances`, `core/.../data/Ledger.kt`) folgt der
   Spezifikation: Rabatt mindert die Belastung, ein Trinkgeld auf den Deckel belastet ihn.
-  Die heutige App rechnet an beiden Stellen anders — zu klären mit Schritt 7.
+  Die alte App rechnete an beiden Stellen anders; der Besitzer hat am 21. September 2026
+  für die Regel der Spezifikation entschieden, und seit Schema 11 rechnet die App genauso
+  (`DerivedSql.kt`).
+- **Neu anmelden** gibt es in der Spezifikation nicht: Ein gesperrtes oder sonst abgemeldetes
+  Gerät löst einen frischen Kopplungscode ein, behält aber Bestand und Warteschlange. Für
+  den Server ist das eine gewöhnliche Registrierung — es entsteht ein neues Gerät, das alte
+  bleibt gesperrt in der Liste. Möglich ist das, weil Änderungen an ihrer
+  `client_change_id` erkannt werden, nicht am Gerät.

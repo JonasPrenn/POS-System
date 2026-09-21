@@ -15,7 +15,8 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Designsystem, Phasen 0–5 | fertig, siehe `docs/` und die PR-Beschreibung |
 | Server- und API-Spezifikation | fertig, `docs/VereinsDeckel-Server-und-API.pdf` |
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
-| Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Die App spricht ihn noch nicht an: Schritt 7 |
+| Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufgestellt ist er noch nirgends |
+| Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 11 mit UUID-Schlüsseln, hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
 | Web-Verwaltung | Konzept in `docs/WEB-VERWALTUNG.md`, nicht begonnen |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
@@ -26,12 +27,15 @@ Swift-Brücke angebunden ist.
 
 ```
 core/            Reines Kotlin ohne Compose und Room, gemeinsam für App und Server: Ids, Zeit,
-                 Geld- und Mengenformat. Ziele: JVM (Android nutzt die JVM-Variante), iOS.
+                 Geld- und Mengenformat, die Saldoregel (Ledger), das Inventar, das Drahtformat
+                 und der Sync-Client. Ziele: JVM (Android nutzt die JVM-Variante), iOS.
 shared/          Kotlin Multiplatform. Datenhaltung, Logik, gesamte Oberfläche.
-  commonMain/    Alles Gemeinsame, 79 Dateien. AppGraph und ui/VereinsDeckelApp sind die Wurzel.
+  commonMain/    Alles Gemeinsame, 84 Dateien. AppGraph und ui/VereinsDeckelApp sind die Wurzel.
+                 data/repository/AppRepository ist der einzige Schreibweg, data/sync/ der Abgleich.
   androidMain/   Android-Umsetzungen der expect-Deklarationen.
   iosMain/       iOS-Umsetzungen. Bindet Swift über Interfaces ein, nicht umgekehrt.
-  iosTest/       Room-Integrationstest und Bedientest (Bar, Deckel), laufen im Simulator.
+  iosTest/       Läuft im Simulator: Room, Migration 10 → 11, Bedientest, und der Abgleich mit
+                 zwei Geräten gegen einen nachgebauten Server.
 androidApp/      Nur Hülle: MainActivity, Application, BackupWorker, Manifest, Ressourcen.
 iosApp/          Xcode-Projekt und Swift-Host. Baut das Kotlin-Framework über Gradle.
 server/          Der Sync-Server nach der Spezifikation: Kotlin/JVM, Ktor, PostgreSQL. Eigene README.
@@ -90,8 +94,31 @@ beim nächsten Start — die offene Datenbank wird nie unter Room ausgetauscht.
 des Servers läuft über `Database.write`, das eine Advisory-Sperre nimmt. Ohne sie könnte
 eine höhere Nummer vor einer niedrigeren sichtbar werden, und ein Client, der sich die
 höchste gesehene Nummer merkt, sähe die niedrigere nie. Die Web-Verwaltung nimmt
-denselben Weg. Dazu gehört: Die Saldoregel steht genau zweimal, in `core/.../data/Ledger.kt`
-und als SQL-Sicht `member_balances`, und `SyncTest` prüft, dass beide dasselbe ergeben.
+denselben Weg.
+
+**Nichts wird fortgeschrieben, was sich herleiten lässt.** Saldo, Bestand, „gezapft" und
+„zuletzt benutzt" sind Summen über anfügende Tabellen, keine Spalten — ein Zähler, den zwei
+Theken gleichzeitig fortschreiben, verliert eine der beiden Buchungen. Die Saldoregel steht
+genau dreimal: in `core/.../data/Ledger.kt`, als SQLite-Ausdruck in `DerivedSql.kt` und als
+Serversicht `member_balances`. `RoomOnIosTest` und `SyncTest` prüfen beide SQL-Fassungen
+gegen die in Kotlin. Wer die Regel ändert, ändert alle drei. Entschieden ist: Ein Rabatt
+mindert die Deckelbelastung, ein Trinkgeld auf den Deckel belastet ihn.
+
+**Abgänge werden festgehalten, nicht nachgerechnet.** Was ein Verkauf dem Keller entnimmt,
+steht als Zeile in `stock_draws`. Die Spezifikation (2.3) wollte es aus Buchung mal Rezeptur
+herleiten; die Glasgröße der Variante steht aber in keiner Buchungszeile, und jede
+Rezepturänderung schriebe die Vergangenheit um.
+
+**Ein Schreibweg, und der Auftrag an den Server entsteht in derselben Transaktion.** Jede
+Änderung geht durch `AppRepository.write`; ist das Gerät gekoppelt, liegt danach eine Zeile
+in `pending_changes`. Die eine Ausnahme ist `SyncApplier`: Was der Server sagt, ist keine
+Änderung dieses Geräts. Gelöscht wird weich, und die App-Datenbank hat keine
+Fremdschlüssel — eine geänderte Elternzeile kann nach ihren Kindern ankommen.
+
+**Der Verkauf wartet nie auf das Netz.** Geschrieben wird lokal; der Abgleich läuft
+daneben und meldet sich nur im Status. Dort steht „Offline" nur, wenn es stimmt: Ein am
+Server abgemeldetes Gerät heißt „Abgemeldet" und meldet sich mit einem frischen Code neu
+an, ohne die Kopplung zu lösen — das würde die wartenden Buchungen kosten.
 
 **Plattformgrenzen sind fachlich geschnitten.** `PaymentProcessor` heißt so, weil die App
 eine Karte belasten will, nicht weil SumUp ein SDK hat. Schlüsselbund und SumUp-iOS-SDK
@@ -125,5 +152,9 @@ Wer iosApp anfasst, zusätzlich:
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' build CODE_SIGNING_ALLOWED=NO
 ```
+
+Das prüft nur, ob es baut. Ein so gebauter Build kann im Simulator nicht koppeln: Ohne
+Signatur verweigert der Schlüsselbund das Gerätetoken (-34018). Zum Ausprobieren den
+Schalter weglassen — für den Simulator signiert Xcode ad hoc, ohne Team.
 
 Es gibt keine CI in diesem Repo. Was nicht lokal geprüft wurde, ist ungeprüft.

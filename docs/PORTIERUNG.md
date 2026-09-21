@@ -1,10 +1,14 @@
 # Portierung auf iOS — Stand und nächste Schritte
 
-Stand 15. September 2026. Die Schritte 0 bis 6 des ursprünglichen Plans sind umgesetzt,
-je einer pro Commit auf `1.0.1-suh2bh`. Die App läuft aus demselben Code auf Android
-und im iPad-Simulator. Schritt 7 (Datenmodell und Sync) ist unverändert offen — seit dem
-21. September steht aber der Server (`server/`), gegen den er gebaut wird, und die
-Saldoregel liegt in `core/.../data/Ledger.kt`.
+Stand 21. September 2026. Alle Schritte des ursprünglichen Plans sind umgesetzt, je einer
+pro Commit auf `1.0.1-suh2bh`. Die App läuft aus demselben Code auf Android und im
+iPad-Simulator. Schritt 7 (Datenmodell auf UUID, abgeleiteter Saldo und Bestand, Sync) ist
+am 21. September freigegeben und in vier Commits gebaut worden (7a bis 7d); was dabei
+entstand und wo es von der Spezifikation abweicht, steht unten in einem eigenen Abschnitt.
+
+**Vor dem ersten Start der neuen App auf dem Vereinstablet: sichern.** Das Update hebt die
+Datenbank von Schema 10 auf 11 und baut dabei jede Tabelle um. Im Emulator ist das mit
+einem echten Datenbestand geprüft, auf dem Tablet selbst nicht.
 
 ---
 
@@ -21,23 +25,34 @@ Saldoregel liegt in `core/.../data/Ledger.kt`.
 | Dasselbe mit **Xcode 27.0** (SDK iOS 27.0), 21. September | `xcodebuild` BUILD SUCCEEDED, `:shared:allTests` grün, der neue Build startet im Simulator (Runtime iOS 26.5) und öffnet die vorhandene Datenbank |
 | Bedienung in der echten App im iPad-Simulator (Build mit Xcode 27), 21. September | Barverkauf: Kachel, Bezahlen, Bar, 10 € gegeben, Rückgeld 5,80 €, Abschließen. Deckel: Mitglied wählen, Kachel, Bezahlen, Deckel-Kachel, Abschließen. Danach in der Datenbank der App eine `CASH`-Zeile ohne Mitglied und eine `MEMBER_BALANCE`-Zeile auf Maria Bauer, Saldo 23,50 → 19,30 €; die Historie zeigt beide Vorgänge. Die Berührungen gingen durch UIKit und den `ComposeUIViewController`. Die Produktsuche nimmt Eingaben der Bildschirmtastatur an und filtert das Raster |
 | Android im Emulator (Medium_Tablet, API 37) mit **bestehender** Datenbank | Barverkauf mit Keypad und Rückgeld, Verkauf auf den Deckel (Saldo 43,50 → 40,00 €), Historie, Mitglieder, Einstellungen — alles ohne Absturz |
+| **Schritt 7, Tests** (21. September) | 101 Testläufe grün: `:core` 28 je Ziel (JVM und iOS: Geld, Saldoregel, Ids, Drahtformat, Inventar), `:server` 22 gegen einen eingebetteten PostgreSQL, `:shared` 19 im iOS-Simulator und 4 auf der JVM. Darunter `MigrationTo11Test` (Schema 10 → 11 mit Waisen, Übertragsbuchungen, Fässern) und `SyncEngineTest` mit zwei Geräten und nachgebautem Server: Erstbefüllung, Offline-Verkauf mit verlorener Antwort, zwei Theken auf demselben Deckel, Preiskonflikt, Löschmarke, 422, Sperre und Neu-Anmelden, Token nicht haltbar, Entscheidung bei beidseitigen Daten, 520 Zeilen in mehreren Aufrufen |
+| **Migration 10 → 11 auf Android** mit echtem Bestand im Emulator | Drei Mitglieder (40,00 / −12,50 / 102,00 €), Lager mit Fässern und vier Anstichen: nach dem Update alle Salden, Bestände, „gezapft" und gelernten Ausbeuten unverändert; ein Verkauf auf den Deckel bucht Transaktion und Lagerabgang |
+| **Zwei Geräte gegen den echten Server** (Docker: PostgreSQL 16 + API), Android-Emulator und iPad-Simulator, durch die Oberfläche | Android koppelt als Quelle, 62 Zeilen gehen hoch. iPad koppelt, bekommt den Entscheidungsdialog („beide haben Daten"), übernimmt den Serverstand: dieselben Salden und derselbe Lagerbestand bis auf die Nachkommastelle. **A1** in beide Richtungen (Produkte Android → iPad, Mitglied iPad → Android). **A3/A7/A8:** Server aus, iPad bucht 3,50 € und Android 2,00 € auf denselben Deckel, beide zeigen „Offline · n warten" und verkaufen weiter; Server an — Server, iPad und Android stehen auf 31,00 €. **Sperre:** Android am Server gesperrt, zeigt „Abgemeldet", verkauft weiter, meldet sich mit frischem Code neu an, die wartende Buchung kommt an |
+| Schlüsselbund im Simulator | Mit `CODE_SIGNING_ALLOWED=NO` gebaut verweigert er jeden Zugriff (-34018); die Kopplung merkt das seit 7d und sagt es. Mit Ad-hoc-Signatur gebaut (Xcode-Run, oder `xcodebuild` ohne den Schalter) hält er das Token — so geprüft |
 
 **Nicht geprüft:**
 
+- **Die Migration auf dem echten Vereinstablet.** Emulator und Test sind nicht das Gerät
+  mit dem echten Bestand des Vereins. Vorher in der alten App sichern (Einstellungen → Backup →
+  Sichern) und die Datei vom Tablet herunterkopieren. Nach dem Update Salden und Bestände
+  mit einem Foto von vorher vergleichen.
 - **Start auf einem echten iPad.** Auf diesem Mac gibt es keine Signaturidentität und
   kein angemeldetes Apple-Konto; das kann nur der Besitzer nachholen (unten).
-- **Die übrigen Bildschirme auf iOS.** Im Simulator bedient wurden der Verkauf (bar und
-  auf den Deckel), die Produktsuche mit der Bildschirmtastatur und die Historie. Nicht
-  bedient: Mitgliedersuche, manueller Betrag, Rabatt, Aufladung, und die
-  Verwaltungsbildschirme für Produkte, Lager, Mitglieder, Kategorien, Auswertung und
-  Einstellungen. Sie sind derselbe Compose-Code wie unter Android, wo sie durchgespielt
-  wurden.
+- **Die übrigen Bildschirme auf iOS** habe ich nicht bedient: Mitgliedersuche, manueller
+  Betrag, Rabatt, Aufladung, und die Verwaltungsbildschirme. Der Besitzer hat sie am
+  21. September im Simulator selbst durchgespielt. Sie sind derselbe Compose-Code wie
+  unter Android.
 - **Dateiauswahl, Kamera, Sicherungsordner, BGTaskScheduler auf iOS.** Übersetzt,
   nie ausgeführt. Delegates und Sicherheits-Scope zeigen ihr Verhalten erst auf einem
   Gerät.
-- **Die Android-App auf einem echten Gerät nach dem Update.** Im Emulator hat die
-  alte Datenbank (Schemaversion 10) mit dem gebündelten SQLite-Treiber ohne Migration
-  geöffnet, die Einstellungen (Vereinsfarbe, Themenwahl) waren noch da.
+- **Abgleich über HTTPS mit echtem Zertifikat.** Der Zwei-Geräte-Test lief über
+  `http://` auf dem eigenen Rechner; Caddy mit Let's Encrypt ist eingerichtet
+  (`server/deploy/`), aber nie gegen einen echten Hostnamen gelaufen.
+- **Belegfotos von Gerät zu Gerät.** Hochladen und Herunterladen sind gegen den
+  nachgebauten Server und im Servertest geprüft, nicht mit einem echten Kamerafoto
+  zwischen zwei Geräten.
+- **Die Sicherung vor „Serverstand übernehmen".** Im Test war kein Sicherungsort
+  eingerichtet; der Dialog hat davor gewarnt, gesichert wurde nichts.
 
 ---
 
@@ -124,6 +139,23 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
   -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' build CODE_SIGNING_ALLOWED=NO
 ```
 
+Das prüft, ob es baut. Wer im Simulator **koppeln** will, lässt `CODE_SIGNING_ALLOWED=NO`
+weg (oder startet aus Xcode): Ohne Signatur verweigert der Schlüsselbund das Gerätetoken.
+Für den Simulator signiert Xcode ad hoc, ein Team braucht es dafür nicht.
+
+**Server zum Ausprobieren** (Docker): in `server/deploy`
+
+```bash
+../../gradlew :server:installDist
+DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
+  docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
+curl -X POST -H "Authorization: Bearer dev-admin-token-1234" http://127.0.0.1:8080/v1/admin/pairing-codes
+```
+
+In der App unter Einstellungen → Server und Abgleich: vom Simulator aus
+`http://127.0.0.1:8080`, vom Android-Emulator aus `http://10.0.2.2:8080`. Ohne `https://`
+lässt die App nur diese Entwickleradressen zu.
+
 **iOS auf dem iPad:** In Xcode unter Settings → Accounts die Apple-ID anmelden, die
 Team-Kennung in `iosApp/Configuration/Config.xcconfig` unter `TEAM_ID` eintragen (oder im
 Target unter Signing das Team wählen), iPad anschließen, Run. Ein kostenloses Konto
@@ -142,20 +174,87 @@ Einstellungen → Allgemein → VPN & Geräteverwaltung dem Entwickler vertrauen
    Bis dahin meldet Karte sich sauber ab; Bar und Deckel funktionieren.
 3. **Hintergrundsicherung auf iOS** erst auf einem Gerät beurteilen; der Simulator führt
    BGTasks nicht selbstständig aus.
-4. **Schritt 7: Datenmodell auf UUID, abgeleiteter Saldo, dann Sync.** Unverändert nach
-   `docs/VereinsDeckel-Server-und-API.pdf`, Kapitel 2 und 4. Jetzt erst, weil beide
-   Plattformen starten. Die Gegenseite gibt es inzwischen: `server/` mit dem Schema, dem
-   Tabellenregister (`sync/Entities.kt`, Spaltennamen und Vorgabewerte), dem JSON-Format
-   (`sync/Values.kt`) und den Sentinel-Schlüsseln für Aufladung, manuellen Betrag und
-   Trinkgeld in `Ledger`. Zwei Punkte sind dabei zu entscheiden, weil Server und heutige App
-   verschieden rechnen: ob ein Rabatt die Deckelbelastung mindert (Server: ja, App: nein)
-   und ob ein Trinkgeld auf den Deckel belastet wird (Server: ja, App: nein).
+4. **Das Vereinstablet auf die neue App heben.** Erst sichern und die Sicherung vom
+   Gerät herunterkopieren, dann aktualisieren, dann Salden und Bestände vergleichen. Das
+   Tablet ist danach die Quelle für den Server (Spezifikation 2.5).
+5. **Den Server aufstellen**, beim Bundesbruder im Rechenzentrum: `server/README.md`,
+   Abschnitt „Aufstellen". Offen sind dafür der Hostname, die Erreichbarkeit auf 80/443
+   und wer außer einer Person den Verwaltungsschlüssel hat.
+6. **Optional, in der Spezifikation vorgesehen:** vor einer Deckelbelastung den Saldo
+   online nachfragen (`GET /v1/members/{id}/balance`), damit ein Deckel am Limit auch
+   dann auffällt, wenn das andere Gerät seit einer Minute nicht abgeglichen hat. Der
+   Endpunkt steht, die App nutzt ihn noch nicht.
 
 Kleinigkeiten, die man wissen sollte: Die Statuszeile auf iOS wird über das veraltete
 `UIApplication.setStatusBarStyle` gesetzt (die Info.plist hat dafür
 `UIViewControllerBasedStatusBarAppearance = NO`); die Vorschau-Annotation in commonMain
 ist `androidx.compose.ui.tooling.preview.Preview` aus dem JetBrains-Artefakt
 `ui-tooling-preview`; zwei Stellen in `IosFiles.kt` brauchen `BetaInteropApi`.
+
+---
+
+## Schritt 7: was gebaut wurde
+
+Nach `docs/VereinsDeckel-Server-und-API.pdf`, Kapitel 2 und 4. Vier Commits: 7a Drahtformat
+und Client in `:core`, 7b Schema 11, 7c Abgleich, 7d die Befunde aus dem Zwei-Geräte-Test.
+
+**Schema 11.** Jede Zeile hat eine UUIDv7 als Schlüssel (`Ids.new()`), eine Löschmarke und
+den `updated_at` des Servers (`SyncMeta`). Gelöscht wird weich. Kein Zähler wird mehr
+fortgeschrieben: Der Saldo ist die Summe der Buchungen (`DerivedSql.BALANCE_EFFECT`, dieselbe
+Regel wie `Ledger.balanceEffect` und die Serversicht `member_balances`), der Bestand ist
+Eingänge minus Abgänge, „gezapft" ist die Summe der Abgänge im Zeitfenster des Anstichs.
+Die Oberfläche merkt davon fast nichts — `Member`, `StockItem`, `ContainerType` und
+`TappedContainer` sind Lesemodelle mit den hergeleiteten Feldern, die Tabellenzeilen heißen
+`MemberRow` und so weiter.
+
+**Migration 10 → 11** (`Migration10To11.kt`) baut jede Tabelle neu, vergibt die Schlüssel
+(zeitgestempelte Zeilen bekommen eine UUID zu ihrem Zeitpunkt) und sorgt dafür, dass nach
+dem Update dieselben Zahlen dastehen wie vorher: Wo der gespeicherte Saldo nicht der Summe
+der Buchungen entsprach, entsteht eine Übertragsbuchung (`CORRECTION`), ebenso für Bestände
+und die bisher gezapfte Menge offener Fässer. Buchungen gelöschter Mitglieder bleiben, ohne
+Mitglied.
+
+**Abgleich** (`data/sync/`). Jede Änderung schreibt in derselben Transaktion einen Auftrag
+in `pending_changes` — aber erst, wenn das Gerät gekoppelt ist. Die Engine schiebt zu 200,
+zieht zu 500 (Seite und Lesezeiger in einer Transaktion), und zwar nach jeder Änderung,
+alle 60 Sekunden, beim Wechsel in den Vordergrund und auf Knopfdruck; nach einem Fehlschlag
+mit offener Warteschlange nach 2, 4, 8 Sekunden. Der Verkauf wartet nie darauf. Der Status
+steht unten in der Leiste (Telefon: Zeile über der Navigation, nur wenn es etwas zu sagen
+gibt): „Abgeglichen", „n warten", „Offline", „Abgemeldet", „Abgelehnt".
+
+**Koppeln** (Einstellungen → Server und Abgleich). Ist der Server leer, wird das Gerät zur
+Quelle und lädt alles hoch; ist das Gerät leer, zieht es alles; haben beide Daten, fragt
+ein Dialog, und „Serverstand übernehmen" ersetzt den Bestand des Geräts (vorher Sicherung,
+wenn ein Sicherungsort eingerichtet ist). Ein am Server gesperrtes Gerät meldet sich mit
+einem frischen Code neu an, ohne die Kopplung zu lösen — Bestand und Warteschlange bleiben.
+
+### Entscheidungen des Besitzers, 21. September 2026
+
+- Ein **Rabatt mindert die Deckelbelastung**; ein **Trinkgeld auf den Deckel belastet ihn**.
+  Die alte App rechnete an beiden Stellen anders (Rabatt wurde beim Abzug ignoriert;
+  Trinkgeld gibt es in der Oberfläche nur bei Karte, der Fall tritt also nicht auf).
+- Beim Umstieg **bleiben die Salden, wie sie sind** — über Übertragsbuchungen, nicht durch
+  Nachrechnen.
+- Das **Android-Tablet ist die Quelle** für den Server.
+- Beträge bleiben in der App `Double`, werden beim Schreiben auf Cent gerundet
+  (`Money.cents`) und gehen als Zeichenkette mit zwei Stellen über den Draht.
+
+### Abweichungen von der Spezifikation
+
+- **Lagerabgänge sind eine eigene anfügende Tabelle** (`stock_draws`), und
+  `stock_entries` trägt `container_type_id`. Die Spezifikation (2.3) leitet den Verbrauch
+  nachträglich aus Buchung mal Rezeptur her. Das trägt nicht: Die Glasgröße der Variante
+  steht in keiner Buchungszeile, und jede Rezepturänderung schriebe die Vergangenheit um.
+  Die App hält beim Verkauf fest, was sie dem Keller entnommen hat.
+- **Keine Fremdschlüssel in der App-Datenbank.** Eine geänderte Elternzeile bekommt am
+  Server eine neue Sequenznummer und kann deshalb *nach* ihren Kindern ankommen. Der Server
+  prüft Verweise, die App verlässt sich darauf.
+- **„Zuletzt benutzt"** schreibt niemand mehr in die Mitgliederzeile; es ergibt sich aus der
+  letzten Buchung (ohne Übertragsbuchungen). Sonst gäbe es bei zwei Theken laufend
+  Stammdatenkonflikte.
+- **Neu anmelden** kennt die Spezifikation nicht. Es nutzt denselben Endpunkt wie die
+  Kopplung; am Server entsteht ein neues Gerät, das alte bleibt gesperrt in der Liste.
+- Die serverseitigen Abweichungen stehen in `server/README.md`.
 
 ---
 
@@ -176,3 +275,9 @@ ist ein Zugangsgeheimnis und hat in einem Sync-Payload nichts verloren; Hell/Dun
 pro Gerät sinnvoll verschieden — das Wandtablet hinter der Theke will abends dunkel
 bleiben, auch wenn das iPad im Garten hell läuft. Dasselbe gilt für den Zeitpunkt der
 letzten Sicherung.
+
+Seit Schritt 7 kommen dazu: das Gerätetoken (Schlüsselbund bzw. verschlüsselte
+Einstellungen, nie in der Datenbank und damit nie in einer Sicherung), die Serveradresse,
+und der lokale Pfad eines Belegfotos — über den Draht geht nur der Schlüssel, unter dem
+der Server das Foto hält. Vereinsname und Vereinsfarbe sind ebenfalls noch je Gerät
+einzustellen; die Spezifikation sieht dafür keine Tabelle vor.

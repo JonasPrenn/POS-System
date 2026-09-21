@@ -22,7 +22,8 @@ a till attached, built for a volunteer on a shift rather than a trained cashier.
 |---|---|
 | Android | works, builds from `:androidApp` |
 | iOS | builds and runs in the iPad simulator from `iosApp/`; card payments need the SumUp iOS SDK still — see `docs/PORTIERUNG.md` |
-| Multi-device server | built and tested in `server/` (PostgreSQL, sync protocol, device pairing, receipt photos) — see `server/README.md`. The app does not talk to it yet; that is step 7 in `docs/PORTIERUNG.md` |
+| Multi-device server | built and tested in `server/` (PostgreSQL, sync protocol, device pairing, receipt photos) — see `server/README.md`. Not deployed anywhere yet |
+| Multi-device in the app | done: UUID keys, balance and stock derived from append-only rows, offline-first sync, device pairing. Played through with two devices (Android emulator, iPad simulator) against the server in Docker. **The schema upgrade (10 → 11) has not run on a real tablet — take a backup first** |
 
 Both platforms build from the same shared module. `docs/PORTIERUNG.md` lists exactly what
 has been verified and what has not.
@@ -40,7 +41,7 @@ has been verified and what has not.
 ## Layout
 
 ```
-core/            pure Kotlin shared by app and server: ids, time, money and quantity formats, the balance rule
+core/            pure Kotlin shared by app and server: ids, time, money and quantity formats, the balance rule, wire format and sync client
 shared/          everything common to both apps: data, logic, the whole UI
 androidApp/      Android host — activity, application, backup worker, resources
 iosApp/          Xcode project and Swift host; builds the Kotlin framework via Gradle
@@ -75,6 +76,10 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
   -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' build CODE_SIGNING_ALLOWED=NO
 ```
 
+That only checks that it builds. To pair with a server from the simulator, drop
+`CODE_SIGNING_ALLOWED=NO` (or run from Xcode): an unsigned build cannot use the keychain,
+which is where the device token lives.
+
 ### Server
 
 Java 17 or newer and a PostgreSQL 15+. The tests need neither Docker nor a local
@@ -98,7 +103,7 @@ and no `local.properties`). Everything else is in `server/README.md`.
   `python3 docs/spec-src/build_spec.py`.
 - **`server/README.md`** — building, running and deploying the server; where it deviates from the specification and why.
 - **`docs/WEB-VERWALTUNG.md`** — concept for the web administration (members, invoices, stock, purchases, accounts) on top of the server.
-- **`docs/PORTIERUNG.md`** — remaining work on the iOS port, in order.
+- **`docs/PORTIERUNG.md`** — what has been verified and what has not, how step 7 (data model and sync) was built and where it deviates from the specification, and what is left.
 - **`CLAUDE.md`** — design decisions that are settled, and the checks that keep them true.
 
 ## Note on CI

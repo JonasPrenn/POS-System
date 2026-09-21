@@ -1,15 +1,18 @@
 # Web-Verwaltung für VereinsDeckel — Konzept
 
 Stand 21. September 2026. Ein Vorschlag, was die Web-Oberfläche leisten soll, in welcher
-Reihenfolge sie entstehen sollte und was vorher entschieden werden muss. Von Phase 0 sind
-der Server (`server/`) und das Modul `:core` gebaut; die Web-Oberfläche selbst ist es
-nicht. Das Dokument ist die Grundlage für die Entscheidung, nicht ihr Ergebnis.
+Reihenfolge sie entstehen sollte und was vorher entschieden werden muss. Phase 0 ist
+gebaut: der Server (`server/`), das Modul `:core` und Schritt 7 in der App (UUID-Schlüssel,
+hergeleiteter Saldo und Bestand, Abgleich). Die Web-Oberfläche selbst ist es nicht. Das
+Dokument ist die Grundlage für die Entscheidung, nicht ihr Ergebnis.
 
 **Was feststeht:** Österreich. Der Verein ist eine katholische Studentenverbindung, also
 ein Verein nach dem Vereinsgesetz 2002, in aller Regel nicht gemeinnützig im steuerlichen
 Sinn. Rechnungslegung als Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht. Der Server
-steht bei einem Bundesbruder mit einem kleinen Rechenzentrum. Das Dokument ist auf diese
-Antworten zugeschnitten; die deutschen Regeln stehen nicht mehr drin.
+steht bei einem Bundesbruder mit einem kleinen Rechenzentrum. Nach Auskunft des Vereins
+(21. September 2026) gelten für ihn keine besonderen zusätzlichen Vorschriften — geplant
+wird deshalb **ohne Registrierkasse (RKSV) und ohne E-Bon**; siehe Kapitel 8. Das Dokument
+ist auf diese Antworten zugeschnitten; die deutschen Regeln stehen nicht mehr drin.
 
 Kurzfassung: Die Theke bleibt das Tablet. Das Web ist der Schreibtisch des Kassiers und
 des Vorstands — Mitglieder pflegen, Deckel abrechnen, Einkauf und Lager führen, die
@@ -47,8 +50,9 @@ Drei Folgerungen daraus:
 ## 2 · Rahmen: was in Österreich für die Verbindung gilt
 
 Diese Punkte bestimmen den Umfang stärker als jede Feature-Liste. Was davon offen ist,
-steht als Frage in Kapitel 8; alles hier ist mit dem Steuerberater des Vereins
-gegenzulesen, bevor gebaut wird.
+steht als Frage in Kapitel 8. Der Verein hat am 21. September 2026 geantwortet, dass für
+ihn nichts davon greift; das Kapitel bleibt stehen, weil es die Schwellen nennt, an denen
+sich das ändern würde. Es ist eine Zusammenstellung, keine Steuerberatung.
 
 ### 2.1 Kasse und Belege
 
@@ -349,7 +353,7 @@ Jede Phase liefert etwas, das für sich benutzbar ist, und baut auf der vorigen 
 
 | Phase | Inhalt | Warum in dieser Reihenfolge |
 |---|---|---|
-| **0 — Grundlage** | Schritt 7 aus `PORTIERUNG.md` und der Server nach Spezifikation (Kapitel 2 bis 5), `:core`-Modul mit der geteilten Logik. *Stand: Server und `:core` (Ids, Zeit, Zahlformate, Saldoregel) stehen; Schritt 7 und der Umzug von `Inventory` nach `:core` sind offen.* | Ohne Server keine Web-Oberfläche; ohne abgeleiteten Saldo keine korrekten Zahlen. |
+| **0 — Grundlage** | Schritt 7 aus `PORTIERUNG.md` und der Server nach Spezifikation (Kapitel 2 bis 5), `:core`-Modul mit der geteilten Logik. *Stand 21. September 2026: gebaut und mit zwei Geräten gegen den Server durchgespielt. Offen: die Migration auf dem echten Tablet, das Aufstellen des Servers, und die Bestandsherleitung als SQL-Sicht am Server — die App rechnet sie schon, das Web braucht sie in Phase 1.* | Ohne Server keine Web-Oberfläche; ohne abgeleiteten Saldo keine korrekten Zahlen. |
 | **1 — Lesen** | Anmeldung, Rollen, Gerätekopplung, Übersicht; Mitglieder mit Salden, Historie, Lager, Belege — alles nur lesend. | Der Kassier sieht zum ersten Mal alles ohne Tablet. Wenig Risiko, weil nichts geschrieben wird. |
 | **2 — Stammdaten** | Mitglieder und Profile pflegen, Sperren, Produkte und Preise, Lieferanten, Eingangsbelege vervollständigen, Dateien. | Schreiben in Stammdaten läuft über den vorhandenen Sync-Konfliktweg. |
 | **3 — Geld** | Deckelabrechnung mit PDF, E-Mail und QR; Zahlungseingang und Kontoauszug-Import; Erinnerungen. Schichten, Entnahmen, Kassenbuch (mit den App-Bildschirmen). | Der eigentliche Nutzen. Braucht Profile (2) und den unveränderlichen Buchungsstrom (0). |
@@ -385,13 +389,19 @@ andere bleibt auf dem Server.**
 
 ## 8 · Offene Fragen an den Verein
 
-Land, Rechtsform, Rechnungslegung und Serverstandort sind beantwortet. Offen bleibt:
+Land, Rechtsform, Rechnungslegung und Serverstandort sind beantwortet.
 
-1. **Die Zahlen für den Steuerberater:** Jahresumsatz der Bude, davon Barumsatz
-   einschließlich Kartenzahlungen, Öffnungstage. Daraus folgt, ob Registrierkassen- und
-   Belegerteilungspflicht gelten — und damit, ob RKSV und E-Bon in Phase 3 gehören.
-2. **Umsatzsteuer:** Kleinunternehmer, oder über 55.000 € Nettoumsatz? Und fällt auf den
-   Budenbetrieb Körperschaftsteuer an?
+**Beantwortet am 21. September 2026** (Fragen 1 und 2, Kasse und Steuer): „Wir sind einfach
+nur ein Verein, ohne besondere zusätzliche Vorschriften." Das Konzept plant damit ohne
+RKSV, ohne E-Bon und ohne Umsatzsteuerausweis; die Abrechnung an Mitglieder ist ein
+Kontoauszug mit Zahlungsaufforderung (2.2). Beides bleibt in Phase 5 geparkt, das
+Steuersatzfeld am Produkt bleibt leer. Die Auskunft ist die des Vereins; nachgerechnet hat
+sie hier niemand. Die Schwellen aus 2.1 und 2.2 (15.000 € Jahresumsatz *und* 7.500 €
+Barumsatz; 55.000 € netto) bleiben der Maßstab, und ab Phase 1 zeigt die Web-Verwaltung
+die Jahreszahlen nach Zahlart, an denen sich das mit einem Blick prüfen lässt.
+
+Offen bleibt:
+
 3. **Rechnungsjahr:** Kalenderjahr oder Studienjahr?
 4. **Zugang für Bundesbrüder:** Sollen Aktive und Alte Herren ihren Deckel selbst sehen
    und Auszüge laden können (Phase 5), oder bleibt alles beim Kassier?
@@ -399,7 +409,8 @@ Land, Rechtsform, Rechnungslegung und Serverstandort sind beantwortet. Offen ble
 6. **Betrieb:** Wer ist neben dem Bundesbruder mit dem Rechenzentrum der zweite
    Administrator, und wohin geht die Sicherung außer Haus?
 
-Frage 1 ändert den Umfang um Wochen; die anderen ändern die Reihenfolge.
+Die Frage, die den Umfang um Wochen verändert hätte (1), ist beantwortet; die übrigen
+ändern die Reihenfolge, nicht die Größe.
 
 ---
 

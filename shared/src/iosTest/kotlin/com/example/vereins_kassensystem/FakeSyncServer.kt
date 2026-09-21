@@ -47,6 +47,8 @@ class FakeSyncServer {
     var rejectedEntity: String? = null
     var pushCalls = 0
         private set
+    var pullCalls = 0
+        private set
 
     private val appendOnly = setOf("transactions", "stock_entries", "stock_draws")
 
@@ -67,6 +69,7 @@ class FakeSyncServer {
 
         override suspend fun changes(since: Long, limit: Int): ChangesResponse {
             authorize()
+            pullCalls++
             val newer = rows.entries.filter { it.value.seq > since }.sortedBy { it.value.seq }
             val page = newer.take(limit)
             return ChangesResponse(
