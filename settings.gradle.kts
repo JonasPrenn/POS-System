@@ -32,5 +32,8 @@ rootProject.name = "VereinsDeckel"
 // :shared traegt alles, was auf beiden Plattformen gilt — Datenhaltung, Logik und die
 // gesamte Oberflaeche. :androidApp ist nur noch die Huelle, die es unter Android startet;
 // das Gegenstueck dazu ist iosApp/, das Xcode oeffnet und nicht von Gradle gebaut wird.
+// :core ist der gemeinsame Nenner von App und Server: Schluessel, Zeit, Zahlformate, spaeter
+// die Bestandslogik. Reines Kotlin ohne Compose und Room, damit der Server es benutzen kann.
+include(":core")
 include(":shared")
 include(":androidApp")

@@ -48,6 +48,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // Schluessel, Zeit und Zahlformate kommen aus :core, damit der Server dieselben
+            // Regeln benutzt statt einer Abschrift.
+            implementation(projects.core)
+
             // Feste Koordinaten statt der Plugin-Accessors (compose.runtime usw.): Die
             // sind seit CMP 1.12 veraltet und zeigen ohnehin nur auf genau diese
             // Artefakte. Die Begruendung fuer die Versionen steht im Katalog.
@@ -70,7 +74,6 @@ kotlin {
             implementation(libs.androidx.sqlite.bundled)
 
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
 
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)

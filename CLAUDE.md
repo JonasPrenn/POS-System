@@ -24,6 +24,8 @@ Swift-Brücke angebunden ist.
 ## Aufbau
 
 ```
+core/            Reines Kotlin ohne Compose und Room, gemeinsam für App und Server: Ids, Zeit,
+                 Geld- und Mengenformat. Ziele: JVM (Android nutzt die JVM-Variante), iOS.
 shared/          Kotlin Multiplatform. Datenhaltung, Logik, gesamte Oberfläche.
   commonMain/    Alles Gemeinsame, 79 Dateien. AppGraph und ui/VereinsDeckelApp sind die Wurzel.
   androidMain/   Android-Umsetzungen der expect-Deklarationen.
@@ -101,6 +103,7 @@ Bezeichner bleiben englisch (`fun charge`, `val balance`), Nutzertexte sind deut
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"  # System-java ist 8
 ./gradlew :shared:compileKotlinIosArm64   # bricht am ehesten
 ./gradlew :androidApp:assembleDebug
+./gradlew :core:jvmTest :shared:testAndroidHostTest   # ohne Simulator
 ./gradlew :shared:allTests                # braucht eine iOS-Simulator-Runtime
 ```
 
