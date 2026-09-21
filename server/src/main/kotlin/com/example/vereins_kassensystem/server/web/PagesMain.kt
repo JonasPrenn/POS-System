@@ -1,11 +1,14 @@
 package com.example.vereins_kassensystem.server.web
 
 import com.example.vereins_kassensystem.data.Ledger
+import com.example.vereins_kassensystem.platform.Ids
+import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.format.Quantity
 import io.ktor.http.encodeURLParameter
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
@@ -13,6 +16,7 @@ import kotlinx.html.HTML
 import kotlinx.html.InputType
 import kotlinx.html.a
 import kotlinx.html.button
+import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h2
@@ -20,8 +24,11 @@ import kotlinx.html.h3
 import kotlinx.html.hiddenInput
 import kotlinx.html.input
 import kotlinx.html.label
+import kotlinx.html.option
 import kotlinx.html.p
+import kotlinx.html.select
 import kotlinx.html.span
+import kotlinx.html.summary
 import kotlinx.html.table
 import kotlinx.html.tbody
 import kotlinx.html.td
@@ -121,10 +128,55 @@ internal fun Route.mainPages(web: Web) {
             val all = web.reads.members()
             val selected = uuidOrNull(call.request.queryParameters["m"])?.let { id -> all.firstOrNull { it.id == id } }
             val shown = selected ?: all.firstOrNull()
+            val categories = if (ctx.user.role.writesMembers) web.writes.categories() else emptyList()
             call.html {
                 membersPage(ctx, all, call.request.queryParameters["q"].orEmpty(), call.request.queryParameters["f"] ?: "alle",
-                    shown, selected != null, shown?.let { web.reads.statement(it.id, 12) }.orEmpty())
+                    shown, selected != null, shown?.let { web.reads.statement(it.id, 12) }.orEmpty(), categories,
+                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"])
             }
+        }
+    }
+    post("/mitglieder") {
+        call.guardedPost(web, Area.MEMBERS) { ctx, form ->
+            if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Mitglieder legt der Kassier an.")
+            val target = try {
+                val id = web.writes.createMember(ctx.user, form["name"].orEmpty(), uuidOrNull(form["kategorie"]))
+                "m=$id&hinweis=" + "Angelegt. Die Tablets bekommen das Mitglied beim nächsten Abgleich.".encodeURLParameter()
+            } catch (e: AccountProblem) {
+                "fehler=" + e.message.orEmpty().encodeURLParameter()
+            }
+            call.respondRedirect("$BASE/mitglieder?$target")
+        }
+    }
+    post("/mitglieder/{id}") {
+        call.guardedPost(web, Area.MEMBERS) { ctx, form ->
+            if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Mitglieder ändert der Kassier.")
+            val id = uuidOrNull(call.parameters["id"]) ?: return@guardedPost call.respondRedirect("$BASE/mitglieder")
+            val outcome = try {
+                web.writes.updateMember(ctx.user, id, form["name"].orEmpty(), uuidOrNull(form["kategorie"]))
+                "hinweis=" + "Gespeichert.".encodeURLParameter()
+            } catch (e: AccountProblem) {
+                "fehler=" + e.message.orEmpty().encodeURLParameter()
+            }
+            call.respondRedirect("$BASE/mitglieder?m=$id&$outcome")
+        }
+    }
+    post("/mitglieder/{id}/buchung") {
+        call.guardedPost(web, Area.MEMBERS) { ctx, form ->
+            if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Auf Deckel bucht der Kassier.")
+            val id = uuidOrNull(call.parameters["id"]) ?: return@guardedPost call.respondRedirect("$BASE/mitglieder")
+            val outcome = try {
+                // Wer das Minus aus dem Platzhalter abtippt, meint es auch so.
+                val amount = Money.parse(form["betrag"].orEmpty().replace('\u2212', '-')) ?: throw AccountProblem("Den Betrag bitte als Zahl, etwa 20 oder 12,50.")
+                val booking = uuidOrNull(form["buchung"]) ?: throw AccountProblem("Das Formular ist unvollständig. Bitte die Seite neu laden.")
+                val correction = form["art"] == "korrektur"
+                val type = if (correction) "CORRECTION" else (TopUpKind.entries.firstOrNull { it.name == form["zahlart"] } ?: TopUpKind.BANK).paymentType
+                val booked = web.writes.bookTab(ctx.user, id, booking, amount, type, form["notiz"].orEmpty())
+                "hinweis=" + (if (booked) "Gebucht: ${euroSigned(Money.cents(amount))}. Die Tablets sehen es beim nächsten Abgleich." else "Diese Buchung war schon verbucht — nichts doppelt.").encodeURLParameter()
+            } catch (e: AccountProblem) {
+                "fehler=" + e.message.orEmpty().encodeURLParameter()
+            }
+            call.respondRedirect("$BASE/mitglieder?m=$id&$outcome")
         }
     }
     get("/berichte") {
@@ -337,7 +389,8 @@ private val MEMBER_FILTERS: List<Triple<String, String, (MemberLine) -> Boolean>
 
 private fun HTML.membersPage(
     ctx: PageContext, all: List<MemberLine>, query: String, filter: String,
-    shown: MemberLine?, chosen: Boolean, statement: List<StatementLine>,
+    shown: MemberLine?, chosen: Boolean, statement: List<StatementLine>, categories: List<MemberCategoryOption>,
+    notice: String?, problem: String?,
 ) {
     val tabs = all.count { it.owes }
     val test = MEMBER_FILTERS.firstOrNull { it.first == filter }?.third ?: { true }
@@ -349,7 +402,17 @@ private fun HTML.membersPage(
         m?.let { append("&m=${it.id}") }
     }
 
-    shell(ctx, Area.MEMBERS, "Mitglieder", "${count(all.size, "Mitglied", "Mitglieder")} · $tabs im Minus · ${all.count { it.overLimit }} über dem Limit") {
+    shell(ctx, Area.MEMBERS, "Mitglieder", "${count(all.size, "Mitglied", "Mitglieder")} · $tabs im Minus · ${all.count { it.overLimit }} über dem Limit", actions = {
+        if (ctx.user.role.writesMembers) details {
+            summary("btn btn-primary") { icon("plus", "m"); +"Mitglied anlegen" }
+            postForm(ctx, "$BASE/mitglieder", "stack-tight confirm") {
+                label("field") { span { +"Name" }; input(InputType.text, name = "name") { required = true; maxLength = "80" } }
+                categorySelect(categories, null)
+                button(type = ButtonType.submit, classes = "btn btn-primary") { +"Anlegen" }
+            }
+        }
+    }) {
+        flash(notice, problem)
         div("cols cols-side split${if (chosen) " has-sel" else ""}") {
             panel("split-list") {
                 form(action = "$BASE/mitglieder", method = FormMethod.get, classes = "toolbar") {
@@ -393,13 +456,62 @@ private fun HTML.membersPage(
             div("split-detail stack") {
                 a(href = url(), classes = "back") { icon("back", "m"); +"Alle Mitglieder" }
                 if (shown == null) panel { p("empty") { +"Noch kein Mitglied." } }
-                else memberDetail(ctx, shown, statement)
+                else memberDetail(ctx, shown, statement, categories)
             }
         }
     }
 }
 
-private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement: List<StatementLine>) = panel {
+private fun FlowContent.categorySelect(categories: List<MemberCategoryOption>, selected: String?) = label("field") {
+    span { +"Kategorie" }
+    select {
+        name = "kategorie"
+        option { value = ""; +"Ohne Kategorie" }
+        for (c in categories) option {
+            value = c.id.toString()
+            if (c.name == selected) this.selected = true
+            +(if (c.limit < 0) "${c.name} · Limit ${euro(c.limit)}" else c.name)
+        }
+    }
+}
+
+/** Aufladen, Korrektur, Ändern — aufklappbar, ohne Skript. Jede Buchung trägt ihren eigenen Schlüssel gegen den Doppelklick. */
+private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categories: List<MemberCategoryOption>) = div("row wrap") {
+    details {
+        summary("btn btn-brass") { icon("plus", "m"); +"Aufladen" }
+        postForm(ctx, "$BASE/mitglieder/${m.id}/buchung", "stack-tight confirm confirm-left") {
+            hiddenInput(name = "buchung") { value = Ids.new() }
+            hiddenInput(name = "art") { value = "aufladung" }
+            label("field") { span { +"Betrag in Euro" }; input(InputType.text, name = "betrag") { required = true; placeholder = "20,00"; attributes["inputmode"] = "decimal" } }
+            label("field") {
+                span { +"Bezahlt per" }
+                select { name = "zahlart"; for (kind in TopUpKind.entries) option { value = kind.name; +kind.label } }
+            }
+            label("field") { span { +"Notiz (etwa: Abrechnung August)" }; input(InputType.text, name = "notiz") { maxLength = "200" } }
+            button(type = ButtonType.submit, classes = "btn btn-brass") { +"Aufladung buchen" }
+        }
+    }
+    details {
+        summary("btn") { +"Korrektur" }
+        postForm(ctx, "$BASE/mitglieder/${m.id}/buchung", "stack-tight confirm confirm-left") {
+            hiddenInput(name = "buchung") { value = Ids.new() }
+            hiddenInput(name = "art") { value = "korrektur" }
+            label("field") { span { +"Betrag mit Vorzeichen: −4,20 zieht ab, 4,20 schreibt gut" }; input(InputType.text, name = "betrag") { required = true; placeholder = "−4,20"; attributes["inputmode"] = "text" } }
+            label("field") { span { +"Grund — steht im Kontoauszug und im Protokoll" }; input(InputType.text, name = "notiz") { required = true; maxLength = "200" } }
+            button(type = ButtonType.submit, classes = "btn btn-primary") { +"Korrektur buchen" }
+        }
+    }
+    details {
+        summary("btn") { +"Ändern" }
+        postForm(ctx, "$BASE/mitglieder/${m.id}", "stack-tight confirm") {
+            label("field") { span { +"Name" }; input(InputType.text, name = "name") { value = m.name; required = true; maxLength = "80" } }
+            categorySelect(categories, m.category)
+            button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" }
+        }
+    }
+}
+
+private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement: List<StatementLine>, categories: List<MemberCategoryOption>) = panel {
     div("panel-body") {
         div("row") {
             span("avatar avatar-l") { +initialsOf(m.name) }
@@ -425,6 +537,7 @@ private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement:
                 }
             }
         }
+        if (ctx.user.role.writesMembers) memberActions(ctx, m, categories)
         div {
             h3("title-s") { +"Kontoauszug" }
             if (statement.isEmpty()) p("cap") { +"Noch keine Buchung auf diesem Deckel." }

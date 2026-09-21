@@ -51,6 +51,8 @@ private val ACTIONS = mapOf(
     "device.code" to "Kopplungscode erzeugt", "device.register" to "Gerät gekoppelt", "device.revoke" to "Gerät gesperrt",
     "user.create" to "Benutzer angelegt", "user.update" to "Benutzer geändert", "user.password" to "Passwort gesetzt",
     "settings.save" to "Einstellungen geändert",
+    "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert",
+    "tab.topup" to "Deckel aufgeladen", "tab.correction" to "Deckel korrigiert",
 )
 
 internal fun Route.systemPages(web: Web) {
@@ -145,7 +147,7 @@ internal fun Route.systemPages(web: Web) {
     }
 }
 
-private fun FlowContent.flash(notice: String?, problem: String?) {
+internal fun FlowContent.flash(notice: String?, problem: String?) {
     notice?.takeIf { it.isNotBlank() }?.let { div("note note-ok") { icon("check", "m"); span { +it } } }
     problem?.takeIf { it.isNotBlank() }?.let { div("note note-error") { icon("alert", "m"); span { +it } } }
 }

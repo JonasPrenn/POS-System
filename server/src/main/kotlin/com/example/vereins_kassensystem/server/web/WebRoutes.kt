@@ -41,6 +41,7 @@ class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val 
     val audit = AuditLog(db)
     val settings = VereinSettings(db)
     val reads = Reads(db, config.zone)
+    val writes = Writes(db)
 }
 
 private const val COOKIE = "vd_session"

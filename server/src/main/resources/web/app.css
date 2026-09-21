@@ -108,6 +108,7 @@ main { display: flex; flex-direction: column; gap: 24px; flex-grow: 1; min-width
 .stack { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 .stack-tight { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.row.wrap { flex-wrap: wrap; gap: 8px; }
 .row-between { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .two { display: flex; flex-direction: column; min-width: 0; }
 .two > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -203,6 +204,7 @@ details { position: relative; display: inline-block; text-align: left; }
 summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
 .confirm { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; width: 300px; padding: 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--hairline); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
+.confirm-left { right: auto; left: 0; }
 .check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .check input { width: 20px; height: 20px; accent-color: var(--primary); }
 .more-list { display: flex; flex-direction: column; }
@@ -232,6 +234,9 @@ summary::-webkit-details-marker { display: none; }
   .t th:first-child, .t td:first-child { padding-left: 16px; } .t th:last-child, .t td:last-child { padding-right: 16px; }
   .hide-sm { display: none; }
   .only-sm { display: inline; }
+  /* Aufgeklappte Formulare stehen am Telefon im Fluss, nicht als schwebende Karte am Rand. */
+  details[open] { display: block; width: 100%; }
+  .confirm, .confirm-left { position: static; width: auto; margin-top: 8px; box-shadow: none; }
   .form-grid { grid-template-columns: minmax(0, 1fr); }
   .more-list a { padding: 0 16px; }
   /* Geteilte Ansicht: auf dem Telefon Liste oder Einzelnes, nie beides. */

@@ -38,6 +38,9 @@ enum class Role(val label: String, val hint: String, vararg areas: Area) {
     val areas: Set<Area> = areas.toSet()
 
     fun may(area: Area) = area in areas
+
+    /** Mitglieder anlegen und auf Deckel buchen: wer das Geld verantwortet, sonst niemand. */
+    val writesMembers: Boolean get() = this == ADMIN || this == KASSIER
 }
 
 class WebUser(

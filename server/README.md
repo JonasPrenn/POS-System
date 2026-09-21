@@ -62,9 +62,13 @@ Vom iPad-Simulator aus ist das `http://127.0.0.1:8080`, vom Android-Emulator aus
 Unter `/verwaltung` liegt die Web-Oberfläche (`docs/WEB-VERWALTUNG.md`), derselbe Dienst,
 server-gerendertes HTML. Gebaut ist Phase 1: Anmeldung mit Rollen, Übersicht, Mitglieder mit
 Deckelstand und Kontoauszug, Berichte, Lager, Einkauf (die Wareneingänge mit Belegfoto),
-Geräte koppeln und sperren, Benutzer, Protokoll, Einstellungen. Sie liest nur — geschrieben
-wird auf keine synchronisierte Tabelle, und damit auch an der Sequenzsperre vorbei auf
-nichts. Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
+Geräte koppeln und sperren, Benutzer, Protokoll, Einstellungen. Aus Phase 2 dazu: Kassier und
+Administrator legen Mitglieder an, ändern Name und Kategorie, und buchen Aufladungen (bar,
+Karte, Überweisung) und Korrekturen mit Grund auf den Deckel. Das ist das Einzige, was die
+Verwaltung in synchronisierte Tabellen schreibt, und es geht über `Database.write`
+(`web/Writes.kt`) — dieselbe Sequenzsperre wie beim Abgleich; die Tablets holen es sich beim
+nächsten Abgleich. Gebucht wird in der Form, in der die App bucht; jede Buchung trägt den
+Schlüssel ihres Formulars, ein Doppelklick bucht einmal. Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
 Rest liegt unter „Mehr".
 
 **Ersteinrichtung:** Solange es keinen Benutzer gibt, führt `/verwaltung` auf eine Seite, die

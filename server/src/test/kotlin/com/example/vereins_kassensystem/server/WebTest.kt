@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.server
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.server.web.Accounts
 import com.example.vereins_kassensystem.server.web.Role
+import com.example.vereins_kassensystem.sync.ChangesResponse
 import com.example.vereins_kassensystem.sync.RegisterRequest
 import com.example.vereins_kassensystem.sync.RegisterResponse
 import io.ktor.client.HttpClient
@@ -23,6 +24,7 @@ import io.ktor.http.parameters
 import io.ktor.server.testing.ApplicationTestBuilder
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.time.Instant
 import java.time.LocalDate
@@ -221,6 +223,57 @@ class WebTest {
         assertContains(reports, "20,00 €", message = "Aufladungen")
         // Bar 4,20 plus Karte 8,40 − 4,20 Storno; der Deckel zählt für diese Schwelle nicht.
         assertContains(reports, "8,40 €</span> von 7.500,00 €", message = "bar und Karte, am Schwellenwert gemessen")
+    }
+
+    @Test
+    fun `what the treasurer books at the desk reaches the tills through the ordinary sync`() = serverTest(insecureCookies = true) { ctx ->
+        val device = ctx.pairDevice("Theke links")
+        val bursch = newId()
+        ctx.push(device.token, insertOp("member_categories", buildJsonObject { put("id", bursch); put("name", "Bursch"); put("negative_balance_limit", "-50.00") }))
+        val since = ctx.client.get("/v1/sync/changes?since=0") { bearerAuth(device.token) }.body<ChangesResponse>().nextSince
+
+        val accounts = Accounts(ctx.db)
+        accounts.create("lukas", "Lukas Hofer", Role.KASSIER, password)
+        accounts.create("senior", "Felix Moser", Role.VORSTAND, password)
+        val kassier = browser()
+        kassier.signIn()
+        val page = kassier.page("/verwaltung/mitglieder")
+        val created = kassier.form("/verwaltung/mitglieder", "_csrf" to csrfOf(page), "name" to "  David   Leitner ", "kategorie" to bursch)
+        val member = assertNotNull(Regex("m=([0-9a-f-]{36})").find(assertNotNull(created.headers[HttpHeaders.Location]))).groupValues[1]
+        assertContains(assertNotNull(kassier.form("/verwaltung/mitglieder", "_csrf" to csrfOf(page), "name" to "david leitner").headers[HttpHeaders.Location]), "fehler=", message = "kein zweiter Deckel auf denselben Namen")
+
+        // Aufladung per Überweisung; derselbe Formularschlüssel zweimal bucht einmal.
+        val booking = newId()
+        repeat(2) { kassier.form("/verwaltung/mitglieder/$member/buchung", "_csrf" to csrfOf(page), "buchung" to booking, "art" to "aufladung", "betrag" to "50", "zahlart" to "BANK", "notiz" to "Abrechnung August") }
+        val refused = kassier.form("/verwaltung/mitglieder/$member/buchung", "_csrf" to csrfOf(page), "buchung" to newId(), "art" to "korrektur", "betrag" to "-4,20", "notiz" to "")
+        assertContains(assertNotNull(refused.headers[HttpHeaders.Location]), "fehler=", message = "eine Korrektur braucht einen Grund")
+        kassier.form("/verwaltung/mitglieder/$member/buchung", "_csrf" to csrfOf(page), "buchung" to newId(), "art" to "korrektur", "betrag" to "−4,20", "notiz" to "Helles doppelt gebucht")
+
+        val detail = kassier.page("/verwaltung/mitglieder?m=$member")
+        assertContains(detail, "David Leitner")
+        assertContains(detail, "45,80 €", message = "50,00 − 4,20")
+        assertContains(detail, "Guthabenkorrektur")
+
+        // Das Tablet bekommt Mitglied und beide Buchungen beim nächsten Abgleich, in Sequenzreihenfolge.
+        val pulled = ctx.client.get("/v1/sync/changes?since=$since") { bearerAuth(device.token) }.body<ChangesResponse>()
+        assertEquals(listOf("members", "transactions", "transactions"), pulled.changes.map { it.entity })
+        assertEquals(pulled.changes.map { it.seq }.sorted(), pulled.changes.map { it.seq })
+        val topUp = pulled.changes[1].row
+        assertEquals(Ledger.TOPUP_REF, topUp["product_ref"]!!.jsonPrimitive.content)
+        assertEquals("50.00", topUp["price"]!!.jsonPrimitive.content)
+        assertEquals("BANK", topUp["payment_type"]!!.jsonPrimitive.content)
+        assertEquals("-4.20", pulled.changes[2].row["price"]!!.jsonPrimitive.content)
+
+        val log = accounts.let { kassier.page("/verwaltung/protokoll") }
+        assertContains(log, "Deckel aufgeladen")
+        assertContains(log, "Helles doppelt gebucht")
+
+        // Der Senior liest mit, bucht aber nicht.
+        val senior = browser()
+        senior.signIn("senior")
+        val readOnly = senior.page("/verwaltung/mitglieder?m=$member")
+        assertFalse(readOnly.contains("Aufladung buchen"))
+        assertEquals(HttpStatusCode.Forbidden, senior.form("/verwaltung/mitglieder/$member/buchung", "_csrf" to csrfOf(readOnly), "buchung" to newId(), "art" to "aufladung", "betrag" to "10").status)
     }
 
     @Test
