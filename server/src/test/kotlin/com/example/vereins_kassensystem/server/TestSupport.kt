@@ -60,13 +60,15 @@ const val ADMIN_TOKEN = "test-admin-token-1234"
 class TestContext(val db: Database, val client: HttpClient)
 
 /** Startet den Dienst wie in Main.kt, nur ohne Netz, und räumt danach auf. */
-fun serverTest(block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
+fun serverTest(insecureCookies: Boolean = false, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
     val db = TestPostgres.freshDatabase()
     val config = ServerConfig(
         jdbcUrl = "", dbUser = "", dbPassword = "",
         pairingAdminToken = ADMIN_TOKEN,
         mediaDir = Files.createTempDirectory("vd-media"),
         pairingCodeTtl = 10.minutes,
+        // Der Testclient spricht http; ein Secure-Cookie käme bei ihm nie wieder an.
+        insecureCookies = insecureCookies,
     )
     application { module(config, db) }
     val client = createClient {

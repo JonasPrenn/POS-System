@@ -17,7 +17,7 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
 | Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufgestellt ist er noch nirgends |
 | Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 11 mit UUID-Schlüsseln, hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
-| Web-Verwaltung | Konzept in `docs/WEB-VERWALTUNG.md`, nicht begonnen |
+| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll — lesend, mit Telefonansicht. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
 `docs/PORTIERUNG.md`; Kartenzahlung gibt es auf iOS erst, wenn das SumUp-iOS-SDK per
@@ -39,6 +39,7 @@ shared/          Kotlin Multiplatform. Datenhaltung, Logik, gesamte Oberfläche.
 androidApp/      Nur Hülle: MainActivity, Application, BackupWorker, Manifest, Ressourcen.
 iosApp/          Xcode-Projekt und Swift-Host. Baut das Kotlin-Framework über Gradle.
 server/          Der Sync-Server nach der Spezifikation: Kotlin/JVM, Ktor, PostgreSQL. Eigene README.
+                 web/ ist die Verwaltung: server-gerendertes HTML, ein Stylesheet, keine Skripte.
 docs/            Spezifikation, Portierungsplan, Werkzeuge.
 ```
 
@@ -99,8 +100,8 @@ denselben Weg.
 **Nichts wird fortgeschrieben, was sich herleiten lässt.** Saldo, Bestand, „gezapft" und
 „zuletzt benutzt" sind Summen über anfügende Tabellen, keine Spalten — ein Zähler, den zwei
 Theken gleichzeitig fortschreiben, verliert eine der beiden Buchungen. Die Saldoregel steht
-genau dreimal: in `core/.../data/Ledger.kt`, als SQLite-Ausdruck in `DerivedSql.kt` und als
-Serversicht `member_balances`. `RoomOnIosTest` und `SyncTest` prüfen beide SQL-Fassungen
+genau dreimal: in `core/.../data/Ledger.kt`, als SQLite-Ausdruck in `DerivedSql.kt` und in der
+Serversicht `transaction_effects` (auf ihr setzt `member_balances` auf). `RoomOnIosTest` und `SyncTest` prüfen beide SQL-Fassungen
 gegen die in Kotlin. Wer die Regel ändert, ändert alle drei. Entschieden ist: Ein Rabatt
 mindert die Deckelbelastung, ein Trinkgeld auf den Deckel belastet ihn.
 
@@ -119,6 +120,14 @@ Fremdschlüssel — eine geänderte Elternzeile kann nach ihren Kindern ankommen
 daneben und meldet sich nur im Status. Dort steht „Offline" nur, wenn es stimmt: Ein am
 Server abgemeldetes Gerät heißt „Abgemeldet" und meldet sich mit einem frischen Code neu
 an, ohne die Kopplung zu lösen — das würde die wartenden Buchungen kosten.
+
+**Die Verwaltung kommt ohne Skripte und ohne Inline-Styles aus.** Ihre
+Content-Security-Policy ist `default-src 'none'` mit genau einem Stylesheet; `WebTest` prüft,
+dass keine Seite ein `style=` oder `<script` enthält. Was eine berechnete Breite braucht, ist
+SVG mit Attributen (`bar()`, `weekChart()`), die Vereinsfarbe ein eigenes Blatt
+(`/verwaltung/assets/verein.css`). Die Token in `app.css` sind die aus `ui/theme` — wer dort
+eine Farbe ändert, zieht sie hier nach. Und: Die Verwaltung rechnet das Lager mit derselben
+`Inventory` aus `:core` wie die App, nicht mit eigenem SQL.
 
 **Plattformgrenzen sind fachlich geschnitten.** `PaymentProcessor` heißt so, weil die App
 eine Karte belasten will, nicht weil SumUp ein SDK hat. Schlüsselbund und SumUp-iOS-SDK

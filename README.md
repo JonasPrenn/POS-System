@@ -23,6 +23,7 @@ a till attached, built for a volunteer on a shift rather than a trained cashier.
 | Android | works, builds from `:androidApp` |
 | iOS | builds and runs in the iPad simulator from `iosApp/`; card payments need the SumUp iOS SDK still — see `docs/PORTIERUNG.md` |
 | Multi-device server | built and tested in `server/` (PostgreSQL, sync protocol, device pairing, receipt photos) — see `server/README.md`. Not deployed anywhere yet |
+| Web administration | phase 1 is built into the server under `/verwaltung`: sign-in with roles, overview, members with balances and statements, reports, stock, purchases, device pairing, audit log — read-only, server-rendered, no scripts, with a phone layout. Concept and further phases: `docs/WEB-VERWALTUNG.md` |
 | Multi-device in the app | done: UUID keys, balance and stock derived from append-only rows, offline-first sync, device pairing. Played through with two devices (Android emulator, iPad simulator) against the server in Docker. **The schema upgrade (10 → 11) has not run on a real tablet — take a backup first** |
 
 Both platforms build from the same shared module. `docs/PORTIERUNG.md` lists exactly what

@@ -11,6 +11,7 @@ import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import kotlinx.serialization.SerializationException
 
 /** Ein Fehler mit festem Statuscode, den eine Route bewusst wirft. */
@@ -45,16 +46,20 @@ fun Application.installErrorHandling() {
         }
         exception<Throwable> { call, cause ->
             call.application.log.error("Unbehandelter Fehler bei ${call.request.local.method.value} ${call.request.local.uri}", cause)
-            call.respond(HttpStatusCode.InternalServerError, ErrorResponse("internal", "Interner Fehler"))
+            if (call.isWeb()) call.respondText("Da ist etwas schiefgegangen. Der Fehler steht im Protokoll des Servers.", status = HttpStatusCode.InternalServerError)
+            else call.respond(HttpStatusCode.InternalServerError, ErrorResponse("internal", "Interner Fehler"))
         }
         status(HttpStatusCode.Unauthorized) { call, status ->
             call.respond(status, ErrorResponse("unauthorized", "Token ungültig oder gesperrt"))
         }
         status(HttpStatusCode.TooManyRequests) { call, status ->
-            call.respond(status, ErrorResponse("too_many_requests", "Zu viele Anfragen, bitte später erneut"))
+            if (call.isWeb()) call.respondText("Zu viele Versuche. Bitte eine Minute warten.", status = status)
+            else call.respond(status, ErrorResponse("too_many_requests", "Zu viele Anfragen, bitte später erneut"))
         }
     }
 }
+
+private fun io.ktor.server.application.ApplicationCall.isWeb() = request.local.uri.startsWith("/verwaltung")
 
 private fun describe(cause: Throwable): String {
     val root = generateSequence(cause) { it.cause }.last()

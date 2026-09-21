@@ -6,6 +6,8 @@ import com.example.vereins_kassensystem.server.devices.DeviceStore
 import com.example.vereins_kassensystem.server.devices.Tokens
 import com.example.vereins_kassensystem.server.media.ReceiptStore
 import com.example.vereins_kassensystem.server.sync.SyncStore
+import com.example.vereins_kassensystem.server.web.Web
+import com.example.vereins_kassensystem.server.web.webRoutes
 import com.example.vereins_kassensystem.sync.WireJson
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -14,6 +16,7 @@ import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.bearer
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
@@ -30,6 +33,7 @@ fun Application.module(config: ServerConfig, db: Database) {
     val sync = SyncStore(db)
     val receipts = ReceiptStore(config.mediaDir)
 
+    if (config.trustProxy) install(XForwardedHeaders)
     install(ContentNegotiation) { json(WireJson) }
     install(CallLogging) { level = Level.INFO }
     installErrorHandling()
@@ -52,9 +56,15 @@ fun Application.module(config: ServerConfig, db: Database) {
             rateLimiter(limit = 10, refillPeriod = 60.seconds)
             requestKey { call -> call.request.origin.remoteAddress }
         }
+        // Anmelden und Einrichten der Verwaltung: Argon2id ist teuer, und Raten soll es auch sein.
+        register(RateLimitName("login")) {
+            rateLimiter(limit = 10, refillPeriod = 60.seconds)
+            requestKey { call -> call.request.origin.remoteAddress }
+        }
     }
 
     routing {
         apiRoutes(db, devices, sync, receipts)
+        webRoutes(Web(config, db, devices, receipts))
     }
 }

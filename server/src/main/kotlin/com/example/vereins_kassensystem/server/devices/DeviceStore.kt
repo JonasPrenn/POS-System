@@ -90,6 +90,11 @@ class DeviceStore(private val db: Database, private val codeTtl: Duration) {
                 "UPDATE pairing_codes SET used_at = ?, device_id = ? WHERE id = ?",
                 now.atOffset(ZoneOffset.UTC), deviceId, codeId
             )
+            // Fürs Protokoll der Verwaltung: Wer ein Gerät koppelt, soll später nachlesen können, wann.
+            c.execute(
+                "INSERT INTO audit_log (actor, action, subject, detail) VALUES (?, 'device.register', ?, ?)",
+                "Gerät", cleanLabel, if (platform == "ios") "iPad" else "Android"
+            )
             Registration(deviceId, token)
         }
     }

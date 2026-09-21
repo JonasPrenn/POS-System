@@ -3,8 +3,9 @@
 Stand 21. September 2026. Ein Vorschlag, was die Web-Oberfläche leisten soll, in welcher
 Reihenfolge sie entstehen sollte und was vorher entschieden werden muss. Phase 0 ist
 gebaut: der Server (`server/`), das Modul `:core` und Schritt 7 in der App (UUID-Schlüssel,
-hergeleiteter Saldo und Bestand, Abgleich). Die Web-Oberfläche selbst ist es nicht. Das
-Dokument ist die Grundlage für die Entscheidung, nicht ihr Ergebnis.
+hergeleiteter Saldo und Bestand, Abgleich). Seit dem 22. September 2026 steht auch **Phase 1**
+der Web-Oberfläche, unter `/verwaltung` (siehe `server/README.md`, Abschnitt „Die Verwaltung").
+Die Phasen 2 bis 4 sind offen; für sie bleibt dieses Dokument die Grundlage.
 
 **Was feststeht:** Österreich. Der Verein ist eine katholische Studentenverbindung, also
 ein Verein nach dem Vereinsgesetz 2002, in aller Regel nicht gemeinnützig im steuerlichen
@@ -354,7 +355,7 @@ Jede Phase liefert etwas, das für sich benutzbar ist, und baut auf der vorigen 
 | Phase | Inhalt | Warum in dieser Reihenfolge |
 |---|---|---|
 | **0 — Grundlage** | Schritt 7 aus `PORTIERUNG.md` und der Server nach Spezifikation (Kapitel 2 bis 5), `:core`-Modul mit der geteilten Logik. *Stand 21. September 2026: gebaut und mit zwei Geräten gegen den Server durchgespielt. Offen: die Migration auf dem echten Tablet, das Aufstellen des Servers, und die Bestandsherleitung als SQL-Sicht am Server — die App rechnet sie schon, das Web braucht sie in Phase 1.* | Ohne Server keine Web-Oberfläche; ohne abgeleiteten Saldo keine korrekten Zahlen. |
-| **1 — Lesen** | Anmeldung, Rollen, Gerätekopplung, Übersicht; Mitglieder mit Salden, Historie, Lager, Belege — alles nur lesend. | Der Kassier sieht zum ersten Mal alles ohne Tablet. Wenig Risiko, weil nichts geschrieben wird. |
+| **1 — Lesen** | Anmeldung, Rollen, Gerätekopplung, Übersicht; Mitglieder mit Salden, Historie, Lager, Belege — alles nur lesend. *Stand 22. September 2026: gebaut, dazu Berichte (Umsatz nach Zahlart je Monat, Aufladungen, Wareneingang, Schwellen), Protokoll, Einstellungen und eine Telefonansicht. Die Bestandsherleitung läuft über dieselbe `Inventory` wie in der App.* | Der Kassier sieht zum ersten Mal alles ohne Tablet. Wenig Risiko, weil nichts geschrieben wird. |
 | **2 — Stammdaten** | Mitglieder und Profile pflegen, Sperren, Produkte und Preise, Lieferanten, Eingangsbelege vervollständigen, Dateien. | Schreiben in Stammdaten läuft über den vorhandenen Sync-Konfliktweg. |
 | **3 — Geld** | Deckelabrechnung mit PDF, E-Mail und QR; Zahlungseingang und Kontoauszug-Import; Erinnerungen. Schichten, Entnahmen, Kassenbuch (mit den App-Bildschirmen). | Der eigentliche Nutzen. Braucht Profile (2) und den unveränderlichen Buchungsstrom (0). |
 | **4 — Bücher** | Kontenrahmen, Bereiche, Veranstaltungen, Jahresübersicht mit Vermögensübersicht, Inventur und Lagerwert, Exporte. | Baut auf allem auf; erst hier zahlt sich die Disziplin der anfügenden Tabellen aus. |

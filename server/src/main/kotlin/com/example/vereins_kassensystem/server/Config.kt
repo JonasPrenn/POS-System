@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.server
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.file.Path
+import java.time.ZoneId
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -25,6 +26,16 @@ class ServerConfig(
     val host: String = "0.0.0.0",
     val port: Int = 8080,
     val pairingCodeTtl: Duration = 10.minutes,
+    /** „Heute" und die Monatsgrenzen der Verwaltung: die Zeit der Verbindung, nicht die des Servers. */
+    val zone: ZoneId = ZoneId.of("Europe/Vienna"),
+    /**
+     * Steht ein Proxy davor (Caddy in `deploy/compose.yaml`), kommt die Adresse des Anrufers aus
+     * `X-Forwarded-For`. Nur setzen, wenn der Dienst ausschließlich über den Proxy erreichbar ist —
+     * sonst kann jeder den Kopf selbst schreiben.
+     */
+    val trustProxy: Boolean = false,
+    /** Nur zum Ausprobieren ohne HTTPS: Sitzungscookies ohne `Secure`. Im Betrieb nie setzen. */
+    val insecureCookies: Boolean = false,
 ) {
     data class DatabaseUrl(val jdbcUrl: String, val user: String, val password: String)
 
@@ -46,6 +57,9 @@ class ServerConfig(
                 host = env["HOST"] ?: "0.0.0.0",
                 port = env["PORT"]?.toIntOrNull() ?: 8080,
                 pairingCodeTtl = env["PAIRING_CODE_MINUTES"]?.toIntOrNull()?.minutes ?: 10.minutes,
+                zone = env["VEREIN_ZONE"]?.let(ZoneId::of) ?: ZoneId.of("Europe/Vienna"),
+                trustProxy = env["TRUST_PROXY"] == "true",
+                insecureCookies = env["WEB_INSECURE_COOKIES"] == "true",
             )
         }
 

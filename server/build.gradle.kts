@@ -42,6 +42,10 @@ dependencies {
     implementation(libs.ktor.server.status.pages)
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.rate.limit)
+    // Die Web-Verwaltung ist server-gerendertes HTML (docs/WEB-VERWALTUNG.md, Kapitel 3).
+    implementation(libs.ktor.server.html.builder)
+    // Hinter Caddy ist jede Anfrage „vom Proxy“; die Begrenzung der Anmeldeversuche braucht die echte Adresse.
+    implementation(libs.ktor.server.forwarded.header)
 
     implementation(libs.hikari)
     implementation(libs.flyway.core)

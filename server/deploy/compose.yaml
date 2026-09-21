@@ -33,6 +33,10 @@ services:
       DATABASE_PASSWORD: ${DB_PASSWORD}
       PAIRING_ADMIN_TOKEN: ${PAIRING_ADMIN_TOKEN:?PAIRING_ADMIN_TOKEN in .env setzen}
       MEDIA_DIR: /data/media
+      # „Heute" und die Monatsgrenzen der Verwaltung
+      VEREIN_ZONE: ${VEREIN_ZONE:-Europe/Vienna}
+      # Der Dienst ist hier nur über Caddy erreichbar; die Adresse des Anrufers steht in X-Forwarded-For.
+      TRUST_PROXY: "true"
     volumes:
       - media:/data/media
     depends_on:

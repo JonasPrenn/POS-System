@@ -51,8 +51,53 @@ DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
   docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
 ```
 
+Die Verwaltung liegt dann unter `http://127.0.0.1:8080/verwaltung`; der Verwaltungsschlüssel
+für die Ersteinrichtung ist der `PAIRING_ADMIN_TOKEN` aus dem Aufruf oben.
+
 Vom iPad-Simulator aus ist das `http://127.0.0.1:8080`, vom Android-Emulator aus
 `http://10.0.2.2:8080`. So ist der Zwei-Geräte-Test in `docs/PORTIERUNG.md` gelaufen.
+
+## Die Verwaltung
+
+Unter `/verwaltung` liegt die Web-Oberfläche (`docs/WEB-VERWALTUNG.md`), derselbe Dienst,
+server-gerendertes HTML. Gebaut ist Phase 1: Anmeldung mit Rollen, Übersicht, Mitglieder mit
+Deckelstand und Kontoauszug, Berichte, Lager, Einkauf (die Wareneingänge mit Belegfoto),
+Geräte koppeln und sperren, Benutzer, Protokoll, Einstellungen. Sie liest nur — geschrieben
+wird auf keine synchronisierte Tabelle, und damit auch an der Sequenzsperre vorbei auf
+nichts. Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
+Rest liegt unter „Mehr".
+
+**Ersteinrichtung:** Solange es keinen Benutzer gibt, führt `/verwaltung` auf eine Seite, die
+den `PAIRING_ADMIN_TOKEN` verlangt und den ersten Administrator anlegt. Danach ist sie zu.
+Weitere Zugänge legt der Administrator unter „Benutzer und Rollen" an; das Passwort gibt er
+persönlich weiter. Der letzte Administrator kann sich nicht selbst herabstufen oder sperren.
+
+| Rolle | Sieht |
+|---|---|
+| Administrator | alles, dazu Benutzer und Einstellungen |
+| Kassier | Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll |
+| Senior und Chargen | Übersicht, Mitglieder, Berichte, Lager, Einkauf |
+| Budenwart | Lager, Einkauf — keine Deckel (Art. 9 DSGVO, 2.5 im Konzept) |
+| Rechnungsprüfer | Berichte, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
+
+**Wie sie gebaut ist:** Passwörter mit Argon2id wie die Gerätetoken. Im Cookie steht ein
+Zufallswert (`HttpOnly`, `Secure`, `SameSite=Lax`, nur unter `/verwaltung`), in der Datenbank
+sein SHA-256. Jedes Formular trägt das Geheimnis der Sitzung. Die Seiten kommen ohne Skripte
+und ohne Inline-Styles aus, die Content-Security-Policy ist entsprechend `default-src 'none'`
+mit einem Stylesheet; berechnete Breiten (Balken, Diagramme) sind SVG mit Attributen, die
+Vereinsfarbe ein eigenes kleines Stylesheet. Anmeldeversuche sind auf zehn je Minute und
+Adresse begrenzt.
+
+| Variable | Bedeutung |
+|---|---|
+| `VEREIN_ZONE` | Zeitzone für „heute" und die Monatsgrenzen, Vorgabe `Europe/Vienna` |
+| `TRUST_PROXY` | `true`, wenn der Dienst nur über Caddy erreichbar ist — dann gilt `X-Forwarded-For` als Adresse des Anrufers. In `compose.yaml` gesetzt, in `compose.dev.yaml` nicht |
+| `WEB_INSECURE_COOKIES` | `true` nur zum Ausprobieren ohne HTTPS (`compose.dev.yaml`); im Betrieb nie |
+
+Die Berichte zeigen, was sich aus den Buchungen der Theke sicher sagen lässt: Umsatz nach
+Zahlart je Monat, Aufladungen, Wareneingang, Forderungen und Guthaben, dazu die Schwellen
+des § 131b BAO fürs Kalenderjahr. Die Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht
+braucht Kassenbuch, Eingangsrechnungen mit Konten und das Bankbuch — Phasen 2 bis 4.
 
 ## Die ersten Anfragen
 
@@ -87,6 +132,8 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
+| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `resources/web/app.css` |
+| `src/main/resources/db/migration/V3__verwaltung.sql` | Benutzer, Sitzungen, Protokoll, Einstellungen; Sicht `transaction_effects`, auf der `member_balances` jetzt aufsetzt |
 | `core/.../sync/Wire.kt`, `SyncClient.kt` | Drahtformat und Client, gemeinsam mit der App; `SyncClientTest` prüft beide gegeneinander |
 
 ## Abweichungen von der Spezifikation
