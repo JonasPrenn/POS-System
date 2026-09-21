@@ -5,8 +5,14 @@ import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.buildDatabase
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import com.example.vereins_kassensystem.data.repository.BackupRepository
+import com.example.vereins_kassensystem.data.sync.SyncEngine
 import com.example.vereins_kassensystem.platform.Platform
 import com.example.vereins_kassensystem.platform.createBackupExchange
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 
 /**
@@ -39,6 +45,24 @@ class AppGraph(
             exchange = createBackupExchange { settingsRepository.backupDestination.first() },
             settings = settingsRepository
         )
+    }
+
+    /**
+     * Lebt so lange wie die App. Der Abgleich soll eine neu gebaute Activity überstehen, und
+     * was in ihm schiefgeht, darf die Kasse nicht mitreißen — deshalb SupervisorJob und ein
+     * Handler, der meldet statt abzustürzen.
+     */
+    private val appScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, error -> println("VereinsDeckel Abgleich: $error") }
+    )
+
+    val syncEngine: SyncEngine by lazy {
+        SyncEngine(database, repository, settingsRepository, platform, appScope)
+    }
+
+    /** Hält den Abgleich an. Nur Tests brauchen das: Sie schließen die Datenbank, die App nie. */
+    fun close() {
+        appScope.cancel()
     }
 
     init {

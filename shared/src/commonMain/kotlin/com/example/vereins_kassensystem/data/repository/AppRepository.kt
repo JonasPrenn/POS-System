@@ -33,7 +33,10 @@ import com.example.vereins_kassensystem.data.sync.SyncTables
 import com.example.vereins_kassensystem.platform.Ids
 import com.example.vereins_kassensystem.platform.nowMillis
 import com.example.vereins_kassensystem.ui.format.Money
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -525,14 +528,31 @@ class AppRepository(private val database: AppDatabase) {
      * Kopplung (die in derselben Datenbank passiert) und ein gleichzeitiger Verkauf sich
      * nicht um eine Zeile verfehlen.
      */
-    private suspend fun <T> write(block: suspend Outbox.() -> T): T =
-        database.useWriterConnection { transactor ->
+    private suspend fun <T> write(block: suspend Outbox.() -> T): T {
+        var queued = false
+        val result = database.useWriterConnection { transactor ->
             transactor.immediateTransaction {
-                Outbox(enabled = syncDao.state(SyncKeys.ENABLED) == "1").block()
+                val outbox = Outbox(enabled = syncDao.state(SyncKeys.ENABLED) == "1")
+                outbox.block().also { queued = outbox.queued }
             }
         }
+        // Erst nach dem Commit: Der Abgleich soll finden, was er abholen kommt.
+        if (queued) _outboxSignals.tryEmit(Unit)
+        return result
+    }
+
+    private val _outboxSignals = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /**
+     * Meldet sich, sobald etwas Neues in der Warteschlange liegt — der Abgleich schiebt dann
+     * sofort, statt auf den nächsten Minutentakt zu warten (Spezifikation 4.4).
+     */
+    val outboxSignals: SharedFlow<Unit> = _outboxSignals
 
     private inner class Outbox(private val enabled: Boolean) {
+        var queued = false
+            private set
+
         suspend fun insert(entity: String, id: String, row: JsonObject) = enqueue(entity, id, "insert", row, null)
 
         suspend fun update(entity: String, id: String, row: JsonObject, base: String?) = enqueue(entity, id, "update", row, base)
@@ -542,6 +562,7 @@ class AppRepository(private val database: AppDatabase) {
 
         private suspend fun enqueue(entity: String, id: String, op: String, row: JsonObject, base: String?) {
             if (!enabled) return
+            queued = true
             syncDao.enqueue(
                 PendingChange(changeId = Ids.new(), entity = entity, entityId = id, op = op, payload = row.toString(), baseUpdatedAt = base)
             )

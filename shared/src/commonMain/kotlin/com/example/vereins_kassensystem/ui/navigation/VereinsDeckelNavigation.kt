@@ -40,6 +40,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.data.sync.SyncStatus
+import com.example.vereins_kassensystem.ui.components.SyncStatusBadge
+import com.example.vereins_kassensystem.ui.components.SyncStatusLine
 import com.example.vereins_kassensystem.ui.theme.ClubTheme
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
@@ -69,6 +72,7 @@ fun VereinsDeckelNavigation(
     currentRoute: String?,
     onNavigate: (Destination) -> Unit,
     modifier: Modifier = Modifier,
+    syncStatus: SyncStatus = SyncStatus(),
     content: @Composable () -> Unit
 ) {
     var showMoreSheet by remember { mutableStateOf(false) }
@@ -116,6 +120,9 @@ fun VereinsDeckelNavigation(
                 Destination.management.forEach { destination ->
                     RailItem(destination, current == destination) { onNavigate(destination) }
                 }
+                // Ganz unten, immer im Blick: ob dieses Gerät gerade allein arbeitet.
+                Spacer(Modifier.weight(1f))
+                SyncStatusBadge(status = syncStatus, modifier = Modifier.padding(bottom = Spacing.md))
             }
             Surface(
                 modifier = Modifier.weight(1f).fillMaxSize(),
@@ -130,6 +137,7 @@ fun VereinsDeckelNavigation(
                 color = MaterialTheme.colorScheme.background,
                 content = content
             )
+            SyncStatusLine(status = syncStatus)
             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Destination.primary.forEach { destination ->
                     NavigationBarItem(

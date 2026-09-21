@@ -61,5 +61,13 @@
 	<array>
 		<string>processing</string>
 	</array>
+	<!-- Erlaubt Klartext nur ins lokale Netz: fuer den Server auf dem Entwicklungsrechner
+	     (server/deploy/compose.dev.yaml). Alles andere bleibt bei HTTPS; die App selbst nimmt
+	     ohnehin nur https:// an, ausser fuer localhost. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

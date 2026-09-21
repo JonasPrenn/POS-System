@@ -10,4 +10,11 @@ object SyncKeys {
 
     /** Wann der letzte Abgleich vollständig durchlief, in Epoch-Millisekunden. */
     const val LAST_SYNC_AT = "last_sync_at"
+
+    /** Wer dieses Gerät am Server ist, und wie es dort heißt. Das Token dazu liegt im Schlüsselbund. */
+    const val DEVICE_ID = "device_id"
+    const val DEVICE_LABEL = "device_label"
+
+    /** Die letzte Änderung, die der Server als nicht anwendbar abgelehnt hat — ein Programmfehler, zum Nachsehen. */
+    const val LAST_REJECTED = "last_rejected"
 }

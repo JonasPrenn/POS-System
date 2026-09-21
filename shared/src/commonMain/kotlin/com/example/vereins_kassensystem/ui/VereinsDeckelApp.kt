@@ -6,10 +6,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -73,6 +75,16 @@ fun VereinsDeckelApp(graph: AppGraph) {
 @Composable
 private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
     val navController = rememberNavController()
+
+    // Der Abgleich läuft neben der Oberfläche her. Gestartet wird er einmal; jedes Mal, wenn
+    // die App wieder nach vorn kommt, gleicht er sofort ab (Spezifikation 4.4).
+    val syncEngine = graph.syncEngine
+    val syncStatus by syncEngine.status.collectAsState()
+    LaunchedEffect(syncEngine) { syncEngine.start() }
+    LifecycleResumeEffect(syncEngine) {
+        syncEngine.requestSync()
+        onPauseOrDispose { }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -89,7 +101,8 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
     VereinsDeckelNavigation(
         layout = navLayout,
         currentRoute = currentRoute,
-        onNavigate = { navController.navigateToDestination(it) }
+        onNavigate = { navController.navigateToDestination(it) },
+        syncStatus = syncStatus
     ) {
         NavHost(
             navController = navController,
@@ -138,7 +151,8 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
             composable(Destination.Settings.route) {
                 SettingsScreen(
                     settingsRepository = graph.settingsRepository,
-                    backupRepository = graph.backupRepository
+                    backupRepository = graph.backupRepository,
+                    syncEngine = syncEngine
                 )
             }
         }

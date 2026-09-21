@@ -125,6 +125,16 @@ class SettingsRepository(private val store: SettingsStore) {
             it.copy(apiBaseUrl = url)
         }
 
+    /**
+     * Das Gerätetoken für den Server. Ein Zugangsgeheimnis: liegt im Schlüsselbund, nie in
+     * einer Sicherung und nie in einem Sync-Payload. Ohne Strom nach außen, weil es niemand
+     * anzeigen soll — der Abgleich fragt danach, wenn er es braucht.
+     */
+    suspend fun deviceToken(): String? = store.getSecret(KEY_DEVICE_TOKEN)?.takeIf { it.isNotBlank() }
+
+    /** Der Schlüsselbund kennt kein Löschen; ein leerer Wert gilt als keiner. */
+    suspend fun setDeviceToken(token: String?) = store.putSecret(KEY_DEVICE_TOKEN, token.orEmpty())
+
     suspend fun setLastBackupAt(at: Long) =
         write({ store.putString(KEY_LAST_BACKUP_AT, at.toString()) }) { it.copy(lastBackupAt = at) }
 
@@ -139,5 +149,6 @@ class SettingsRepository(private val store: SettingsStore) {
         const val KEY_SUMUP_AFFILIATE_KEY = "sumup_affiliate_key"
         const val KEY_API_BASE_URL = "api_base_url"
         const val KEY_LAST_BACKUP_AT = "last_backup_at"
+        const val KEY_DEVICE_TOKEN = "sync_device_token"
     }
 }

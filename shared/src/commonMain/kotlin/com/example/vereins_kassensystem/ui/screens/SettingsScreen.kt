@@ -9,12 +9,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.repository.BackupRepository
+import com.example.vereins_kassensystem.data.sync.SyncEngine
 import com.example.vereins_kassensystem.platform.LocalPlatform
 import com.example.vereins_kassensystem.platform.VdDate
 import com.example.vereins_kassensystem.platform.rememberBackupDestinationPicker
 import com.example.vereins_kassensystem.platform.rememberBackupFileReader
 import com.example.vereins_kassensystem.ui.components.AppearanceSection
 import com.example.vereins_kassensystem.ui.components.ClubIdentitySection
+import com.example.vereins_kassensystem.ui.components.ServerSection
 import com.example.vereins_kassensystem.ui.components.VdSection
 import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.icons.VdIcons
@@ -28,7 +30,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     settingsRepository: SettingsRepository,
-    backupRepository: BackupRepository
+    backupRepository: BackupRepository,
+    syncEngine: SyncEngine
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -152,6 +155,13 @@ fun SettingsScreen(
                     Text("Bei SumUp anmelden")
                 }
             }
+
+            ServerSection(
+                engine = syncEngine,
+                canBackup = backupDestination != null,
+                onBackup = { backupRepository.createBackup() },
+                onMessage = { snackbarHostState.showSnackbar(it) }
+            )
 
             VdSection(title = "Backup", icon = VdIcons.Backup) {
                 Row(

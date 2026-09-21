@@ -55,6 +55,12 @@ object VdDate {
             "${pad(t.hour)}:${pad(t.minute)}"
     }
 
+    /** "18:22" — für die Statusanzeige des Abgleichs, wo der Tag ohnehin heute ist. */
+    fun timeOfDay(epochMillis: Long): String {
+        val t = localOf(epochMillis)
+        return "${pad(t.hour)}:${pad(t.minute)}"
+    }
+
     /** "Montag, 15. September" — die Begrüßungszeile auf dem Dashboard. */
     fun weekdayAndDate(epochMillis: Long): String {
         val t = localOf(epochMillis)

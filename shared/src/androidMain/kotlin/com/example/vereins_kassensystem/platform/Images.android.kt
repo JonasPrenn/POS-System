@@ -24,3 +24,18 @@ actual suspend fun loadImageBitmap(ref: String, maxSize: Int): ImageBitmap? = wi
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }?.asImageBitmap()
     }.getOrNull()
 }
+
+actual suspend fun readPhotoBytes(ref: String): ByteArray? = withContext(Dispatchers.IO) {
+    runCatching {
+        AndroidContextHolder.application.contentResolver.openInputStream(Uri.parse(ref))?.use { it.readBytes() }
+    }.getOrNull()
+}
+
+actual suspend fun storeDownloadedPhoto(fileName: String, bytes: ByteArray): String? = withContext(Dispatchers.IO) {
+    runCatching {
+        val directory = java.io.File(AndroidContextHolder.application.filesDir, "belege").apply { mkdirs() }
+        val file = java.io.File(directory, fileName)
+        file.writeBytes(bytes)
+        Uri.fromFile(file).toString()
+    }.getOrNull()
+}

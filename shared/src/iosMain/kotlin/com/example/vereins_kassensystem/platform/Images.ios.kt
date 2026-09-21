@@ -21,3 +21,12 @@ actual suspend fun loadImageBitmap(ref: String, maxSize: Int): ImageBitmap? = wi
         Image.makeFromEncoded(bytes).toComposeImageBitmap()
     }.getOrNull()
 }
+
+actual suspend fun readPhotoBytes(ref: String): ByteArray? = withContext(Dispatchers.Default) {
+    runCatching { NSData.dataWithContentsOfFile(ref)?.toByteArray() }.getOrNull()
+}
+
+actual suspend fun storeDownloadedPhoto(fileName: String, bytes: ByteArray): String? = withContext(Dispatchers.Default) {
+    val path = receiptsDirectory() + "/" + fileName
+    if (writeFile(path, bytes)) path else null
+}

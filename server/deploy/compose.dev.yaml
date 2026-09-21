@@ -1,0 +1,13 @@
+# Zum Ausprobieren auf dem Entwicklungsrechner: der Dienst direkt auf Port 8080, ohne Caddy
+# und ohne Zertifikat. Nie für den Betrieb — die App nimmt Klartext nur von localhost,
+# 127.0.0.1 und 10.0.2.2 an, und unter Android nur im Debug-Build.
+#
+#   (cd ../.. && ./gradlew :server:installDist)
+#   DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
+#     docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
+#
+# Vom Android-Emulator aus: http://10.0.2.2:8080, vom iOS-Simulator aus: http://127.0.0.1:8080
+services:
+  api:
+    ports:
+      - "8080:8080"

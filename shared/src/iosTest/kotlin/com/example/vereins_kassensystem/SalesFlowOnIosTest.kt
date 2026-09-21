@@ -7,23 +7,13 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.example.vereins_kassensystem.data.AppDatabase
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.data.entity.Product
-import com.example.vereins_kassensystem.platform.BackupScheduler
-import com.example.vereins_kassensystem.platform.PaymentProcessor
-import com.example.vereins_kassensystem.platform.Platform
-import com.example.vereins_kassensystem.platform.PlatformKind
-import com.example.vereins_kassensystem.platform.SettingsStore
-import com.example.vereins_kassensystem.platform.UnavailablePaymentProcessor
 import com.example.vereins_kassensystem.ui.VereinsDeckelApp
 import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
@@ -50,30 +40,6 @@ import kotlin.test.assertNull
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class SalesFlowOnIosTest {
 
-    private class MemorySettings : SettingsStore {
-        private val values = mutableMapOf<String, String>()
-        override suspend fun getString(key: String): String? = values[key]
-        override suspend fun putString(key: String, value: String) { values[key] = value }
-        override suspend fun remove(key: String) { values.remove(key) }
-        override suspend fun getSecret(key: String): String? = values["secret:$key"]
-        override suspend fun putSecret(key: String, value: String) { values["secret:$key"] = value }
-    }
-
-    private object NoBackups : BackupScheduler {
-        override fun attach(work: suspend () -> Boolean) = Unit
-        override suspend fun enableDaily() = Unit
-        override suspend fun disable() = Unit
-    }
-
-    /** Wie das iPad ohne SumUp-Brücke: Karte meldet sich ab, Bar und Deckel gehen. */
-    private class TestPlatform : Platform {
-        override val description = "iOS-Test"
-        override val kind = PlatformKind.IOS
-        override val settings: SettingsStore = MemorySettings()
-        override val payments: PaymentProcessor = UnavailablePaymentProcessor
-        override val backupScheduler: BackupScheduler = NoBackups
-    }
-
     @Test
     fun `a cash sale and a sale on the tab through the real screens`() = runComposeUiTest {
         // Die ViewModels laufen auf Dispatchers.Main. Im Testprozess ist das die
@@ -82,12 +48,9 @@ class SalesFlowOnIosTest {
         // Default, weil Lifecycle den Haupt-Thread daran erkennt, dass Main keinen Wechsel
         // braucht; mit Default verweigert der NavHost den Aufbau.
         Dispatchers.setMain(Dispatchers.Unconfined)
-        val db = Room.inMemoryDatabaseBuilder<AppDatabase>()
-            .setDriver(BundledSQLiteDriver())
-            .setQueryCoroutineContext(Dispatchers.IO)
-            .build()
+        val db = openTestDatabase()
+        val graph = AppGraph(TestPlatform()) { db }
         try {
-            val graph = AppGraph(TestPlatform()) { db }
             val repository = graph.repository
 
             val categoryId = repository.insertCategory(MemberCategory(name = "Mitglied", negativeBalanceLimit = 0.0))
@@ -136,6 +99,8 @@ class SalesFlowOnIosTest {
             assertEquals(repository.allMembers.first().single().id, tab.memberId)
             waitForText("Nichts ausgewählt")
         } finally {
+            // Erst den Abgleich anhalten: Er beobachtet die Datenbank und überlebte sie sonst.
+            graph.close()
             db.close()
             Dispatchers.resetMain()
         }
