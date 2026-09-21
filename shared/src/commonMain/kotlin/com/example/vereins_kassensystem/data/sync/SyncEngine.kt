@@ -16,6 +16,7 @@ import com.example.vereins_kassensystem.platform.storeDownloadedPhoto
 import com.example.vereins_kassensystem.sync.PushOperation
 import com.example.vereins_kassensystem.sync.PushResponse
 import com.example.vereins_kassensystem.sync.PushStatus
+import com.example.vereins_kassensystem.sync.RegisterResponse
 import com.example.vereins_kassensystem.sync.SyncApi
 import com.example.vereins_kassensystem.sync.SyncClient
 import com.example.vereins_kassensystem.sync.SyncHttpException
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.io.IOException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -45,22 +47,34 @@ import kotlinx.serialization.json.put
 sealed interface SyncProblem {
     val message: String
 
+    /** Ein Wort für die Seitenleiste, dort, wo sonst „Abgeglichen" steht. */
+    val short: String
+
+    /** Was das für den bedeutet, der gerade kassiert — und ob er etwas tun muss. */
+    val advice: String
+
     /** Kein Netz, Server aus, Zeitüberschreitung. Die Warteschlange bleibt, es geht von selbst weiter. */
     data object Offline : SyncProblem {
         override val message = "Server nicht erreichbar"
+        override val short = "Offline"
+        override val advice = "Verkauft wird weiter; abgeglichen wird, sobald es wieder geht."
     }
 
-    /** 401: Das Token gilt nicht mehr, etwa weil das Gerät am Server gesperrt wurde. */
+    /**
+     * 401: Das Token gilt nicht mehr, etwa weil das Gerät am Server gesperrt wurde. Das
+     * erledigt sich nicht von selbst — [SyncEngine.reauthorize] meldet das Gerät neu an.
+     */
     data object NeedsPairing : SyncProblem {
         override val message = "Gerät ist am Server nicht mehr angemeldet"
+        override val short = "Abgemeldet"
+        override val advice = "Verkauft wird weiter, aber nichts erreicht den Server, bis dieses Gerät mit einem " +
+            "neuen Kopplungscode wieder angemeldet ist. Was bis dahin gebucht wird, wartet und geht danach hoch."
     }
 
-    /** 422: Der Server hält eine Änderung für nicht anwendbar. Ein Programmfehler, kein Betriebsfall. */
-    data class Rejected(val detail: String) : SyncProblem {
-        override val message = "Der Server hat eine Änderung abgelehnt"
+    data class Other(override val message: String) : SyncProblem {
+        override val short = "Störung"
+        override val advice = "Verkauft wird weiter; der Abgleich versucht es von selbst wieder."
     }
-
-    data class Other(override val message: String) : SyncProblem
 }
 
 /**
@@ -77,6 +91,12 @@ data class SyncStatus(
     val lastSyncAt: Long? = null,
     val running: Boolean = false,
     val problem: SyncProblem? = null,
+    /**
+     * 422: Eine Änderung, die der Server für nicht anwendbar hielt und die deshalb aussortiert
+     * wurde. Ein Programmfehler, kein Betriebsfall — aber einer, nach dem zwei Geräte
+     * Verschiedenes zeigen. Bleibt stehen, bis jemand ihn gesehen hat.
+     */
+    val lastRejected: String? = null,
 )
 
 /** Wie eine Kopplung ausging. */
@@ -127,8 +147,11 @@ class SyncEngine(
             syncDao.observeState(SyncKeys.ENABLED),
             syncDao.observeState(SyncKeys.DEVICE_LABEL),
             syncDao.observeState(SyncKeys.LAST_SYNC_AT),
+            syncDao.observeState(SyncKeys.LAST_REJECTED),
             settings.apiBaseUrl,
-        ) { enabled, label, lastSync, url -> SyncStatus(paired = enabled == "1", deviceLabel = label, serverUrl = url, lastSyncAt = lastSync?.toLongOrNull()) },
+        ) { enabled, label, lastSync, rejected, url ->
+            SyncStatus(paired = enabled == "1", deviceLabel = label, serverUrl = url, lastSyncAt = lastSync?.toLongOrNull(), lastRejected = rejected)
+        },
         syncDao.observePendingCount(),
         running,
         problem,
@@ -181,13 +204,12 @@ class SyncEngine(
         val api = currentApi() ?: return@withLock false
         running.value = true
         try {
-            var rejected: SyncProblem.Rejected? = null
             uploadReceiptPhotos(api)
-            pushAll(api) { rejected = it }
+            pushAll(api)
             pullAll(api)
             fetchReceiptPhotos(api)
             putState(SyncKeys.LAST_SYNC_AT, nowMillis().toString())
-            problem.value = rejected
+            problem.value = null
             true
         } catch (e: CancellationException) {
             throw e
@@ -198,9 +220,14 @@ class SyncEngine(
                 else -> SyncProblem.Other("Server antwortet mit ${e.status}: ${e.message}")
             }
             false
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             // Alles, was unterhalb von HTTP schiefgeht: kein Netz, Zeitüberschreitung, TLS.
             problem.value = SyncProblem.Offline
+            false
+        } catch (e: Exception) {
+            // Kein Netzfehler, sondern einer im Programm — eine Antwort, die sich nicht lesen
+            // lässt, eine Datenbank, die nicht schreibt. „Offline" wäre hier gelogen.
+            problem.value = SyncProblem.Other("Abgleich abgebrochen: ${e.message ?: e::class.simpleName}")
             false
         } finally {
             running.value = false
@@ -209,7 +236,7 @@ class SyncEngine(
 
     // ------------------------------------------------------------ 4.2 Schieben
 
-    private suspend fun pushAll(api: SyncApi, onRejected: (SyncProblem.Rejected) -> Unit) {
+    private suspend fun pushAll(api: SyncApi) {
         while (true) {
             val batch = syncDao.nextBatch(PUSH_BATCH)
             if (batch.isEmpty()) return
@@ -220,12 +247,12 @@ class SyncEngine(
                 // Der Server nimmt alle Operationen eines Aufrufs oder keine. Eine einzige
                 // nicht anwendbare würde die Warteschlange für immer verstopfen — also
                 // einzeln nachschieben und nur die eine aussortieren.
-                pushOneByOne(api, batch, onRejected)
+                pushOneByOne(api, batch)
             }
         }
     }
 
-    private suspend fun pushOneByOne(api: SyncApi, batch: List<PendingChange>, onRejected: (SyncProblem.Rejected) -> Unit) {
+    private suspend fun pushOneByOne(api: SyncApi, batch: List<PendingChange>) {
         for (change in batch) {
             try {
                 settle(listOf(change), api.push(listOf(operationOf(change))))
@@ -236,7 +263,6 @@ class SyncEngine(
                     syncDao.putState(SyncState(SyncKeys.LAST_REJECTED, detail))
                     syncDao.removeUpTo(change.seq)
                 }
-                onRejected(SyncProblem.Rejected(detail))
             }
         }
     }
@@ -342,9 +368,7 @@ class SyncEngine(
         val normalized = normalizeUrl(url) ?: return PairingResult.Failed("Die Adresse muss mit https:// beginnen.")
         val cleanLabel = label.trim().ifEmpty { platform.description }
         return try {
-            val registration = apiFactory(normalized) { null }
-                .register(pairingCode.trim(), cleanLabel, if (platform.kind == PlatformKind.IOS) "ios" else "android")
-            settings.setDeviceToken(registration.token)
+            val registration = signIn(normalized, pairingCode, cleanLabel) ?: return PairingResult.Failed(TOKEN_NOT_KEPT)
             settings.setApiBaseUrl(normalized)
             write {
                 syncDao.putState(SyncState(SyncKeys.DEVICE_ID, registration.deviceId))
@@ -364,18 +388,56 @@ class SyncEngine(
             }.also { requestSync() }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: SyncHttpException) {
-            PairingResult.Failed(
-                when (e.status) {
-                    409 -> "Der Kopplungscode ist unbekannt, abgelaufen oder schon benutzt."
-                    429 -> "Zu viele Versuche. Bitte eine Minute warten."
-                    else -> "Der Server antwortet mit ${e.status}: ${e.message}"
-                }
-            )
         } catch (e: Exception) {
-            PairingResult.Failed("Server nicht erreichbar.")
+            PairingResult.Failed(describeSignInFailure(e))
         }
     }
+
+    /**
+     * Meldet ein gekoppeltes Gerät neu an, dessen Token nicht mehr gilt — mit einem frischen
+     * Kopplungscode, aber ohne die Kopplung zu lösen. Bestand, Lesezeiger und Warteschlange
+     * bleiben, und was seit der Abmeldung gebucht wurde, geht danach hoch: Der Server erkennt
+     * Änderungen an ihrer `client_change_id`, nicht am Gerät.
+     *
+     * Der Umweg über „Kopplung lösen" würde genau diese Buchungen kosten. Null heißt: gelungen.
+     */
+    suspend fun reauthorize(pairingCode: String): String? {
+        val url = settings.apiBaseUrl.first() ?: return "Dieses Gerät ist nicht gekoppelt."
+        val label = syncDao.state(SyncKeys.DEVICE_LABEL) ?: platform.description
+        return try {
+            val registration = signIn(url, pairingCode, label) ?: return TOKEN_NOT_KEPT
+            putState(SyncKeys.DEVICE_ID, registration.deviceId)
+            problem.value = null
+            requestSync()
+            null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            describeSignInFailure(e)
+        }
+    }
+
+    /**
+     * Löst den Kopplungscode ein und legt das Token ab. Null, wenn das Gerät es nicht halten
+     * kann: Ein Schlüsselbund, der das Schreiben still verweigert, ergäbe sonst ein Gerät,
+     * das gekoppelt aussieht und bei jedem Abgleich 401 bekommt.
+     */
+    private suspend fun signIn(url: String, pairingCode: String, label: String): RegisterResponse? {
+        val registration = apiFactory(url) { null }
+            .register(pairingCode.trim(), label, if (platform.kind == PlatformKind.IOS) "ios" else "android")
+        settings.setDeviceToken(registration.token)
+        return registration.takeIf { settings.deviceToken() == it.token }
+    }
+
+    private fun describeSignInFailure(e: Exception): String = when ((e as? SyncHttpException)?.status) {
+        null -> "Server nicht erreichbar."
+        409 -> "Der Kopplungscode ist unbekannt, abgelaufen oder schon benutzt."
+        429 -> "Zu viele Versuche. Bitte eine Minute warten."
+        else -> "Der Server antwortet mit ${(e as SyncHttpException).status}: ${e.message}"
+    }
+
+    /** Die aussortierte Änderung ist gesehen; der Hinweis verschwindet. */
+    suspend fun dismissRejected() = write { syncDao.removeState(SyncKeys.LAST_REJECTED) }
 
     /**
      * Verwirft, was auf diesem Gerät liegt, und übernimmt den Stand des Servers. Der Aufrufer
@@ -481,6 +543,10 @@ class SyncEngine(
         private const val PERIOD_MILLIS = 60_000L
         private const val PUSH_BATCH = 200
         private const val PULL_PAGE = 500
+
+        private const val TOKEN_NOT_KEPT =
+            "Dieses Gerät konnte seinen Zugangsschlüssel nicht sicher ablegen und ist deshalb nicht angemeldet. " +
+                "Der Kopplungscode ist verbraucht."
 
         /** Ein Client für die Lebenszeit der App; die Engine kommt von der Plattform (OkHttp, Darwin). */
         private val sharedHttpClient: HttpClient by lazy { HttpClient { installSyncDefaults() } }

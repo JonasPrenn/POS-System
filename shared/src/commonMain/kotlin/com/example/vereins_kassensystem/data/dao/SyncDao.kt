@@ -59,6 +59,9 @@ interface SyncDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun putState(state: SyncState)
 
+    @Query("DELETE FROM sync_state WHERE `key` = :key")
+    suspend fun removeState(key: String)
+
     @Query("DELETE FROM sync_state")
     suspend fun clearState()
 

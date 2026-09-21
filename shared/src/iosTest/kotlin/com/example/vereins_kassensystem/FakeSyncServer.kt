@@ -13,6 +13,7 @@ import com.example.vereins_kassensystem.sync.RegisterResponse
 import com.example.vereins_kassensystem.sync.SyncApi
 import com.example.vereins_kassensystem.sync.SyncHttpException
 import io.ktor.http.ContentType
+import kotlinx.io.IOException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
@@ -59,6 +60,8 @@ class FakeSyncServer {
         override suspend fun register(pairingCode: String, label: String, platform: String): RegisterResponse {
             reach()
             if (pairingCode != PAIRING_CODE) throw SyncHttpException(409, "pairing_failed", "Kopplungscode unbekannt")
+            // Wer sich neu anmeldet, ist ein neues Gerät mit gültigem Token — wie am echten Server.
+            revoked = false
             return RegisterResponse(deviceId = "018f2b6c-7d1e-7a00-8000-0000000000d${label.length % 10}", token = "vd_dev_test")
         }
 
@@ -86,7 +89,7 @@ class FakeSyncServer {
             val results = operations.map { op -> answered.getOrPut(op.clientChangeId) { apply(op) } }
             if (loseNextResponse) {
                 loseNextResponse = false
-                throw IllegalStateException("Verbindung abgebrochen, nachdem der Server verbucht hatte")
+                throw IOException("Verbindung abgebrochen, nachdem der Server verbucht hatte")
             }
             return PushResponse(results, results.mapNotNull { it.seq }.maxOrNull() ?: seq)
         }
@@ -105,7 +108,7 @@ class FakeSyncServer {
     }
 
     private fun reach() {
-        if (!online) throw IllegalStateException("kein Netz")
+        if (!online) throw IOException("kein Netz")
     }
 
     private fun authorize() {

@@ -11,6 +11,7 @@ import com.example.vereins_kassensystem.data.repository.AppRepository
 import com.example.vereins_kassensystem.data.sync.PairingResult
 import com.example.vereins_kassensystem.data.sync.SyncEngine
 import com.example.vereins_kassensystem.data.sync.SyncProblem
+import com.example.vereins_kassensystem.platform.SettingsStore
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,13 +34,13 @@ import kotlin.test.assertTrue
 class SyncEngineTest {
 
     /** Ein Tablet: eigene Datenbank, eigene Einstellungen, eigener Abgleich. */
-    private class Device(server: FakeSyncServer, label: String) {
+    private class Device(server: FakeSyncServer, label: String, store: SettingsStore = MemorySettings()) {
         val db: AppDatabase = openTestDatabase()
         val repository = AppRepository(db)
         // Der Handler schluckt, was ein abgebrochener Beobachter beim Schließen der Datenbank noch wirft.
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, _ -> })
         val engine = SyncEngine(
-            database = db, repository = repository, settings = SettingsRepository(MemorySettings()),
+            database = db, repository = repository, settings = SettingsRepository(store),
             platform = TestPlatform(label), scope = scope, apiFactory = { _, _ -> server.api() }
         )
 
@@ -201,8 +202,15 @@ class SyncEngineTest {
         assertEquals(1, server.count("products"))
         assertEquals(1, server.count("transactions"))
         assertEquals(0, server.count("members"))
-        assertIs<SyncProblem.Rejected>(theke.engine.status.first { it.problem != null }.problem)
-        assertTrue(theke.db.syncDao().state("last_rejected")!!.contains("members"))
+
+        // Kein Problem des Laufs, aber ein Hinweis, der stehen bleibt, bis ihn jemand gesehen hat.
+        val status = theke.engine.status.first { it.lastRejected != null }
+        assertNull(status.problem)
+        assertTrue(status.lastRejected!!.contains("members"))
+        assertTrue(theke.engine.syncOnce())
+        assertTrue(theke.engine.status.value.lastRejected != null, "der nächste Lauf räumt ihn nicht weg")
+        theke.engine.dismissRejected()
+        assertNull(theke.engine.status.first { it.lastRejected == null }.lastRejected)
     }
 
     @Test
@@ -215,7 +223,35 @@ class SyncEngineTest {
         theke.sell(beer, null)
         assertEquals(false, theke.engine.syncOnce())
         assertEquals(SyncProblem.NeedsPairing, theke.engine.status.first { it.problem != null }.problem)
-        assertEquals(1, theke.pending(), "die Buchung wartet, bis das Gerät wieder gekoppelt ist")
+        assertEquals(1, theke.pending(), "die Buchung wartet, bis das Gerät wieder angemeldet ist")
+
+        // Neu anmelden statt Kopplung lösen: Bestand und Warteschlange bleiben, die Buchung geht hoch.
+        assertEquals("Der Kopplungscode ist unbekannt, abgelaufen oder schon benutzt.", theke.engine.reauthorize("AAAA-AAAA"))
+        assertNull(theke.engine.reauthorize(FakeSyncServer.PAIRING_CODE))
+        assertTrue(theke.engine.syncOnce())
+        assertEquals(0, theke.pending())
+        assertEquals(1, server.count("transactions"))
+        assertNull(theke.engine.status.first { !it.running && it.pending == 0 }.problem)
+    }
+
+    @Test
+    fun `a device that cannot keep its token does not pretend to be paired`() = runTest {
+        // Der Schlüsselbund eines unsignierten Simulator-Builds nimmt nichts an und sagt es nicht
+        // (-34018). Ohne Zurücklesen sähe das Gerät gekoppelt aus und bekäme bei jedem Abgleich 401.
+        val forgetful = object : SettingsStore by MemorySettings() {
+            override suspend fun getSecret(key: String): String? = null
+            override suspend fun putSecret(key: String, value: String) = Unit
+        }
+        val device = Device(FakeSyncServer(), "iPad Garten", forgetful)
+        try {
+            val result = device.pair()
+            assertIs<PairingResult.Failed>(result)
+            assertTrue(result.message.contains("Zugangsschlüssel"), result.message)
+            assertEquals(false, device.engine.status.value.paired)
+            assertNull(device.db.syncDao().state("device_id"), "nichts angefasst")
+        } finally {
+            device.close()
+        }
     }
 
     @Test

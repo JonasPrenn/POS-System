@@ -36,6 +36,9 @@ import com.example.vereins_kassensystem.ui.theme.VereinsColors
  * Bernstein heißt Aufmerksamkeit, nicht Fehler: Offline zu sein ist im Vereinsheim der
  * Normalfall und nichts, was jemand an der Theke beheben könnte. Rot bleibt der Zerstörung
  * vorbehalten. Solange das Gerät nicht gekoppelt ist, erscheint hier nichts.
+ *
+ * „Offline" steht hier nur, wenn es stimmt. Ein abgemeldetes Gerät wartet vergeblich auf
+ * besseres WLAN — es heißt deshalb anders, und die Einstellungen sagen, was zu tun ist.
  */
 private class Appearance(val icon: ImageVector, val title: String, val detail: String?, val attention: Boolean)
 
@@ -47,14 +50,18 @@ private fun appearanceOf(status: SyncStatus): Appearance? {
         else -> "${status.pending} warten"
     }
     return when {
-        status.problem != null -> Appearance(VdIcons.WarningAmber, "Offline", waiting ?: status.lastSyncAt?.let { "seit ${VdDate.timeOfDay(it)}" }, attention = true)
+        status.problem != null -> Appearance(VdIcons.WarningAmber, status.problem.short, waiting ?: status.lastSyncAt?.let { "seit ${VdDate.timeOfDay(it)}" }, attention = true)
+        status.lastRejected != null -> Appearance(VdIcons.WarningAmber, "Abgelehnt", waiting, attention = true)
         waiting != null -> Appearance(VdIcons.CloudUpload, waiting, null, attention = false)
         else -> Appearance(VdIcons.Check, "Abgeglichen", status.lastSyncAt?.let(VdDate::timeOfDay), attention = false)
     }
 }
 
-private fun describe(status: SyncStatus, look: Appearance): String =
-    status.problem?.let { "${it.message}. ${look.detail.orEmpty()}" } ?: listOfNotNull(look.title, look.detail).joinToString(", ")
+private fun describe(status: SyncStatus, look: Appearance): String = when {
+    status.problem != null -> "${status.problem.message}. ${look.detail.orEmpty()}"
+    status.lastRejected != null -> "Der Server hat eine Änderung abgelehnt. Näheres in den Einstellungen."
+    else -> listOfNotNull(look.title, look.detail).joinToString(", ")
+}
 
 /** Für die Seitenleiste: Symbol über zwei kurzen Zeilen, wie die Einträge darüber. */
 @Composable
@@ -67,8 +74,10 @@ fun SyncStatusBadge(status: SyncStatus, modifier: Modifier = Modifier) {
         color = if (look.attention) VereinsColors.warningContainer else Color.Transparent,
         contentColor = tint
     ) {
+        // Schmal gepolstert: Die Leiste ist so breit wie ihr breitestes Kind, und das soll
+        // „Lagerbestand" bleiben — sonst rückt der ganze Bildschirm, wenn der Status wechselt.
         Column(
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            modifier = Modifier.padding(Spacing.xs),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(look.icon, contentDescription = null, modifier = Modifier.size(20.dp))

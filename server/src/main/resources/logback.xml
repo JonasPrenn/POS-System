@@ -7,6 +7,9 @@
     </appender>
     <logger name="com.zaxxer.hikari" level="WARN"/>
     <logger name="org.flywaydb" level="INFO"/>
+    <!-- /v1/health fragt Flyway nach der Schemaversion, und Docker fragt /v1/health alle 30 Sekunden:
+         Diese eine Zeile („Database: …") stuende sonst zweitausendmal am Tag im Protokoll. -->
+    <logger name="org.flywaydb.core.FlywayExecutor" level="WARN"/>
     <logger name="io.netty" level="WARN"/>
     <root level="INFO">
         <appender-ref ref="STDOUT"/>

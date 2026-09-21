@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.vereins_kassensystem.data.sync.PairingResult
 import com.example.vereins_kassensystem.data.sync.SyncEngine
+import com.example.vereins_kassensystem.data.sync.SyncProblem
 import com.example.vereins_kassensystem.data.sync.SyncStatus
 import com.example.vereins_kassensystem.platform.LocalPlatform
 import com.example.vereins_kassensystem.platform.VdDate
@@ -37,6 +38,7 @@ import com.example.vereins_kassensystem.ui.icons.VdIcons
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -47,7 +49,8 @@ import kotlinx.coroutines.launch
  * (Spezifikation 5.2).
  *
  * Gekoppelt: was der Kassier wissen will. Wann zuletzt abgeglichen wurde, wie viel noch
- * wartet, und ein Knopf, der es jetzt versucht.
+ * wartet, und ein Knopf, der es jetzt versucht. Hat der Server das Gerät abgemeldet, steht
+ * hier auch der Weg zurück — ein neuer Code, ohne dass die wartenden Buchungen verloren gehen.
  *
  * [onBackup] sichert den Stand dieses Geräts, bevor es den des Servers übernimmt, und
  * meldet, ob das gelang; [onMessage] zeigt eine kurze Rückmeldung.
@@ -60,15 +63,18 @@ fun ServerSection(
     onMessage: suspend (String) -> Unit,
 ) {
     val status by engine.status.collectAsState()
+    // Ein Scope für den ganzen Abschnitt: Koppeln und Neu-Anmelden tauschen das Formular aus,
+    // das sie ausgelöst hat — dessen eigener Scope nähme die Rückmeldung mit.
     val scope = rememberCoroutineScope()
     var needsDecision by remember { mutableStateOf(false) }
 
     VdSection(title = "Server und Abgleich", icon = VdIcons.CloudUpload) {
         if (status.paired) {
-            PairedState(status, engine, onMessage)
+            PairedState(status, engine, scope, onMessage)
         } else {
             PairingForm(
                 engine = engine,
+                scope = scope,
                 initialUrl = status.serverUrl.orEmpty(),
                 onResult = { result ->
                     when (result) {
@@ -128,9 +134,8 @@ fun ServerSection(
 }
 
 @Composable
-private fun PairingForm(engine: SyncEngine, initialUrl: String, onResult: suspend (PairingResult) -> Unit) {
+private fun PairingForm(engine: SyncEngine, scope: CoroutineScope, initialUrl: String, onResult: suspend (PairingResult) -> Unit) {
     val platform = LocalPlatform.current
-    val scope = rememberCoroutineScope()
     var url by remember { mutableStateOf(initialUrl) }
     var code by remember { mutableStateOf("") }
     var label by remember { mutableStateOf("") }
@@ -210,8 +215,7 @@ private fun PairingForm(engine: SyncEngine, initialUrl: String, onResult: suspen
 }
 
 @Composable
-private fun PairedState(status: SyncStatus, engine: SyncEngine, onMessage: suspend (String) -> Unit) {
-    val scope = rememberCoroutineScope()
+private fun PairedState(status: SyncStatus, engine: SyncEngine, scope: CoroutineScope, onMessage: suspend (String) -> Unit) {
     var confirmUnpair by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -234,19 +238,28 @@ private fun PairedState(status: SyncStatus, engine: SyncEngine, onMessage: suspe
         },
         style = MaterialTheme.typography.bodyMedium
     )
-    status.problem?.let { problem ->
-        WarningText("${problem.message}. Verkauft wird weiter; abgeglichen wird, sobald es wieder geht.")
+    status.problem?.let { problem -> WarningText("${problem.message}. ${problem.advice}") }
+    if (status.problem == SyncProblem.NeedsPairing) ReauthorizeForm(engine, scope, onMessage)
+    status.lastRejected?.let { detail ->
+        WarningText(
+            "Der Server hat eine Änderung dieses Geräts abgelehnt. Sie wurde aussortiert, alles andere ist " +
+                "abgeglichen. Das ist ein Fehler im Programm, kein Bedienfehler — bitte weitergeben: $detail"
+        )
+        TextButton(onClick = { scope.launch { engine.dismissRejected() } }) { Text("Gesehen") }
     }
 
-    Button(
-        onClick = { engine.requestSync() },
-        enabled = !status.running,
-        modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
-        shape = MaterialTheme.shapes.small
-    ) {
-        Icon(VdIcons.CloudUpload, contentDescription = null)
-        Spacer(Modifier.width(Spacing.sm))
-        Text("Jetzt abgleichen")
+    // Abgemeldet hilft kein neuer Versuch, nur ein neuer Code — also steht dann nur der eine Knopf da.
+    if (status.problem != SyncProblem.NeedsPairing) {
+        Button(
+            onClick = { engine.requestSync() },
+            enabled = !status.running,
+            modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
+            shape = MaterialTheme.shapes.small
+        ) {
+            Icon(VdIcons.CloudUpload, contentDescription = null)
+            Spacer(Modifier.width(Spacing.sm))
+            Text("Jetzt abgleichen")
+        }
     }
 
     HorizontalDivider()
@@ -284,6 +297,45 @@ private fun PairedState(status: SyncStatus, engine: SyncEngine, onMessage: suspe
             },
             dismissButton = { TextButton(onClick = { confirmUnpair = false }) { Text("Abbrechen") } }
         )
+    }
+}
+
+/**
+ * Ein abgemeldetes Gerät meldet sich mit einem frischen Code wieder an. Bewusst nicht über
+ * „Kopplung lösen": Das würde die Warteschlange leeren, und was seit der Abmeldung verkauft
+ * wurde, käme nie beim Server an.
+ */
+@Composable
+private fun ReauthorizeForm(engine: SyncEngine, scope: CoroutineScope, onMessage: suspend (String) -> Unit) {
+    var code by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = code,
+        onValueChange = { code = it },
+        label = { Text("Neuer Kopplungscode") },
+        placeholder = { Text("8K4M-2QX9") },
+        supportingText = { Text("Erzeugt der Administrator am Server. Daten und wartende Buchungen dieses Geräts bleiben.") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Button(
+        onClick = {
+            scope.launch {
+                busy = true
+                onMessage(engine.reauthorize(code) ?: "Wieder angemeldet. Was gewartet hat, geht jetzt zum Server.")
+                busy = false
+            }
+        },
+        enabled = !busy && code.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
+        shape = MaterialTheme.shapes.small
+    ) {
+        Icon(VdIcons.Login, contentDescription = null)
+        Spacer(Modifier.width(Spacing.sm))
+        Text("Neu anmelden")
     }
 }
 
