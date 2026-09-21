@@ -1,9 +1,9 @@
 package com.example.vereins_kassensystem.server
 
 import com.example.vereins_kassensystem.server.http.DeviceDto
-import com.example.vereins_kassensystem.server.http.HealthResponse
+import com.example.vereins_kassensystem.sync.HealthResponse
 import com.example.vereins_kassensystem.server.http.PairingCodeResponse
-import com.example.vereins_kassensystem.server.http.RegisterRequest
+import com.example.vereins_kassensystem.sync.RegisterRequest
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
@@ -24,7 +24,7 @@ class HealthAndDevicesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.body<HealthResponse>()
         assertEquals("ok", body.status)
-        assertEquals("1", body.schemaVersion)
+        assertEquals("2", body.schemaVersion)
         assertTrue(body.serverTime.endsWith("Z"), body.serverTime)
     }
 

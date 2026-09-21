@@ -67,15 +67,26 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | Datei | Inhalt |
 |---|---|
 | `src/main/resources/db/migration/V1__grundgeruest.sql` | Schema nach Kapitel 3, Sicht `member_balances` nach 2.2 |
-| `sync/Entities.kt` | Die elf Tabellen mit Spalten, Vorgabewerten und Konfliktart |
+| `sync/Entities.kt` | Die zwölf Tabellen mit Spalten, Vorgabewerten und Konfliktart |
 | `sync/SyncStore.kt` | Ziehen, Schieben, Konfliktregeln (Kapitel 4) |
 | `sync/Values.kt` | Zahlenformate nach 5.4: Geld als Zeichenkette, Zeit als ISO 8601 |
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
-| `http/` | Ktor-Routen, Fehlerbilder nach 5.3, JSON-Konfiguration |
+| `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
+| `core/.../sync/Wire.kt`, `SyncClient.kt` | Drahtformat und Client, gemeinsam mit der App; `SyncClientTest` prüft beide gegeneinander |
 
 ## Abweichungen von der Spezifikation
 
+- **Lagerabgänge sind eine eigene anfügende Tabelle** (`stock_draws`, Migration V2), und
+  `stock_entries` trägt `container_type_id`. Die Spezifikation (2.3) leitet den Verbrauch
+  nachträglich aus Buchung mal Rezeptur her; das trägt nicht, weil die Glasgröße der
+  Variante in keiner Buchungszeile steht und jede Rezepturänderung die Vergangenheit
+  umschriebe. Die App hält beim Verkauf fest, was sie dem Keller entnommen hat. Gezapft je
+  Anstich ist die Summe der Abgänge des Artikels im Zeitfenster des Anstichs — so zählen
+  auch die Abgänge eines Geräts, dessen doppelter Anstich verworfen wurde.
+- `members.last_used_timestamp` schreibt die App nicht mehr: „zuletzt benutzt" ergibt sich
+  aus der letzten Buchung des Mitglieds, sonst gäbe es bei zwei Theken laufend
+  Stammdatenkonflikte.
 - Zeitstempel sind `TIMESTAMPTZ(3)`: Die App führt Millisekunden, und der Vergleich über
   `base_updated_at` muss exakt sein.
 - `applied_changes` hat eine Spalte `seq`, damit ein Wiederholungsversuch dieselbe

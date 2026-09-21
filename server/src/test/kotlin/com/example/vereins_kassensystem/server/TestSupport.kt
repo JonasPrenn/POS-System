@@ -2,12 +2,12 @@ package com.example.vereins_kassensystem.server
 
 import com.example.vereins_kassensystem.server.db.Database
 import com.example.vereins_kassensystem.server.http.PairingCodeResponse
-import com.example.vereins_kassensystem.server.http.PushOperation
-import com.example.vereins_kassensystem.server.http.PushRequest
-import com.example.vereins_kassensystem.server.http.PushResponse
-import com.example.vereins_kassensystem.server.http.RegisterRequest
-import com.example.vereins_kassensystem.server.http.RegisterResponse
-import com.example.vereins_kassensystem.server.http.apiJson
+import com.example.vereins_kassensystem.sync.PushOperation
+import com.example.vereins_kassensystem.sync.PushRequest
+import com.example.vereins_kassensystem.sync.PushResponse
+import com.example.vereins_kassensystem.sync.RegisterRequest
+import com.example.vereins_kassensystem.sync.RegisterResponse
+import com.example.vereins_kassensystem.sync.WireJson
 import com.example.vereins_kassensystem.server.http.module
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -70,7 +70,7 @@ fun serverTest(block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = te
     )
     application { module(config, db) }
     val client = createClient {
-        install(ContentNegotiation) { json(apiJson) }
+        install(ContentNegotiation) { json(WireJson) }
     }
     try {
         block(TestContext(db, client))

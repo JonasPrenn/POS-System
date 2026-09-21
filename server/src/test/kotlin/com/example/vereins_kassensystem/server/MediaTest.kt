@@ -1,6 +1,6 @@
 package com.example.vereins_kassensystem.server
 
-import com.example.vereins_kassensystem.server.http.ReceiptUploadResponse
+import com.example.vereins_kassensystem.sync.ReceiptUploadResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get

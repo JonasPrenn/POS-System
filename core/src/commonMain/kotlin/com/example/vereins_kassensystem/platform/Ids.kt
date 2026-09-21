@@ -23,12 +23,22 @@ object Ids {
     private const val HEX = "0123456789abcdef"
 
     /** Ein neuer Schlüssel in der üblichen Schreibweise mit Bindestrichen. */
-    fun new(): String {
+    fun new(): String = at(nowMillis())
+
+    /**
+     * Ein Schlüssel, dessen Zeitanteil [epochMillis] trägt statt der jetzigen Uhrzeit.
+     *
+     * Für die Umstellung bestehender Daten: Eine Buchung vom März bekommt einen Schlüssel
+     * vom März, und die Historie bleibt nach Schlüssel sortiert chronologisch — alt und
+     * neu durcheinander.
+     */
+    fun at(epochMillis: Long): String {
         val bytes = ByteArray(16)
         Random.nextBytes(bytes)
 
-        // Bytes 0..5: Zeitstempel, höchstwertiges Byte zuerst.
-        val millis = nowMillis()
+        // Bytes 0..5: Zeitstempel, höchstwertiges Byte zuerst. Negative Zeiten gibt es
+        // in einer Kasse nicht; falls doch eine auftaucht, zählt sie als null.
+        val millis = epochMillis.coerceAtLeast(0L)
         for (i in 0 until 6) {
             bytes[i] = ((millis shr (8 * (5 - i))) and 0xFF).toByte()
         }
@@ -45,5 +55,16 @@ object Ids {
                 append(HEX[v and 0x0F])
             }
         }
+    }
+
+    /** Ob [text] wie eine UUID aussieht — klein oder groß geschrieben, mit Bindestrichen. */
+    fun isValid(text: String): Boolean {
+        if (text.length != 36) return false
+        for ((i, ch) in text.withIndex()) {
+            val dash = i == 8 || i == 13 || i == 18 || i == 23
+            if (dash != (ch == '-')) return false
+            if (!dash && ch.lowercaseChar() !in HEX) return false
+        }
+        return true
     }
 }

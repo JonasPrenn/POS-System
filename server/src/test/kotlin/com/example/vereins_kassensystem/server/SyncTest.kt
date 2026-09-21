@@ -1,11 +1,11 @@
 package com.example.vereins_kassensystem.server
 
 import com.example.vereins_kassensystem.data.Ledger
-import com.example.vereins_kassensystem.server.http.BalanceResponse
-import com.example.vereins_kassensystem.server.http.ChangesResponse
-import com.example.vereins_kassensystem.server.http.ErrorResponse
-import com.example.vereins_kassensystem.server.http.PushOperation
-import com.example.vereins_kassensystem.server.http.PushRequest
+import com.example.vereins_kassensystem.sync.BalanceResponse
+import com.example.vereins_kassensystem.sync.ChangesResponse
+import com.example.vereins_kassensystem.sync.ErrorResponse
+import com.example.vereins_kassensystem.sync.PushOperation
+import com.example.vereins_kassensystem.sync.PushRequest
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType

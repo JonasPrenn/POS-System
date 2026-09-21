@@ -2,6 +2,7 @@ package com.example.vereins_kassensystem.server.http
 
 import com.example.vereins_kassensystem.server.devices.PairingFailed
 import com.example.vereins_kassensystem.server.sync.Unprocessable
+import com.example.vereins_kassensystem.sync.ErrorResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.JsonConvertException
 import io.ktor.server.application.Application

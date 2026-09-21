@@ -34,7 +34,7 @@ class EntityDef(val table: String, val kind: EntityKind, val columns: List<Colum
 }
 
 /**
- * Das Tabellenregister: die elf Tabellen der App, mit Spaltennamen wie im Serverschema.
+ * Das Tabellenregister: die zwölf Tabellen der App, mit Spaltennamen wie im Serverschema.
  *
  * Jede Zeile, die über den Draht geht, wird gegen dieses Register geprüft — unbekannte
  * Felder sind ein Fehler, nicht Rauschen. So fällt ein `memberId` statt `member_id`
@@ -130,6 +130,8 @@ object Entities {
             Column("source", ColumnType.TEXT, allowed = setOf("MANUAL", "SCAN", "CORRECTION")),
             Column("occurred_at", ColumnType.TIMESTAMP),
             Column("delivery_id", ColumnType.UUID, nullable = true),
+            // Welche Gebindegröße ankam; leer bei Stückware. Siehe V2__lagerabgaenge.sql.
+            Column("container_type_id", ColumnType.UUID, nullable = true),
         )),
         EntityDef("tapped_containers", EntityKind.EVENT, listOf(
             id,
@@ -138,6 +140,15 @@ object Entities {
             Column("closed_at", ColumnType.TIMESTAMP, nullable = true),
             Column("close_reason", ColumnType.TEXT, nullable = true, allowed = setOf("EMPTIED", "SPOILED")),
             Column("discarded_volume", ColumnType.DOUBLE, default = 0.0),
+            Column("note", ColumnType.TEXT, nullable = true),
+        )),
+        // Was ein Verkauf dem Keller entnommen hat — anfügend wie transactions.
+        EntityDef("stock_draws", EntityKind.APPEND_ONLY, listOf(
+            id,
+            Column("stock_item_id", ColumnType.UUID),
+            Column("transaction_id", ColumnType.UUID, nullable = true),
+            Column("volume", ColumnType.DOUBLE),
+            Column("occurred_at", ColumnType.TIMESTAMP),
             Column("note", ColumnType.TEXT, nullable = true),
         )),
     )

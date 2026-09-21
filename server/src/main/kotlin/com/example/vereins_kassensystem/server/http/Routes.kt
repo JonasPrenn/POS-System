@@ -8,6 +8,16 @@ import com.example.vereins_kassensystem.server.media.ReceiptStore
 import com.example.vereins_kassensystem.server.sync.SyncStore
 import com.example.vereins_kassensystem.server.sync.Unprocessable
 import com.example.vereins_kassensystem.server.sync.Values
+import com.example.vereins_kassensystem.sync.BalanceResponse
+import com.example.vereins_kassensystem.sync.ChangeDto
+import com.example.vereins_kassensystem.sync.ChangesResponse
+import com.example.vereins_kassensystem.sync.HealthResponse
+import com.example.vereins_kassensystem.sync.PushRequest
+import com.example.vereins_kassensystem.sync.PushResponse
+import com.example.vereins_kassensystem.sync.PushResult
+import com.example.vereins_kassensystem.sync.ReceiptUploadResponse
+import com.example.vereins_kassensystem.sync.RegisterRequest
+import com.example.vereins_kassensystem.sync.RegisterResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.auth.authenticate
