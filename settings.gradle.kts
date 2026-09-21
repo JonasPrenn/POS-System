@@ -37,3 +37,5 @@ rootProject.name = "VereinsDeckel"
 include(":core")
 include(":shared")
 include(":androidApp")
+// :server ist der Dienst nach docs/VereinsDeckel-Server-und-API.pdf: reine JVM, haengt nur an :core.
+include(":server")

@@ -45,6 +45,15 @@ composeMaterial3 = "1.9.0"
 kotlinxDatetime = "0.8.0"
 ktor = "3.5.2"
 sqlite = "2.6.2"
+# Server
+flyway = "13.7.0"
+hikari = "7.1.0"
+postgresJdbc = "42.7.13"
+logback = "1.6.3"
+bouncycastle = "1.86"
+embeddedPostgres = "2.2.2"
+# 16er-Binaerpakete, passend zu postgres:16 in server/deploy/compose.yaml
+embeddedPostgresBinaries = "16.15.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -117,12 +126,35 @@ ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-conte
 ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version.ref = "ktor" }
 
+# Server: Ktor als HTTP-Dienst, PostgreSQL ueber JDBC, Migrationen mit Flyway. Der
+# eingebettete PostgreSQL ist nur fuer die Tests — auf dem Mac gibt es weder Docker noch
+# ein installiertes PostgreSQL, und ein Schema mit Triggern laesst sich nicht mit H2 pruefen.
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty", version.ref = "ktor" }
+ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-auth = { group = "io.ktor", name = "ktor-server-auth", version.ref = "ktor" }
+ktor-server-status-pages = { group = "io.ktor", name = "ktor-server-status-pages", version.ref = "ktor" }
+ktor-server-call-logging = { group = "io.ktor", name = "ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-rate-limit = { group = "io.ktor", name = "ktor-server-rate-limit", version.ref = "ktor" }
+ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", version.ref = "ktor" }
+flyway-core = { group = "org.flywaydb", name = "flyway-core", version.ref = "flyway" }
+flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql", version.ref = "flyway" }
+hikari = { group = "com.zaxxer", name = "HikariCP", version.ref = "hikari" }
+postgres-jdbc = { group = "org.postgresql", name = "postgresql", version.ref = "postgresJdbc" }
+logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
+bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+embedded-postgres = { group = "io.zonky.test", name = "embedded-postgres", version.ref = "embeddedPostgres" }
+embedded-postgres-bom = { group = "io.zonky.test.postgres", name = "embedded-postgres-binaries-bom", version.ref = "embeddedPostgresBinaries" }
+embedded-postgres-darwin-arm64 = { group = "io.zonky.test.postgres", name = "embedded-postgres-binaries-darwin-arm64v8" }
+embedded-postgres-linux-arm64 = { group = "io.zonky.test.postgres", name = "embedded-postgres-binaries-linux-arm64v8" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 androidx-room = { id = "androidx.room", version.ref = "roomRuntime" }

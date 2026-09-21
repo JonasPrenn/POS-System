@@ -1,0 +1,61 @@
+# Aufstellung nach Kapitel 7.1 der Spezifikation: PostgreSQL, der Dienst, Caddy davor
+# mit Zertifikat von Let's Encrypt. Reicht fuer einen Verein, auch auf einem Raspberry Pi 5.
+#
+#   cp .env.example .env            # DOMAIN, DB_PASSWORD, PAIRING_ADMIN_TOKEN setzen
+#   (cd .. && ../gradlew :server:installDist)
+#   docker compose up -d --build
+#
+# Danach: siehe ../README.md fuer Kopplungscode und erste Anfragen.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vereinsdeckel
+      POSTGRES_USER: vereinsdeckel
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD in .env setzen}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vereinsdeckel -d vereinsdeckel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: vereinsdeckel/api:1.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://vereinsdeckel@db:5432/vereinsdeckel
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      PAIRING_ADMIN_TOKEN: ${PAIRING_ADMIN_TOKEN:?PAIRING_ADMIN_TOKEN in .env setzen}
+      MEDIA_DIR: /data/media
+    volumes:
+      - media:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN in .env setzen}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:

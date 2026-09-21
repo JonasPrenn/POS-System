@@ -1,0 +1,6 @@
+# Caddy holt und erneuert das Zertifikat selbst; die App verlangt HTTPS, und iOS lehnt
+# selbstsignierte Zertifikate ab (Spezifikation 7.1).
+{$DOMAIN} {
+    encode gzip
+    reverse_proxy api:8080
+}
