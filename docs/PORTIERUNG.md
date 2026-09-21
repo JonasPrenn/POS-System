@@ -19,18 +19,19 @@ Saldoregel liegt in `core/.../data/Ledger.kt`.
 | `xcodebuild` für iosApp, Debug, iPad-Simulator | BUILD SUCCEEDED |
 | Start im iPad-Simulator (iPad Pro 13", iOS 26.5) | Verkaufsbildschirm mit Leiste, Bestellung, Icons; Datenbank angelegt; Produkte aus der Datenbank erscheinen |
 | Dasselbe mit **Xcode 27.0** (SDK iOS 27.0), 21. September | `xcodebuild` BUILD SUCCEEDED, `:shared:allTests` grün, der neue Build startet im Simulator (Runtime iOS 26.5) und öffnet die vorhandene Datenbank |
+| Bedienung in der echten App im iPad-Simulator (Build mit Xcode 27), 21. September | Barverkauf: Kachel, Bezahlen, Bar, 10 € gegeben, Rückgeld 5,80 €, Abschließen. Deckel: Mitglied wählen, Kachel, Bezahlen, Deckel-Kachel, Abschließen. Danach in der Datenbank der App eine `CASH`-Zeile ohne Mitglied und eine `MEMBER_BALANCE`-Zeile auf Maria Bauer, Saldo 23,50 → 19,30 €; die Historie zeigt beide Vorgänge. Die Berührungen gingen durch UIKit und den `ComposeUIViewController`. Die Produktsuche nimmt Eingaben der Bildschirmtastatur an und filtert das Raster |
 | Android im Emulator (Medium_Tablet, API 37) mit **bestehender** Datenbank | Barverkauf mit Keypad und Rückgeld, Verkauf auf den Deckel (Saldo 43,50 → 40,00 €), Historie, Mitglieder, Einstellungen — alles ohne Absturz |
 
 **Nicht geprüft:**
 
 - **Start auf einem echten iPad.** Auf diesem Mac gibt es keine Signaturidentität und
   kein angemeldetes Apple-Konto; das kann nur der Besitzer nachholen (unten).
-- **Die Berührung durch UIKit hindurch.** Bar und Deckel sind auf iOS über
-  `SalesFlowOnIosTest` belegt, aber der baut die Oberfläche in einer Szene ohne Fenster
-  auf und klickt über die Semantik. Dass ein Finger auf dem Glas dieselben Knoten
-  trifft, die Bildschirmtastatur und das Verhalten unter dem echten
-  `ComposeUIViewController` zeigt erst die Hand am Gerät oder am Simulatorfenster — das
-  wurde auf iOS nicht durchgespielt, nur unter Android.
+- **Die übrigen Bildschirme auf iOS.** Im Simulator bedient wurden der Verkauf (bar und
+  auf den Deckel), die Produktsuche mit der Bildschirmtastatur und die Historie. Nicht
+  bedient: Mitgliedersuche, manueller Betrag, Rabatt, Aufladung, und die
+  Verwaltungsbildschirme für Produkte, Lager, Mitglieder, Kategorien, Auswertung und
+  Einstellungen. Sie sind derselbe Compose-Code wie unter Android, wo sie durchgespielt
+  wurden.
 - **Dateiauswahl, Kamera, Sicherungsordner, BGTaskScheduler auf iOS.** Übersetzt,
   nie ausgeführt. Delegates und Sicherheits-Scope zeigen ihr Verhalten erst auf einem
   Gerät.
