@@ -55,6 +55,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.data.entity.Member
+import com.example.vereins_kassensystem.data.entity.displayName
+import com.example.vereins_kassensystem.data.entity.matches
 import com.example.vereins_kassensystem.data.entity.ProductVariant
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.CategoryFilterRow
@@ -572,7 +574,7 @@ private fun MemberSection(
                 MemberAvatar(selectedMember.name)
                 Spacer(Modifier.width(Spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(selectedMember.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                    Text(selectedMember.displayName, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                     MoneyText(
                         amount = selectedMember.balance,
                         style = MoneySmall,
@@ -706,7 +708,7 @@ fun MemberSelectionDialog(
 ) {
     var query by remember { mutableStateOf("") }
     val filtered = remember(query, members) {
-        if (query.isBlank()) members else members.filter { it.name.contains(query, ignoreCase = true) }
+        members.filter { it.matches(query) }
     }
 
     AlertDialog(
@@ -734,7 +736,7 @@ fun MemberSelectionDialog(
                     LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
                         items(filtered, key = { it.id }) { member ->
                             ListItem(
-                                headlineContent = { Text(member.name) },
+                                headlineContent = { Text(member.displayName) },
                                 supportingContent = { Text(Money.format(member.balance)) },
                                 leadingContent = { MemberAvatar(member.name, size = 36.dp) },
                                 modifier = Modifier.clickable {

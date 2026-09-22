@@ -7,7 +7,7 @@ am 21. September freigegeben und in vier Commits gebaut worden (7a bis 7d); was 
 entstand und wo es von der Spezifikation abweicht, steht unten in einem eigenen Abschnitt.
 
 **Vor dem ersten Start der neuen App auf dem Vereinstablet: sichern.** Das Update hebt die
-Datenbank von Schema 10 auf 11 und baut dabei jede Tabelle um. Im Emulator ist das mit
+Datenbank von Schema 10 auf 12 (11 baut jede Tabelle um, 12 ergänzt den Couleurnamen). Im Emulator ist das mit
 einem echten Datenbestand geprüft, auf dem Tablet selbst nicht.
 
 ---

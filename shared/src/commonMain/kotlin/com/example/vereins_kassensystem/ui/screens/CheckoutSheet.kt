@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.example.vereins_kassensystem.data.entity.Member
+import com.example.vereins_kassensystem.data.entity.displayName
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.ui.components.AmountInput
 import com.example.vereins_kassensystem.ui.components.MoneyText
@@ -238,7 +239,7 @@ private fun PaymentChoice(
                 Icon(VdIcons.AccountBalanceWallet, contentDescription = null)
                 Spacer(Modifier.width(Spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Deckel · ${selectedMember.name}", style = MaterialTheme.typography.titleMedium)
+                    Text("Deckel · ${selectedMember.displayName}", style = MaterialTheme.typography.titleMedium)
                     Text(
                         text = "Guthaben ${Money.format(selectedMember.balance)}",
                         style = MaterialTheme.typography.bodySmall

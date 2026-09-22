@@ -54,6 +54,7 @@ object Entities {
         EntityDef("members", EntityKind.MASTER, listOf(
             id,
             Column("name", ColumnType.TEXT),
+            Column("nickname", ColumnType.TEXT, default = ""),
             Column("category_id", ColumnType.UUID, nullable = true),
             Column("last_used_timestamp", ColumnType.TIMESTAMP, nullable = true),
         )),

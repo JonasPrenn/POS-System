@@ -177,7 +177,7 @@ class AppRepository(private val database: AppDatabase) {
     // ------------------------------------------------------------- Mitglieder
 
     suspend fun insertMember(member: Member): String = write {
-        val row = MemberRow(id = member.id, name = member.name, categoryId = member.categoryId)
+        val row = MemberRow(id = member.id, name = member.name, nickname = member.nickname.trim(), categoryId = member.categoryId)
         memberDao.insert(row)
         insert(SyncTables.MEMBERS, row.id, RowCodec.encode(row))
         row.id

@@ -38,28 +38,30 @@ class Writes(private val db: Database) {
         }
     }
 
-    fun createMember(by: WebUser, name: String, categoryId: UUID?): UUID {
+    fun createMember(by: WebUser, name: String, nickname: String, categoryId: UUID?): UUID {
         val clean = cleanName(name)
+        val vulgo = cleanNickname(nickname)
         return db.write { c ->
             if (c.queryOne("SELECT 1 FROM members WHERE NOT deleted AND lower(name) = lower(?)", clean) { true } == true) {
                 throw AccountProblem("„$clean“ gibt es schon. Zwei Deckel auf denselben Namen verwechselt an der Theke jeder.")
             }
             val id = UUID.fromString(Ids.new())
-            c.execute("INSERT INTO members (id, name, category_id) VALUES (?, ?, ?)", id, clean, existingCategory(c, categoryId))
+            c.execute("INSERT INTO members (id, name, nickname, category_id) VALUES (?, ?, ?, ?)", id, clean, vulgo, existingCategory(c, categoryId))
             AuditLog.record(c, by.id, by.displayName, "member.create", clean)
             id
         }
     }
 
-    fun updateMember(by: WebUser, id: UUID, name: String, categoryId: UUID?) {
+    fun updateMember(by: WebUser, id: UUID, name: String, nickname: String, categoryId: UUID?) {
         val clean = cleanName(name)
+        val vulgo = cleanNickname(nickname)
         db.write { c ->
             val before = c.queryOne("SELECT name FROM members WHERE id = ? AND NOT deleted FOR UPDATE", id) { it.getString("name") }
                 ?: throw AccountProblem("Dieses Mitglied gibt es nicht mehr.")
             if (c.queryOne("SELECT 1 FROM members WHERE NOT deleted AND id <> ? AND lower(name) = lower(?)", id, clean) { true } == true) {
                 throw AccountProblem("„$clean“ gibt es schon.")
             }
-            c.execute("UPDATE members SET name = ?, category_id = ? WHERE id = ?", clean, existingCategory(c, categoryId), id)
+            c.execute("UPDATE members SET name = ?, nickname = ?, category_id = ? WHERE id = ?", clean, vulgo, existingCategory(c, categoryId), id)
             AuditLog.record(c, by.id, by.displayName, "member.update", clean, if (before != clean) "vorher „$before“" else "Kategorie")
         }
     }
@@ -95,6 +97,10 @@ class Writes(private val db: Database) {
 
     private fun cleanName(name: String): String =
         name.trim().replace(Regex("\\s+"), " ").take(80).ifEmpty { throw AccountProblem("Bitte einen Namen angeben.") }
+
+    /** Ohne das „v.“ davor — das setzt die Anzeige. */
+    private fun cleanNickname(nickname: String): String =
+        nickname.trim().removePrefix("v.").removePrefix("vulgo").trim().replace(Regex("\\s+"), " ").take(60)
 
     private fun existingCategory(c: java.sql.Connection, id: UUID?): UUID? =
         id?.takeIf { c.queryOne("SELECT 1 FROM member_categories WHERE id = ? AND NOT deleted", it) { true } == true }

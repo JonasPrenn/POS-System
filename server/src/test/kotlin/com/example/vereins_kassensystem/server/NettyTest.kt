@@ -38,7 +38,7 @@ class NettyTest {
                 HttpResponse.BodyHandlers.ofString()
             )
             assertEquals(200, health.statusCode())
-            assertTrue(health.body().contains("\"schema_version\":\"3\""), health.body())
+            assertTrue(health.body().contains("\"schema_version\":\"4\""), health.body())
 
             val unauthorized = client.send(
                 HttpRequest.newBuilder(URI("http://127.0.0.1:$port/v1/sync/changes")).GET().build(),

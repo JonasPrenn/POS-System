@@ -140,7 +140,7 @@ internal fun Route.mainPages(web: Web) {
         call.guardedPost(web, Area.MEMBERS) { ctx, form ->
             if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Mitglieder legt der Kassier an.")
             val target = try {
-                val id = web.writes.createMember(ctx.user, form["name"].orEmpty(), uuidOrNull(form["kategorie"]))
+                val id = web.writes.createMember(ctx.user, form["name"].orEmpty(), form["vulgo"].orEmpty(), uuidOrNull(form["kategorie"]))
                 "m=$id&hinweis=" + "Angelegt. Die Tablets bekommen das Mitglied beim nächsten Abgleich.".encodeURLParameter()
             } catch (e: AccountProblem) {
                 "fehler=" + e.message.orEmpty().encodeURLParameter()
@@ -153,7 +153,7 @@ internal fun Route.mainPages(web: Web) {
             if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Mitglieder ändert der Kassier.")
             val id = uuidOrNull(call.parameters["id"]) ?: return@guardedPost call.respondRedirect("$BASE/mitglieder")
             val outcome = try {
-                web.writes.updateMember(ctx.user, id, form["name"].orEmpty(), uuidOrNull(form["kategorie"]))
+                web.writes.updateMember(ctx.user, id, form["name"].orEmpty(), form["vulgo"].orEmpty(), uuidOrNull(form["kategorie"]))
                 "hinweis=" + "Gespeichert.".encodeURLParameter()
             } catch (e: AccountProblem) {
                 "fehler=" + e.message.orEmpty().encodeURLParameter()
@@ -395,7 +395,7 @@ private fun HTML.membersPage(
     val tabs = all.count { it.owes }
     val test = MEMBER_FILTERS.firstOrNull { it.first == filter }?.third ?: { true }
     val q = query.trim().lowercase()
-    val visible = all.filter { test(it) && (q.isEmpty() || it.name.lowercase().contains(q)) }
+    val visible = all.filter { test(it) && (q.isEmpty() || it.name.lowercase().contains(q) || it.nickname.lowercase().contains(q)) }
     fun url(f: String = filter, m: MemberLine? = null) = buildString {
         append("$BASE/mitglieder?f=$f")
         if (query.isNotBlank()) append("&q=${query.encodeURLParameter()}")
@@ -407,6 +407,7 @@ private fun HTML.membersPage(
             summary("btn btn-primary") { icon("plus", "m"); +"Mitglied anlegen" }
             postForm(ctx, "$BASE/mitglieder", "stack-tight confirm") {
                 label("field") { span { +"Name" }; input(InputType.text, name = "name") { required = true; maxLength = "80" } }
+                label("field") { span { +"Couleurname (Vulgo)" }; input(InputType.text, name = "vulgo") { placeholder = "Sokrates"; maxLength = "60" } }
                 categorySelect(categories, null)
                 button(type = ButtonType.submit, classes = "btn btn-primary") { +"Anlegen" }
             }
@@ -420,7 +421,7 @@ private fun HTML.membersPage(
                     label("search") {
                         icon("search", "m")
                         span("sr") { +"Mitglied suchen" }
-                        input(InputType.search, name = "q") { value = query; placeholder = "Name" }
+                        input(InputType.search, name = "q") { value = query; placeholder = "Name oder Couleurname" }
                     }
                     div("pills") {
                         for ((key, text, rule) in MEMBER_FILTERS) a(href = url(f = key), classes = "pill") {
@@ -441,7 +442,7 @@ private fun HTML.membersPage(
                                     span("avatar avatar-s") { +initialsOf(m.name) }
                                     a(href = url(m = m), classes = "cover two") {
                                         span("title-s") { +m.name }
-                                        span("cap") { +(m.category ?: "Ohne Kategorie") }
+                                        span("cap") { +listOfNotNull(m.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }, m.category ?: "Ohne Kategorie").joinToString(" · ") }
                                     }
                                 }
                             }
@@ -505,6 +506,7 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
         summary("btn") { +"Ändern" }
         postForm(ctx, "$BASE/mitglieder/${m.id}", "stack-tight confirm") {
             label("field") { span { +"Name" }; input(InputType.text, name = "name") { value = m.name; required = true; maxLength = "80" } }
+            label("field") { span { +"Couleurname (Vulgo)" }; input(InputType.text, name = "vulgo") { value = m.nickname; maxLength = "60" } }
             categorySelect(categories, m.category)
             button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" }
         }
@@ -517,7 +519,7 @@ private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement:
             span("avatar avatar-l") { +initialsOf(m.name) }
             div("two") {
                 h2("title-m") { +m.name }
-                span("muted") { +(m.category ?: "Ohne Kategorie") }
+                span("muted") { +listOfNotNull(m.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }, m.category ?: "Ohne Kategorie").joinToString(" · ") }
             }
         }
         div("sub stack-tight") {

@@ -70,6 +70,7 @@ object RowCodec {
     fun encode(row: MemberRow): JsonObject = buildJsonObject {
         put("id", row.id)
         put("name", row.name)
+        put("nickname", row.nickname)
         put("category_id", row.categoryId)
     }
 
@@ -185,6 +186,8 @@ object RowCodec {
     fun decodeMember(row: JsonObject, deleted: Boolean) = MemberRow(
         id = row.text("id"),
         name = row.text("name"),
+        // Fehlt bei einem älteren Server; dann gibt es eben keinen.
+        nickname = row.textOrNull("nickname") ?: "",
         categoryId = row.textOrNull("category_id"),
         sync = row.meta(deleted)
     )

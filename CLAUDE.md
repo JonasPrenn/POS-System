@@ -16,7 +16,7 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Server- und API-Spezifikation | fertig, `docs/VereinsDeckel-Server-und-API.pdf` |
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
 | Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufgestellt ist er noch nirgends |
-| Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 11 mit UUID-Schlüsseln, hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
+| Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 12 (11 = UUID-Schlüssel, 12 = Couleurname) mit hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
 | Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Schreibt nur Mitglieder sowie Aufladungen und Korrekturen (`web/Writes.kt`, immer über `Database.write`). Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in

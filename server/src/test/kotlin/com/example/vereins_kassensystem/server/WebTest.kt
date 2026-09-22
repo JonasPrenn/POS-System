@@ -238,7 +238,7 @@ class WebTest {
         val kassier = browser()
         kassier.signIn()
         val page = kassier.page("/verwaltung/mitglieder")
-        val created = kassier.form("/verwaltung/mitglieder", "_csrf" to csrfOf(page), "name" to "  David   Leitner ", "kategorie" to bursch)
+        val created = kassier.form("/verwaltung/mitglieder", "_csrf" to csrfOf(page), "name" to "  David   Leitner ", "vulgo" to "v. Ikarus", "kategorie" to bursch)
         val member = assertNotNull(Regex("m=([0-9a-f-]{36})").find(assertNotNull(created.headers[HttpHeaders.Location]))).groupValues[1]
         assertContains(assertNotNull(kassier.form("/verwaltung/mitglieder", "_csrf" to csrfOf(page), "name" to "david leitner").headers[HttpHeaders.Location]), "fehler=", message = "kein zweiter Deckel auf denselben Namen")
 
@@ -251,12 +251,15 @@ class WebTest {
 
         val detail = kassier.page("/verwaltung/mitglieder?m=$member")
         assertContains(detail, "David Leitner")
+        assertContains(detail, "v. Ikarus", message = "der Couleurname, ohne das doppelte v.")
+        assertContains(kassier.page("/verwaltung/mitglieder?q=ikar"), "m=$member", message = "die Suche findet den Couleurnamen")
         assertContains(detail, "45,80 €", message = "50,00 − 4,20")
         assertContains(detail, "Guthabenkorrektur")
 
         // Das Tablet bekommt Mitglied und beide Buchungen beim nächsten Abgleich, in Sequenzreihenfolge.
         val pulled = ctx.client.get("/v1/sync/changes?since=$since") { bearerAuth(device.token) }.body<ChangesResponse>()
         assertEquals(listOf("members", "transactions", "transactions"), pulled.changes.map { it.entity })
+        assertEquals("Ikarus", pulled.changes[0].row["nickname"]!!.jsonPrimitive.content, "der Couleurname geht mit zu den Tablets")
         assertEquals(pulled.changes.map { it.seq }.sorted(), pulled.changes.map { it.seq })
         val topUp = pulled.changes[1].row
         assertEquals(Ledger.TOPUP_REF, topUp["product_ref"]!!.jsonPrimitive.content)

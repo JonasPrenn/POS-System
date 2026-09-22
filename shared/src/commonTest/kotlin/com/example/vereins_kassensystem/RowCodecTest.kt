@@ -52,8 +52,10 @@ class RowCodecTest {
         val category = MemberCategory(name = "Aktive", negativeBalanceLimit = -20.0)
         assertEquals(category.copy(sync = pulled), RowCodec.decodeCategory(RowCodec.encode(category).fromServer(), false))
 
-        val member = MemberRow(name = "Maria Bauer", categoryId = category.id)
+        val member = MemberRow(name = "Maria Bauer", nickname = "Minerva", categoryId = category.id)
         assertEquals(member.copy(sync = pulled), RowCodec.decodeMember(RowCodec.encode(member).fromServer(), false))
+        // Ein Server, der den Couleurnamen noch nicht kennt, schickt keinen: dann gibt es keinen.
+        assertEquals("", RowCodec.decodeMember(JsonObject(RowCodec.encode(member).fromServer() - "nickname"), false).nickname)
         assertNull(RowCodec.decodeMember(RowCodec.encode(member.copy(categoryId = null)).fromServer(), false).categoryId)
 
         val product = Product(name = "Radler", price = 3.8, category = "Getränke", imageUrl = null, hasVariants = true, servingSize = 0.5)

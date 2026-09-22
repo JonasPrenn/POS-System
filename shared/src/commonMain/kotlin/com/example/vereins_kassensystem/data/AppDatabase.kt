@@ -49,7 +49,7 @@ import com.example.vereins_kassensystem.platform.nowMillis
         PendingChange::class,
         SyncState::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -287,7 +287,14 @@ abstract class AppDatabase : RoomDatabase() {
          * Liegen hier statt im Bauaufruf, weil der jetzt je Plattform eigen ist —
          * Android und iOS sollen aber unmoeglich verschiedene Schemata bekommen.
          */
-        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, Migration10To11)
+        /** Schema 12: der Couleurname am Mitglied. */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE members ADD COLUMN nickname TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, Migration10To11, MIGRATION_11_12)
 
         const val FILE_NAME = "vereins_kassensystem_db"
     }

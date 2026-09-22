@@ -19,6 +19,8 @@ import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import kotlinx.coroutines.launch
 import com.example.vereins_kassensystem.data.entity.Member
+import com.example.vereins_kassensystem.data.entity.displayName
+import com.example.vereins_kassensystem.data.entity.matches
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.ui.icons.VdIcons
@@ -61,7 +63,7 @@ fun MemberManagementScreen(
         if (searchQuery.isBlank()) {
             members
         } else {
-            members.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            members.filter { it.matches(searchQuery) }
         }
     }
 
@@ -164,8 +166,8 @@ fun MemberManagementScreen(
             MemberDialog(
                 categories = categories,
                 onDismiss = { showAddDialog = false },
-                onConfirm = { name, categoryId ->
-                    viewModel.insertMember(Member(name = name, categoryId = categoryId))
+                onConfirm = { name, nickname, categoryId ->
+                    viewModel.insertMember(Member(name = name, nickname = nickname, categoryId = categoryId))
                     showAddDialog = false
                 }
             )
@@ -176,8 +178,8 @@ fun MemberManagementScreen(
                 member = memberToEdit,
                 categories = categories,
                 onDismiss = { memberToEdit = null },
-                onConfirm = { name, categoryId ->
-                    viewModel.updateMember(memberToEdit!!.copy(name = name, categoryId = categoryId))
+                onConfirm = { name, nickname, categoryId ->
+                    viewModel.updateMember(memberToEdit!!.copy(name = name, nickname = nickname, categoryId = categoryId))
                     memberToEdit = null
                 }
             )
@@ -250,9 +252,10 @@ fun MemberDialog(
     member: Member? = null,
     categories: List<MemberCategory>,
     onDismiss: () -> Unit,
-    onConfirm: (String, String?) -> Unit
+    onConfirm: (name: String, nickname: String, categoryId: String?) -> Unit
 ) {
     var name by remember { mutableStateOf(member?.name ?: "") }
+    var nickname by remember { mutableStateOf(member?.nickname ?: "") }
     var selectedCategoryId by remember { mutableStateOf<String?>(member?.categoryId) }
     var expanded by remember { mutableStateOf(false) }
 
@@ -268,7 +271,16 @@ fun MemberDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(Spacing.lg))
-                
+                OutlinedTextField(
+                    value = nickname,
+                    onValueChange = { nickname = it },
+                    label = { Text("Couleurname (Vulgo)") },
+                    placeholder = { Text("Sokrates") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(Spacing.lg))
+
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
@@ -309,7 +321,7 @@ fun MemberDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(name, selectedCategoryId) },
+                onClick = { onConfirm(name.trim(), nickname.trim(), selectedCategoryId) },
                 enabled = name.isNotBlank()
             ) {
                 Text("Speichern")
@@ -358,7 +370,7 @@ fun TopUpDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Guthaben · ${member.name}") },
+        title = { Text("Guthaben · ${member.displayName}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Text(

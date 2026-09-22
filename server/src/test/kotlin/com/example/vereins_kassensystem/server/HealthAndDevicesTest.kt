@@ -24,7 +24,7 @@ class HealthAndDevicesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.body<HealthResponse>()
         assertEquals("ok", body.status)
-        assertEquals("3", body.schemaVersion)
+        assertEquals("4", body.schemaVersion)
         assertTrue(body.serverTime.endsWith("Z"), body.serverTime)
     }
 
