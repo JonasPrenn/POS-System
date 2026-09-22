@@ -14,6 +14,7 @@ import kotlinx.html.button
 import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.h2
+import kotlinx.html.hiddenInput
 import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.li
@@ -25,6 +26,7 @@ import kotlinx.html.span
 import kotlinx.html.strong
 import kotlinx.html.summary
 import kotlinx.html.table
+import kotlinx.html.textArea
 import kotlinx.html.tbody
 import kotlinx.html.td
 import kotlinx.html.th
@@ -54,6 +56,9 @@ private val ACTIONS = mapOf(
     "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert",
     "tab.topup" to "Deckel aufgeladen", "tab.correction" to "Deckel korrigiert",
     "purchase.create" to "Beleg erfasst", "purchase.update" to "Belegdaten geändert", "purchase.paid" to "Beleg bezahlt",
+    "profile.update" to "Profil geändert", "statement.run" to "Abrechnungslauf erstellt", "statement.sent" to "Abrechnung versandt",
+    "statement.reminded" to "Erinnerung", "statement.cancelled" to "Abrechnung storniert", "statement.paid" to "Zahlung eingegangen",
+    "bank.import" to "Kontoauszug eingelesen", "bank.ignored" to "Bankumsatz ohne Zuordnung",
     "purchase.stock" to "Wareneingang gebucht", "purchase.line" to "Belegzeile zugeordnet", "purchase.line.remove" to "Belegzeile entfernt", "supplier.update" to "Lieferant geändert",
 )
 
@@ -138,8 +143,11 @@ internal fun Route.systemPages(web: Web) {
     post("/einstellungen") {
         call.guardedPost(web, Area.SETTINGS) { ctx, form ->
             val outcome = try {
-                web.settings.save(form["name"].orEmpty(), form["farbe"].orEmpty(), form["monat"]?.toIntOrNull() ?: 1)
-                web.audit.record(ctx.user, "settings.save", detail = "Name, Vereinsfarbe, Rechnungsjahr")
+                when (form["teil"]) {
+                    "bank" -> { web.settings.saveBank(form["inhaber"].orEmpty(), form["iban"].orEmpty(), form["bic"].orEmpty(), form["text"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Bankverbindung und Text der Abrechnung") }
+                    "smtp" -> { web.settings.saveSmtp(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 587, form["benutzer"].orEmpty(), form["passwort"], form["absender"].orEmpty(), form["starttls"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Versand") }
+                    else -> { web.settings.save(form["name"].orEmpty(), form["farbe"].orEmpty(), form["monat"]?.toIntOrNull() ?: 1, form["anschrift"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Name, Vereinsfarbe, Rechnungsjahr, Anschrift") }
+                }
                 "hinweis=" + "Gespeichert.".encodeURLParameter()
             } catch (e: AccountProblem) {
                 "fehler=" + e.message.orEmpty().encodeURLParameter()
@@ -320,6 +328,7 @@ private fun HTML.settingsPage(ctx: PageContext, notice: String?, problem: String
                         select { name = "monat"; MONTHS.forEachIndexed { i, m -> option { value = "${i + 1}"; if (i + 1 == ctx.verein.fiscalStartMonth) selected = true; +m } } }
                     }
                 }
+                label("field") { span { +"Anschrift der Bude, wie sie auf den Kontoauszug kommt (eine Zeile je Zeile)" }; textArea(classes = "input") { name = "anschrift"; rows = "3"; +ctx.verein.address } }
                 div("field") {
                     span { +"Vereinsfarbe — färbt Navigation und Avatare, nie Geld, Warnung oder Fehler" }
                     div("swatches") {
@@ -329,6 +338,36 @@ private fun HTML.settingsPage(ctx: PageContext, notice: String?, problem: String
                         }
                     }
                 }
+                div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+            }
+        }
+        panel {
+            postForm(ctx, "$BASE/einstellungen", "panel-body") {
+                hiddenInput(name = "teil") { value = "bank" }
+                h2("title-m") { +"Bankverbindung und Abrechnung" }
+                p("muted") { +"Kommt auf jeden Kontoauszug, mit QR-Code zum Bezahlen. Ohne IBAN steht dort nur der Verwendungszweck." }
+                div("form-grid") {
+                    label("field") { span { +"Kontoinhaber" }; input(InputType.text, name = "inhaber") { value = ctx.verein.bank.holder; maxLength = "70" } }
+                    label("field") { span { +"IBAN" }; input(InputType.text, name = "iban") { value = ctx.verein.bank.iban.chunked(4).joinToString(" "); placeholder = "AT.. .... .... .... ...."; attributes["autocomplete"] = "off" } }
+                    label("field") { span { +"BIC (nur nötig, wenn die Bank ihn verlangt)" }; input(InputType.text, name = "bic") { value = ctx.verein.bank.bic; maxLength = "11" } }
+                }
+                label("field") { span { +"Text unter jedem Auszug (etwa: Fragen an den Kassier, Telefon)" }; textArea(classes = "input") { name = "text"; rows = "2"; +ctx.verein.statementText } }
+                div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+            }
+        }
+        panel {
+            postForm(ctx, "$BASE/einstellungen", "panel-body") {
+                hiddenInput(name = "teil") { value = "smtp" }
+                h2("title-m") { +"E-Mail-Versand" }
+                p("muted") { +"Der SMTP-Zugang des Vereins, mit dem Abrechnungen und Erinnerungen verschickt werden. ${if (ctx.verein.smtp.configured) "Eingerichtet." else "Noch nicht eingerichtet — bis dahin gehen Abrechnungen in die Druckmappe."}" }
+                div("form-grid") {
+                    label("field") { span { +"SMTP-Server" }; input(InputType.text, name = "host") { value = ctx.verein.smtp.host; placeholder = "smtp.example.at" } }
+                    label("field") { span { +"Port (587 mit STARTTLS, 465 mit SSL)" }; input(InputType.number, name = "port") { value = ctx.verein.smtp.port.toString() } }
+                    label("field") { span { +"Benutzer" }; input(InputType.text, name = "benutzer") { value = ctx.verein.smtp.user; attributes["autocomplete"] = "off" } }
+                    label("field") { span { +(if (ctx.verein.smtp.password.isNotEmpty()) "Passwort (leer: bleibt)" else "Passwort") }; input(InputType.password, name = "passwort") { attributes["autocomplete"] = "new-password" } }
+                    label("field") { span { +"Absender" }; input(InputType.email, name = "absender") { value = ctx.verein.smtp.from; placeholder = "kassier@example.at" } }
+                }
+                label("check") { input(InputType.checkBox, name = "starttls") { value = "1"; checked = ctx.verein.smtp.startTls }; span { +"STARTTLS verwenden" } }
                 div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
             }
         }

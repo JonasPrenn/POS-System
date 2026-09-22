@@ -6,6 +6,8 @@ import com.example.vereins_kassensystem.server.devices.DeviceStore
 import com.example.vereins_kassensystem.server.devices.Tokens
 import com.example.vereins_kassensystem.server.media.ReceiptStore
 import com.example.vereins_kassensystem.server.sync.SyncStore
+import com.example.vereins_kassensystem.server.web.Mailer
+import com.example.vereins_kassensystem.server.web.SmtpMailer
 import com.example.vereins_kassensystem.server.web.Web
 import com.example.vereins_kassensystem.server.web.webRoutes
 import com.example.vereins_kassensystem.sync.WireJson
@@ -28,7 +30,7 @@ import kotlin.time.Duration.Companion.seconds
 object AdminPrincipal
 
 /** Der Dienst — ohne Netz und Datenbank aufgesetzt, damit die Tests ihn genauso starten. */
-fun Application.module(config: ServerConfig, db: Database) {
+fun Application.module(config: ServerConfig, db: Database, mailer: Mailer = SmtpMailer) {
     val devices = DeviceStore(db, config.pairingCodeTtl)
     val sync = SyncStore(db)
     val receipts = ReceiptStore(config.mediaDir)
@@ -65,6 +67,6 @@ fun Application.module(config: ServerConfig, db: Database) {
 
     routing {
         apiRoutes(db, devices, sync, receipts)
-        webRoutes(Web(config, db, devices, receipts))
+        webRoutes(Web(config, db, devices, receipts, mailer))
     }
 }

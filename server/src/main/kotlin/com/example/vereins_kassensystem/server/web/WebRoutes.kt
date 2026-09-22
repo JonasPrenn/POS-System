@@ -36,13 +36,14 @@ import java.time.LocalDate
 import java.util.UUID
 
 /** Was die Seiten brauchen, an einer Stelle. */
-class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val receipts: ReceiptStore) {
+class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val receipts: ReceiptStore, val mailer: Mailer = SmtpMailer) {
     val accounts = Accounts(db) { LocalDate.now(config.zone) }
     val audit = AuditLog(db)
     val settings = VereinSettings(db)
     val reads = Reads(db, config.zone)
     val writes = Writes(db)
     val purchases = Purchases(db, config.zone)
+    val statements = Statements(db, writes, config.zone)
 }
 
 private const val COOKIE = "vd_session"
@@ -70,6 +71,7 @@ fun Route.webRoutes(web: Web) {
         gate(web)
         mainPages(web)
         warePages(web)
+        statementPages(web)
         systemPages(web)
     }
 }

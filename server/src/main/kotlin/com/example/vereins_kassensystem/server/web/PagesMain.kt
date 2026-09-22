@@ -132,6 +132,7 @@ internal fun Route.mainPages(web: Web) {
             call.html {
                 membersPage(ctx, all, call.request.queryParameters["q"].orEmpty(), call.request.queryParameters["f"] ?: "alle",
                     shown, selected != null, shown?.let { web.reads.statement(it.id, 12) }.orEmpty(), categories,
+                    shown?.let { web.statements.profile(it.id) }, shown?.let { web.statements.statementsOf(it.id, 5) }.orEmpty(),
                     call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"])
             }
         }
@@ -391,7 +392,7 @@ private val MEMBER_FILTERS: List<Triple<String, String, (MemberLine) -> Boolean>
 private fun HTML.membersPage(
     ctx: PageContext, all: List<MemberLine>, query: String, filter: String,
     shown: MemberLine?, chosen: Boolean, statement: List<StatementLine>, categories: List<MemberCategoryOption>,
-    notice: String?, problem: String?,
+    profile: Profile?, history: List<Statement>, notice: String?, problem: String?,
 ) {
     val tabs = all.count { it.owes }
     val test = MEMBER_FILTERS.firstOrNull { it.first == filter }?.third ?: { true }
@@ -458,7 +459,7 @@ private fun HTML.membersPage(
             div("split-detail stack") {
                 a(href = url(), classes = "back") { icon("back", "m"); +"Alle Mitglieder" }
                 if (shown == null) panel { p("empty") { +"Noch kein Mitglied." } }
-                else memberDetail(ctx, shown, statement, categories)
+                else memberDetail(ctx, shown, statement, categories, profile ?: Profile.empty(shown.id), history)
             }
         }
     }
@@ -514,7 +515,7 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
     }
 }
 
-private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement: List<StatementLine>, categories: List<MemberCategoryOption>) = panel {
+private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement: List<StatementLine>, categories: List<MemberCategoryOption>, profile: Profile, history: List<Statement>) = panel {
     div("panel-body") {
         div("row") {
             span("avatar avatar-l") { +initialsOf(m.name) }
@@ -557,6 +558,7 @@ private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement:
             }
             p("cap") { +"Der Stand ist die Summe der Buchungen aller Geräte — hergeleitet, nirgends gespeichert." }
         }
+        profileSection(ctx, m, profile, history, ctx.user.role.writesMembers)
     }
 }
 

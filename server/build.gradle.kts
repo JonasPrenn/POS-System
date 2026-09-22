@@ -47,6 +47,11 @@ dependencies {
     // Hinter Caddy ist jede Anfrage „vom Proxy“; die Begrenzung der Anmeldeversuche braucht die echte Adresse.
     implementation(libs.ktor.server.forwarded.header)
 
+    // Abrechnung (Konzept 4.2): PDF aus HTML, der Zahlungs-QR-Code, Versand per E-Mail.
+    implementation(libs.openhtmltopdf.pdfbox)
+    implementation(libs.zxing.core)
+    implementation(libs.angus.mail)
+
     implementation(libs.hikari)
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)

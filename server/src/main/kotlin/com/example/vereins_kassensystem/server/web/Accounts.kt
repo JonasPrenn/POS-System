@@ -17,7 +17,7 @@ import java.util.Base64
 import java.util.UUID
 
 /** Die Bereiche der Verwaltung; an ihnen hängen die Rechte, nicht an einzelnen Seiten. */
-enum class Area { OVERVIEW, MEMBERS, REPORTS, STOCK, PURCHASES, DEVICES, USERS, AUDIT, SETTINGS }
+enum class Area { OVERVIEW, MEMBERS, STATEMENTS, REPORTS, STOCK, PURCHASES, DEVICES, USERS, AUDIT, SETTINGS }
 
 /**
  * Wer die Web-Oberfläche benutzt (docs/WEB-VERWALTUNG.md, 2.4). Chargen wechseln jedes
@@ -28,12 +28,13 @@ enum class Area { OVERVIEW, MEMBERS, REPORTS, STOCK, PURCHASES, DEVICES, USERS, 
  */
 enum class Role(val label: String, val hint: String, vararg areas: Area) {
     ADMIN("Administrator", "Alles, einschließlich Benutzer, Geräte und Einstellungen", *Area.entries.toTypedArray()),
-    KASSIER("Kassier", "Alles zu Geld und Mitgliedern, koppelt und sperrt Geräte",
-        Area.OVERVIEW, Area.MEMBERS, Area.REPORTS, Area.STOCK, Area.PURCHASES, Area.DEVICES, Area.AUDIT),
-    VORSTAND("Senior und Chargen", "Liest mit: Übersicht, Mitglieder, Berichte, Lager, Einkauf",
-        Area.OVERVIEW, Area.MEMBERS, Area.REPORTS, Area.STOCK, Area.PURCHASES),
+    // Bankverbindung und E-Mail-Versand stehen in den Einstellungen; beides ist Sache des Kassiers.
+    KASSIER("Kassier", "Alles zu Geld und Mitgliedern, koppelt und sperrt Geräte, Einstellungen",
+        Area.OVERVIEW, Area.MEMBERS, Area.STATEMENTS, Area.REPORTS, Area.STOCK, Area.PURCHASES, Area.DEVICES, Area.AUDIT, Area.SETTINGS),
+    VORSTAND("Senior und Chargen", "Liest mit: Übersicht, Mitglieder, Abrechnung, Berichte, Lager, Einkauf",
+        Area.OVERVIEW, Area.MEMBERS, Area.STATEMENTS, Area.REPORTS, Area.STOCK, Area.PURCHASES),
     BUDENWART("Budenwart", "Lager und Einkauf — keine Deckel", Area.STOCK, Area.PURCHASES),
-    PRUEFER("Rechnungsprüfer", "Lesend und auf Zeit: Berichte, Einkauf, Protokoll", Area.REPORTS, Area.PURCHASES, Area.AUDIT);
+    PRUEFER("Rechnungsprüfer", "Lesend und auf Zeit: Abrechnung, Berichte, Einkauf, Protokoll", Area.STATEMENTS, Area.REPORTS, Area.PURCHASES, Area.AUDIT);
 
     val areas: Set<Area> = areas.toSet()
 
@@ -213,10 +214,23 @@ class AuditLog(private val db: Database) {
     }
 }
 
-/** Was der Verein über sich einstellt: Name, Farbe, Beginn des Rechnungsjahres. */
+/** Der SMTP-Zugang des Vereins, für Abrechnungen und Erinnerungen. Leer: kein Versand. */
+class Smtp(val host: String, val port: Int, val user: String, val password: String, val from: String, val startTls: Boolean) {
+    val configured get() = host.isNotBlank() && from.isNotBlank()
+}
+
+/** Die Bankverbindung, wie sie auf den Kontoauszug kommt. */
+class BankAccount(val holder: String, val iban: String, val bic: String) {
+    val configured get() = iban.isNotBlank() && holder.isNotBlank()
+}
+
+/** Was der Verein über sich einstellt: Name, Farbe, Anschrift, Rechnungsjahr, Bank, E-Mail. */
 class VereinSettings(private val db: Database) {
 
-    class Values(val name: String, val accent: String, val fiscalStartMonth: Int)
+    class Values(
+        val name: String, val accent: String, val fiscalStartMonth: Int, val address: String,
+        val bank: BankAccount, val smtp: Smtp, val statementText: String,
+    )
 
     fun load(): Values = db.transaction { c ->
         val all = c.query("SELECT key, value FROM settings") { it.getString("key") to it.getString("value") }.toMap()
@@ -224,23 +238,60 @@ class VereinSettings(private val db: Database) {
             name = all[NAME].orEmpty(),
             accent = all[ACCENT]?.takeIf(HEX::matches) ?: DEFAULT_ACCENT,
             fiscalStartMonth = all[FISCAL]?.toIntOrNull()?.takeIf { it in 1..12 } ?: 1,
+            address = all[ADDRESS].orEmpty(),
+            bank = BankAccount(all[BANK_HOLDER].orEmpty().ifBlank { all[NAME].orEmpty() }, all[IBAN].orEmpty(), all[BIC].orEmpty()),
+            smtp = Smtp(all[SMTP_HOST].orEmpty(), all[SMTP_PORT]?.toIntOrNull() ?: 587, all[SMTP_USER].orEmpty(), all[SMTP_PASSWORD].orEmpty(), all[SMTP_FROM].orEmpty(), all[SMTP_TLS] != "0"),
+            statementText = all[STATEMENT_TEXT].orEmpty(),
         )
     }
 
-    fun save(name: String, accent: String, fiscalStartMonth: Int) {
+    fun save(name: String, accent: String, fiscalStartMonth: Int, address: String) {
         if (!HEX.matches(accent)) throw AccountProblem("Die Vereinsfarbe muss eine Farbe der Form #RRGGBB sein.")
         if (fiscalStartMonth !in 1..12) throw AccountProblem("Der Monat muss zwischen 1 und 12 liegen.")
-        db.transaction { c ->
-            for ((key, value) in listOf(NAME to name.trim(), ACCENT to accent.uppercase(), FISCAL to fiscalStartMonth.toString())) {
-                c.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", key, value)
-            }
-        }
+        put(NAME to name.trim(), ACCENT to accent.uppercase(), FISCAL to fiscalStartMonth.toString(), ADDRESS to address.trim().take(400))
+    }
+
+    fun saveBank(holder: String, iban: String, bic: String, statementText: String) {
+        val clean = iban.replace(" ", "").uppercase()
+        if (clean.isNotEmpty() && !ibanValid(clean)) throw AccountProblem("Die IBAN stimmt nicht — Prüfziffer oder Länge passen nicht.")
+        put(BANK_HOLDER to holder.trim().take(70), IBAN to clean, BIC to bic.replace(" ", "").uppercase().take(11), STATEMENT_TEXT to statementText.trim().take(600))
+    }
+
+    /** Das Passwort bleibt, wenn das Feld leer abgeschickt wird — es wird nie zurück ins Formular geschrieben. */
+    fun saveSmtp(host: String, port: Int, user: String, password: String?, from: String, startTls: Boolean) {
+        if (port !in 1..65535) throw AccountProblem("Der Port muss zwischen 1 und 65535 liegen.")
+        if (from.isNotBlank() && !from.contains('@')) throw AccountProblem("Die Absenderadresse ist keine E-Mail-Adresse.")
+        put(SMTP_HOST to host.trim(), SMTP_PORT to port.toString(), SMTP_USER to user.trim(), SMTP_FROM to from.trim(), SMTP_TLS to if (startTls) "1" else "0")
+        if (!password.isNullOrEmpty()) put(SMTP_PASSWORD to password)
+    }
+
+    private fun put(vararg pairs: Pair<String, String>) = db.transaction { c ->
+        for ((key, value) in pairs) c.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", key, value)
     }
 
     companion object {
         private const val NAME = "club_name"
         private const val ACCENT = "club_accent"
         private const val FISCAL = "fiscal_start_month"
+        private const val ADDRESS = "club_address"
+        private const val BANK_HOLDER = "bank_holder"
+        private const val IBAN = "bank_iban"
+        private const val BIC = "bank_bic"
+        private const val SMTP_HOST = "smtp_host"
+        private const val SMTP_PORT = "smtp_port"
+        private const val SMTP_USER = "smtp_user"
+        private const val SMTP_PASSWORD = "smtp_password"
+        private const val SMTP_FROM = "smtp_from"
+        private const val SMTP_TLS = "smtp_starttls"
+        private const val STATEMENT_TEXT = "statement_text"
+
+        /** ISO 7064 mod 97-10, wie jede Bank sie prüft. */
+        fun ibanValid(iban: String): Boolean {
+            if (!Regex("[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}").matches(iban)) return false
+            val rearranged = iban.substring(4) + iban.substring(0, 4)
+            val digits = rearranged.map { if (it.isDigit()) it.toString() else (it - 'A' + 10).toString() }.joinToString("")
+            return digits.fold(0) { acc, ch -> (acc * 10 + (ch - '0')) % 97 } == 1
+        }
 
         /** Pine40 — die Farbe des Produkts, solange der Verein keine eigene gewählt hat. */
         const val DEFAULT_ACCENT = "#146B4C"

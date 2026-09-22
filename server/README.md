@@ -72,7 +72,22 @@ Schlüssel ihres Formulars, ein Doppelklick bucht einmal. Ebenso der **Einkauf**
 Belege mit Datei (PDF oder Foto), Lieferant, Nummer, Fälligkeit, Zahlung; Lagerpositionen
 werden `stock_entries` mit `delivery_id` — dieselbe Zeile, die ein Tablet beim Wareneingang
 schreibt, also kommen sie dort an. Zeilen ohne Lagerartikel (Pfand, Energie) bekommen ein
-Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6). Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
+Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6).
+
+**Abrechnung** (`web/Statements.kt`, Konzept 4.2): Ein Lauf zum Stichtag erzeugt je Mitglied
+unter der Schwelle einen Kontoauszug mit Zahlungsaufforderung — Nummer `VD-JJJJMM-NNNN` als
+Verwendungszweck, Anfangs- und Endstand als Schnappschuss, Zahlungsziel, auf Wunsch eine
+Zusatzzeile wie der Semesterbeitrag. Das PDF (`StatementPdf.kt`, openhtmltopdf) trägt einen
+EPC-QR-Code (zxing), den jede Banking-App liest. Versand per E-Mail (Jakarta Mail über den
+SMTP-Zugang aus den Einstellungen) an Mitglieder mit Adresse und Einwilligung im Profil
+(`member_profiles`, nur am Server), für die anderen eine Druckmappe. Zahlungseingang von Hand
+oder aus dem Kontoauszug der Bank (`BankImport.kt`: CAMT.053 als XML, oder eine CSV, deren
+Spalten am Kopf erkannt werden; ein zweites Einlesen bucht nichts doppelt). Eine Zahlung wird
+als Aufladung mit Zahlart `BANK` gebucht und erreicht die Tablets über den Abgleich — einen
+zweiten Kontostand gibt es nicht. Erinnerungen per E-Mail oder als Vermerk, Storno mit Grund.
+Das SMTP-Passwort liegt in der Tabelle `settings`, wie alles andere in dieser Datenbank.
+
+Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
 Rest liegt unter „Mehr".
 
 **Ersteinrichtung:** Solange es keinen Benutzer gibt, führt `/verwaltung` auf eine Seite, die
@@ -82,11 +97,11 @@ persönlich weiter. Der letzte Administrator kann sich nicht selbst herabstufen 
 
 | Rolle | Sieht |
 |---|---|
-| Administrator | alles, dazu Benutzer und Einstellungen |
-| Kassier | Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll |
-| Senior und Chargen | Übersicht, Mitglieder, Berichte, Lager, Einkauf |
+| Administrator | alles, dazu Benutzer |
+| Kassier | Übersicht, Mitglieder, Abrechnung, Berichte, Lager, Einkauf, Geräte, Protokoll, Einstellungen |
+| Senior und Chargen | Übersicht, Mitglieder, Abrechnung, Berichte, Lager, Einkauf — lesend |
 | Budenwart | Lager, Einkauf — keine Deckel (Art. 9 DSGVO, 2.5 im Konzept) |
-| Rechnungsprüfer | Berichte, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
+| Rechnungsprüfer | Abrechnung, Berichte, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
 
 **Wie sie gebaut ist:** Passwörter mit Argon2id wie die Gerätetoken. Im Cookie steht ein
 Zufallswert (`HttpOnly`, `Secure`, `SameSite=Lax`, nur unter `/verwaltung`), in der Datenbank
@@ -141,6 +156,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `resources/web/app.css` |
+| `src/main/resources/db/migration/V6__abrechnung.sql` | Profile, Abrechnungsläufe, Abrechnungen mit Nummernkreis, importierte Bankumsätze |
 | `src/main/resources/db/migration/V5__einkauf.sql` | Lieferanten, Kontenrahmen, Belegdaten (`purchase_documents`, 1:1 zu `deliveries`), Belegzeilen mit Konto |
 | `src/main/resources/db/migration/V4__couleurname.sql` | `members.nickname`, synchronisiert |
 | `src/main/resources/db/migration/V3__verwaltung.sql` | Benutzer, Sitzungen, Protokoll, Einstellungen; Sicht `transaction_effects`, auf der `member_balances` jetzt aufsetzt |

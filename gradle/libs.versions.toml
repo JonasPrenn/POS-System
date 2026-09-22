@@ -52,6 +52,10 @@ postgresJdbc = "42.7.13"
 logback = "1.6.3"
 bouncycastle = "1.86"
 embeddedPostgres = "2.2.2"
+# Abrechnung: PDF aus HTML, EPC-QR-Code, E-Mail über den SMTP-Zugang des Vereins
+openhtmltopdf = "1.1.86"
+zxing = "3.5.4"
+angusMail = "2.0.5"
 # 16er-Binaerpakete, passend zu postgres:16 in server/deploy/compose.yaml
 embeddedPostgresBinaries = "16.15.0"
 
@@ -138,6 +142,9 @@ ktor-server-auth = { group = "io.ktor", name = "ktor-server-auth", version.ref =
 ktor-server-status-pages = { group = "io.ktor", name = "ktor-server-status-pages", version.ref = "ktor" }
 ktor-server-call-logging = { group = "io.ktor", name = "ktor-server-call-logging", version.ref = "ktor" }
 ktor-server-rate-limit = { group = "io.ktor", name = "ktor-server-rate-limit", version.ref = "ktor" }
+openhtmltopdf-pdfbox = { group = "io.github.openhtmltopdf", name = "openhtmltopdf-pdfbox", version.ref = "openhtmltopdf" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+angus-mail = { group = "org.eclipse.angus", name = "angus-mail", version.ref = "angusMail" }
 ktor-server-forwarded-header = { group = "io.ktor", name = "ktor-server-forwarded-header", version.ref = "ktor" }
 ktor-server-html-builder = { group = "io.ktor", name = "ktor-server-html-builder", version.ref = "ktor" }
 ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", version.ref = "ktor" }

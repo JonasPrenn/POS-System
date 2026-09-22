@@ -9,6 +9,7 @@ import com.example.vereins_kassensystem.sync.RegisterRequest
 import com.example.vereins_kassensystem.sync.RegisterResponse
 import com.example.vereins_kassensystem.sync.WireJson
 import com.example.vereins_kassensystem.server.http.module
+import com.example.vereins_kassensystem.server.web.OutboxMailer
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -63,7 +64,7 @@ val SCHEMA_VERSION: String by lazy {
     java.io.File(dir.toURI()).list()!!.mapNotNull { Regex("V(\\d+)__").find(it)?.groupValues?.get(1)?.toInt() }.max().toString()
 }
 
-class TestContext(val db: Database, val client: HttpClient)
+class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer)
 
 /** Startet den Dienst wie in Main.kt, nur ohne Netz, und räumt danach auf. */
 fun serverTest(insecureCookies: Boolean = false, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
@@ -76,12 +77,13 @@ fun serverTest(insecureCookies: Boolean = false, block: suspend ApplicationTestB
         // Der Testclient spricht http; ein Secure-Cookie käme bei ihm nie wieder an.
         insecureCookies = insecureCookies,
     )
-    application { module(config, db) }
+    val outbox = OutboxMailer()
+    application { module(config, db, outbox) }
     val client = createClient {
         install(ContentNegotiation) { json(WireJson) }
     }
     try {
-        block(TestContext(db, client))
+        block(TestContext(db, client, outbox))
     } finally {
         db.close()
     }
