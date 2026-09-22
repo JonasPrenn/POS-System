@@ -48,6 +48,8 @@
 	<!-- Die Statuszeile setzt SystemBarsEffect über UIApplication; das geht nur so. -->
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Zum Abgleich mit dem VereinsDeckel-Server im eigenen Netz.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Für das Foto des Kassabons beim Wareneingang.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>

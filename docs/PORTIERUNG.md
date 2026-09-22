@@ -116,8 +116,10 @@ App-Modul steht jetzt in `:shared`; das SumUp-SDK braucht die Compose-BOM in and
   `SettingsStore` nichts beobachten kann. Die Schlüsselnamen sind die der alten
   DataStore-Fassung, der Android-Store liest nach Namen statt nach Typ — deshalb überleben
   die Einstellungen eines bestehenden Geräts das Update.
-- **Bundle-ID** ist `com.example.vereinsdeckel` (Unterstriche sind in Bundle-IDs nicht
-  erlaubt); die BGTask-Kennung entsprechend `com.example.vereinsdeckel.backup`.
+- **Bundle-ID** ist `at.kmvclunia.vereinsdeckel` (Unterstriche sind in Bundle-IDs nicht
+  erlaubt; `com.example.…` hätte kein Team registrieren können). Die BGTask-Kennung und der
+  Schlüsselbund-Dienst heißen weiter `com.example.vereinsdeckel…` — sie sind Namen, keine
+  Bundle-IDs, und müssen nicht dazu passen.
 
 ---
 
@@ -158,14 +160,54 @@ curl -X POST -H "Authorization: Bearer dev-admin-token-1234" http://127.0.0.1:80
 ```
 
 In der App unter Einstellungen → Server und Abgleich: vom Simulator aus
-`http://127.0.0.1:8080`, vom Android-Emulator aus `http://10.0.2.2:8080`. Ohne `https://`
-lässt die App nur diese Entwickleradressen zu.
+`http://127.0.0.1:8080`, vom Android-Emulator aus `http://10.0.2.2:8080`, von einem echten
+Gerät im selben WLAN die Adresse des Laptops, etwa `http://10.23.0.197:8080`. Ohne `https://`
+lässt die App nur Adressen zu, die das Internet nicht erreicht: den eigenen Rechner und das
+private Netz (10.x, 172.16–31.x, 192.168.x, `.local`).
 
-**iOS auf dem iPad:** In Xcode unter Settings → Accounts die Apple-ID anmelden, die
-Team-Kennung in `iosApp/Configuration/Config.xcconfig` unter `TEAM_ID` eintragen (oder im
-Target unter Signing das Team wählen), iPad anschließen, Run. Ein kostenloses Konto
-reicht; das Profil gilt dann sieben Tage. Beim ersten Start auf dem Gerät unter
-Einstellungen → Allgemein → VPN & Geräteverwaltung dem Entwickler vertrauen.
+### Auf dem eigenen iPad, gegen den Testserver am Laptop
+
+Was dafür schon eingebaut ist: die App nimmt Adressen im privaten Netz an (siehe oben), die
+`Info.plist` erlaubt lokales Netz ohne TLS (`NSAllowsLocalNetworking`) und begründet die
+LAN-Berechtigung (`NSLocalNetworkUsageDescription`), das Projekt signiert automatisch mit
+`TEAM_ID` und `BUNDLE_ID` aus `iosApp/Configuration/Config.xcconfig`, und `compose.dev.yaml`
+öffnet Port 8080 auf allen Schnittstellen des Laptops. Was nur der Besitzer tun kann, weil es
+seine Apple-ID braucht:
+
+1. **Xcode → Settings → Accounts → „+“ → Apple-ID anmelden.** Ein kostenloses Konto reicht
+   („Personal Team“): Das Profil gilt sieben Tage, dann noch einmal Run; mit bezahltem
+   Developer-Programm ein Jahr.
+2. **Team eintragen:** `iosApp/iosApp.xcodeproj` öffnen, Target `iosApp` → Signing &
+   Capabilities → Team wählen. Oder die Team-Kennung (zehn Zeichen, in Xcode unter Accounts →
+   Team → „Manage Certificates“ zu sehen, sonst auf developer.apple.com unter Membership)
+   in `Config.xcconfig` unter `TEAM_ID` eintragen — dann bleibt das Projekt unverändert.
+   `BUNDLE_ID` ist `at.kmvclunia.vereinsdeckel`; schlägt Xcode beim Registrieren fehl („not
+   available“), einen anderen Namen wählen — die Kennung muss weltweit einmalig sein.
+3. **iPad:** Einstellungen → Datenschutz & Sicherheit → **Entwicklermodus** einschalten
+   (Neustart), per Kabel anschließen, dem Computer vertrauen.
+4. **Xcode:** oben das iPad als Ziel wählen, **Run**. Beim ersten Start meldet iOS „nicht
+   vertrauenswürdiger Entwickler“: Einstellungen → Allgemein → VPN & Geräteverwaltung →
+   der Apple-ID vertrauen, dann die App noch einmal öffnen.
+5. **Server:** Docker läuft (`docker compose … up -d db api`, siehe oben), die Adresse des
+   Laptops steht in `ipconfig getifaddr en0` — sie kann sich mit dem WLAN ändern. Die
+   macOS-Firewall muss `com.docker.backend` hereinlassen (aus ist sie das ohnehin).
+6. **In der Verwaltung** (`http://127.0.0.1:8080/verwaltung`, Geräte) einen Kopplungscode
+   erzeugen; **in der App** unter Einstellungen → Server: Adresse `http://<Laptop>:8080`,
+   Code, ein Gerätename. iOS fragt einmal nach der Erlaubnis fürs lokale Netz — erlauben. Das
+   iPad startet leer, sieht, dass der Server Daten hat, und übernimmt sie.
+
+Von der Shell, sobald `TEAM_ID` gesetzt ist:
+
+```bash
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+  -destination 'generic/platform=iOS' -allowProvisioningUpdates build
+xcrun devicectl list devices                         # die Kennung des iPads
+xcrun devicectl device install app --device <Kennung> \
+  ~/Library/Developer/Xcode/DerivedData/iosApp-*/Build/Products/Debug-iphoneos/VereinsDeckel.app
+```
+
+Nicht geprüft: Das ist auf diesem Rechner ohne Apple-ID nicht zu bauen; der Weg ist der von
+Xcode vorgesehene, und was hier zu tun war, ist gebaut und getestet (`ServerAddressTest`).
 
 ---
 

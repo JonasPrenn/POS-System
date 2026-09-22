@@ -556,14 +556,20 @@ class SyncEngine(
         private val sharedHttpClient: HttpClient by lazy { HttpClient { installSyncDefaults() } }
 
         /**
-         * Die App verlangt HTTPS (Spezifikation 7.1). Die Ausnahme sind Adressen, die nur beim
-         * Entwickeln vorkommen: der eigene Rechner, vom Emulator und vom Simulator aus gesehen.
+         * Die App verlangt HTTPS (Spezifikation 7.1). Die Ausnahme sind Adressen, die das Internet
+         * nie erreicht: der eigene Rechner (auch vom Emulator und Simulator aus gesehen) und das
+         * private Netz — ein Testserver auf dem Laptop im Vereins-WLAN, unter 10.x, 172.16–31.x,
+         * 192.168.x oder einem .local-Namen. Was von außen erreichbar ist, braucht ein Zertifikat.
          */
         fun normalizeUrl(input: String): String? {
             val url = input.trim().trimEnd('/')
             if (url.startsWith("https://") && url.length > 8) return url
-            val local = listOf("http://localhost", "http://127.0.0.1", "http://10.0.2.2")
-            return url.takeIf { candidate -> local.any { candidate == it || candidate.startsWith("$it:") } }
+            return url.takeIf { PRIVATE_HTTP.matches(it) }
         }
+
+        private val PRIVATE_HTTP = Regex(
+            "http://(?:localhost|127\\.0\\.0\\.1|10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(?:1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3}|[a-z0-9-]+\\.local)(?::\\d{1,5})?",
+            RegexOption.IGNORE_CASE
+        )
     }
 }

@@ -152,7 +152,7 @@ private fun PairingForm(engine: SyncEngine, scope: CoroutineScope, initialUrl: S
         value = url,
         onValueChange = { url = it; checkResult = null },
         label = { Text("Adresse des Servers") },
-        placeholder = { Text("https://…") },
+        placeholder = { Text("https://… oder im Vereinsnetz http://10.0.0.5:8080") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
         shape = MaterialTheme.shapes.small,

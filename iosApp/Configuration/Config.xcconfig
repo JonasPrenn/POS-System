@@ -1,5 +1,8 @@
 // Was je Entwickler anders ist, an einer Stelle. TEAM_ID ist die Apple-Team-Kennung aus
-// Xcode > Settings > Accounts; ohne sie baut Xcode nur für den Simulator.
+// Xcode > Settings > Accounts (zehn Zeichen); ohne sie baut Xcode nur für den Simulator.
+// Für ein echtes iPad: Apple-ID in Xcode anmelden, Kennung hier eintragen, Run — siehe
+// docs/PORTIERUNG.md, „Auf dem eigenen iPad“.
 TEAM_ID=
-BUNDLE_ID=com.example.vereinsdeckel
+// Weltweit einmalig; com.example.… kann kein Team registrieren.
+BUNDLE_ID=at.kmvclunia.vereinsdeckel
 APP_NAME=VereinsDeckel
