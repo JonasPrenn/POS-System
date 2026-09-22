@@ -1,0 +1,98 @@
+# Aufstellung nach Kapitel 7.1 der Spezifikation: PostgreSQL, der Dienst, Caddy davor mit
+# Zertifikat von Let's Encrypt — und der Updater, der neue Stände aus dem Git-Repo einspielt.
+# Reicht fuer einen Verein, auch auf einem Raspberry Pi 5. Der Server braucht nur Docker und
+# git; gebaut wird im Container (../Dockerfile).
+#
+#   ./install.sh        # fragt Hostnamen ab, erzeugt Geheimnisse, baut und startet alles
+#
+# Danach: siehe ../README.md („Aufstellen“) fuer die Ersteinrichtung der Verwaltung.
+name: vereinsdeckel
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vereinsdeckel
+      POSTGRES_USER: vereinsdeckel
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD in .env setzen}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vereinsdeckel -d vereinsdeckel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      # Die Wurzel des Repos: Gradle im Container baut :server aus :core und :server.
+      context: ../..
+      dockerfile: server/Dockerfile
+      args:
+        # Welcher Stand laeuft — install.sh, update.sh und der Updater setzen beide.
+        GIT_SHA: ${GIT_SHA:-unbekannt}
+        GIT_DATE: ${GIT_DATE:-}
+    image: vereinsdeckel/api:local
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://vereinsdeckel@db:5432/vereinsdeckel
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      PAIRING_ADMIN_TOKEN: ${PAIRING_ADMIN_TOKEN:?PAIRING_ADMIN_TOKEN in .env setzen}
+      MEDIA_DIR: /data/media
+      # Ueber dieses Verzeichnis reden Dienst und Updater miteinander (web/Updates.kt).
+      UPDATES_DIR: /data/updates
+      # „Heute" und die Monatsgrenzen der Verwaltung
+      VEREIN_ZONE: ${VEREIN_ZONE:-Europe/Vienna}
+      # Der Dienst ist hier nur über Caddy erreichbar; die Adresse des Anrufers steht in X-Forwarded-For.
+      TRUST_PROXY: "true"
+    volumes:
+      - media:/data/media
+      - updates:/data/updates
+    depends_on:
+      db:
+        condition: service_healthy
+
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN in .env setzen}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  # Sucht im Git-Repo nach neuen Staenden und spielt sie ein, wenn die Verwaltung es will
+  # (Einstellungen → Updates). Sieht git, den Docker-Socket und das Repo auf dem Server —
+  # der Dienst selbst sieht nichts davon. Ohne diesen Dienst fehlt in der Verwaltung nur
+  # der Abschnitt „Updates“.
+  updater:
+    build: ./updater
+    image: vereinsdeckel/updater:local
+    restart: unless-stopped
+    environment:
+      # Wo das Repo auf dem Server liegt — im Container unter demselben Pfad, damit die
+      # relativen Pfade dieser Datei (Caddyfile, Build-Kontext) auf beiden Seiten stimmen.
+      REPO_DIR: ${REPO_DIR:-/opt/vereinsdeckel}
+      GIT_BRANCH: ${GIT_BRANCH:-main}
+      # Der Schluessel liegt nur lesbar im Container; known_hosts darf deshalb nicht dorthin.
+      GIT_SSH_COMMAND: ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/known_hosts
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${REPO_DIR:-/opt/vereinsdeckel}:${REPO_DIR:-/opt/vereinsdeckel}
+      # Derselbe SSH-Zugang, mit dem das Repo geklont wurde (Deploy-Key, nur lesend).
+      - ${SSH_DIR:-~/.ssh}:/root/.ssh:ro
+      - updates:/data/updates
+
+volumes:
+  pgdata:
+  media:
+  updates:
+  caddy_data:
+  caddy_config:

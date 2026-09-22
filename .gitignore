@@ -10,6 +10,7 @@ app/build/
 
 # Local configuration
 local.properties
+.claude/settings.local.json
 
 # Kotlin
 .kotlin/
@@ -20,3 +21,12 @@ captures/
 # External native build artifacts
 .externalNativeBuild/
 .cxx/
+
+# Xcode
+iosApp/iosApp.xcodeproj/xcuserdata/
+iosApp/iosApp.xcodeproj/project.xcworkspace/xcuserdata/
+iosApp/build/
+
+# Server: lokale Betriebsgeheimnisse und Belegfotos
+server/deploy/.env
+media/

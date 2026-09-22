@@ -1,0 +1,19 @@
+# Zum Ausprobieren auf dem Entwicklungsrechner: der Dienst direkt auf Port 8080, ohne Caddy
+# und ohne Zertifikat. Nie für den Betrieb — die App nimmt Klartext nur von localhost,
+# 127.0.0.1 und 10.0.2.2 an, und unter Android nur im Debug-Build.
+#
+#   DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
+#     docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
+#   (gebaut wird im Container, ../Dockerfile; Gradle auf dem Rechner ist nicht noetig)
+#
+# Vom Android-Emulator aus: http://10.0.2.2:8080, vom iOS-Simulator aus: http://127.0.0.1:8080
+# Die Verwaltung liegt dann unter http://127.0.0.1:8080/verwaltung.
+services:
+  api:
+    ports:
+      - "8080:8080"
+    environment:
+      # Ohne HTTPS käme ein Secure-Cookie nicht zurück; nur deshalb, und nur hier.
+      WEB_INSECURE_COOKIES: "true"
+      # Ohne Caddy davor darf niemand seine Adresse selbst angeben.
+      TRUST_PROXY: "false"

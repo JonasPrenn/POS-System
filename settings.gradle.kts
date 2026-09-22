@@ -23,6 +23,19 @@ dependencyResolutionManagement {
     }
 }
 
+// Erlaubt projects.shared statt project(":shared") — ein Tippfehler faellt damit
+// beim Uebersetzen auf und nicht erst beim Ausfuehren.
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 rootProject.name = "VereinsDeckel"
-include(":app")
- 
+
+// :shared traegt alles, was auf beiden Plattformen gilt — Datenhaltung, Logik und die
+// gesamte Oberflaeche. :androidApp ist nur noch die Huelle, die es unter Android startet;
+// das Gegenstueck dazu ist iosApp/, das Xcode oeffnet und nicht von Gradle gebaut wird.
+// :core ist der gemeinsame Nenner von App und Server: Schluessel, Zeit, Zahlformate, spaeter
+// die Bestandslogik. Reines Kotlin ohne Compose und Room, damit der Server es benutzen kann.
+include(":core")
+include(":shared")
+include(":androidApp")
+// :server ist der Dienst nach docs/VereinsDeckel-Server-und-API.pdf: reine JVM, haengt nur an :core.
+include(":server")

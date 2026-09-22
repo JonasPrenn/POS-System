@@ -1,0 +1,105 @@
+package com.example.vereins_kassensystem.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.vereins_kassensystem.data.entity.Product
+import com.example.vereins_kassensystem.data.entity.ProductVariant
+import com.example.vereins_kassensystem.data.dao.ProductWithVariants
+import com.example.vereins_kassensystem.data.entity.ProductComponent
+import com.example.vereins_kassensystem.data.entity.StockItem
+import com.example.vereins_kassensystem.data.repository.AppRepository
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class ProductViewModel(private val repository: AppRepository) : ViewModel() {
+
+    /** Lagerartikel available to build a recipe from. */
+    val allStockItems: StateFlow<List<StockItem>> = repository.allStockItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allComponents: StateFlow<List<ProductComponent>> = repository.allComponents
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Saves the product, its variants and its recipe together. */
+    fun saveProductWithRecipe(
+        product: Product,
+        variants: List<ProductVariant>,
+        components: List<ProductComponent>,
+        isNew: Boolean
+    ) = viewModelScope.launch {
+        repository.saveProduct(product, variants.filter { it.name.isNotBlank() }, components, isNew)
+    }
+
+    private val _importStatus = MutableSharedFlow<String>()
+    val importStatus = _importStatus.asSharedFlow()
+
+    val allProductsWithVariants: StateFlow<List<ProductWithVariants>> = repository.allProductsWithVariants
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun deleteProduct(product: Product) = viewModelScope.launch {
+        repository.deleteProduct(product)
+    }
+
+    /**
+     * Liest Produkte aus einer Semikolon-Datei.
+     *
+     * `Name;Grundpreis;Kategorie;Varianten(Name:Preis,...)`, erste Zeile ist die Kopfzeile.
+     * Nimmt den Inhalt als Zeichenkette statt als Strom, damit der Bildschirm die Datei
+     * über `platform/FileExchange.kt` holen kann — Ströme gibt es nur auf der JVM.
+     */
+    suspend fun importProductsFromCsv(csv: String) {
+        try {
+            var count = 0
+            for (line in csv.lineSequence().drop(1)) {
+                val parts = line.split(";")
+                if (parts.size < 3) continue
+                val name = parts[0].trim()
+                val basePrice = parts[1].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
+                val category = parts[2].trim()
+                val variantsString = if (parts.size >= 4) parts[3].trim() else ""
+
+                if (name.isEmpty()) continue
+                val variantList = mutableListOf<ProductVariant>()
+                if (variantsString.isNotEmpty()) {
+                    variantsString.split(",").forEach { vPart ->
+                        val vSubParts = vPart.split(":")
+                        if (vSubParts.size == 2) {
+                            val vName = vSubParts[0].trim()
+                            val vPrice = vSubParts[1].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
+                            variantList.add(ProductVariant(name = vName, price = vPrice, productId = ""))
+                        }
+                    }
+                }
+
+                val productId = repository.insertProduct(
+                    Product(
+                        name = name,
+                        price = if (variantList.isNotEmpty()) 0.0 else basePrice,
+                        category = category,
+                        hasVariants = variantList.isNotEmpty()
+                    )
+                )
+                for (variant in variantList) {
+                    repository.insertVariant(variant.copy(productId = productId))
+                }
+                count++
+            }
+            _importStatus.emit("Erfolgreich $count Produkte importiert")
+        } catch (e: Exception) {
+            _importStatus.emit("Fehler beim Import: ${e.message}")
+        }
+    }
+
+    /** Alle Produkte als Semikolon-Datei, Kopfzeile inklusive. Das Schreiben übernimmt der Bildschirm. */
+    fun exportProductsToCsv(): String = buildString {
+        append("Name;Grundpreis;Kategorie;Varianten(Name:Preis,...)\n")
+        allProductsWithVariants.value.forEach { pwv ->
+            val variantsString = pwv.variants.joinToString(",") { "${it.name}:${it.price}" }
+            append("${pwv.product.name};${pwv.product.price};${pwv.product.category};$variantsString\n")
+        }
+    }
+}

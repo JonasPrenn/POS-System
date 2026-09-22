@@ -1,0 +1,17 @@
+<configuration>
+    <!-- Nach stdout: Docker und systemd sammeln von dort, eine Logdatei gaebe es doppelt. -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{24} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="org.flywaydb" level="INFO"/>
+    <!-- /v1/health fragt Flyway nach der Schemaversion, und Docker fragt /v1/health alle 30 Sekunden:
+         Diese eine Zeile („Database: …") stuende sonst zweitausendmal am Tag im Protokoll. -->
+    <logger name="org.flywaydb.core.FlywayExecutor" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
