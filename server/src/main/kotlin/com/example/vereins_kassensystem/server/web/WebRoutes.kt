@@ -42,6 +42,7 @@ class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val 
     val settings = VereinSettings(db)
     val reads = Reads(db, config.zone)
     val writes = Writes(db)
+    val purchases = Purchases(db, config.zone)
 }
 
 private const val COOKIE = "vd_session"
@@ -200,7 +201,8 @@ private fun Route.assets(web: Web) {
         )
     }
     // Belegfotos: dieselben Dateien wie für die Geräte, hier hinter der Anmeldung statt hinter dem Gerätetoken.
-    get("/einkauf/foto/{key}") {
+    get("/einkauf/foto/{key}") { call.respondRedirect("$BASE/einkauf/datei/${call.parameters["key"].orEmpty()}") }
+    get("/einkauf/foto-alt/{key}") {
         call.guarded(web, Area.PURCHASES) {
             val key = call.parameters["key"].orEmpty()
             val stored = web.receipts.find(key)?.takeIf { web.reads.photoKeyExists(key) }

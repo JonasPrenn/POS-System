@@ -68,7 +68,11 @@ Karte, Überweisung) und Korrekturen mit Grund auf den Deckel. Das ist das Einzi
 Verwaltung in synchronisierte Tabellen schreibt, und es geht über `Database.write`
 (`web/Writes.kt`) — dieselbe Sequenzsperre wie beim Abgleich; die Tablets holen es sich beim
 nächsten Abgleich. Gebucht wird in der Form, in der die App bucht; jede Buchung trägt den
-Schlüssel ihres Formulars, ein Doppelklick bucht einmal. Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
+Schlüssel ihres Formulars, ein Doppelklick bucht einmal. Ebenso der **Einkauf** (`web/Purchases.kt`):
+Belege mit Datei (PDF oder Foto), Lieferant, Nummer, Fälligkeit, Zahlung; Lagerpositionen
+werden `stock_entries` mit `delivery_id` — dieselbe Zeile, die ein Tablet beim Wareneingang
+schreibt, also kommen sie dort an. Zeilen ohne Lagerartikel (Pfand, Energie) bekommen ein
+Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6). Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
 Rest liegt unter „Mehr".
 
 **Ersteinrichtung:** Solange es keinen Benutzer gibt, führt `/verwaltung` auf eine Seite, die
@@ -137,6 +141,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `resources/web/app.css` |
+| `src/main/resources/db/migration/V5__einkauf.sql` | Lieferanten, Kontenrahmen, Belegdaten (`purchase_documents`, 1:1 zu `deliveries`), Belegzeilen mit Konto |
 | `src/main/resources/db/migration/V4__couleurname.sql` | `members.nickname`, synchronisiert |
 | `src/main/resources/db/migration/V3__verwaltung.sql` | Benutzer, Sitzungen, Protokoll, Einstellungen; Sicht `transaction_effects`, auf der `member_balances` jetzt aufsetzt |
 | `core/.../sync/Wire.kt`, `SyncClient.kt` | Drahtformat und Client, gemeinsam mit der App; `SyncClientTest` prüft beide gegeneinander |

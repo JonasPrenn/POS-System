@@ -10,13 +10,16 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitForm
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -306,6 +309,73 @@ class WebTest {
         assertContains(stock, "1× 50 l Fass")
         // 26 Stk zu 1,30 € und 82 l zu 2,84 €.
         assertContains(stock, "266,68 €")
+    }
+
+    @Test
+    fun `an invoice from the desk becomes stock on the tills and an open item in the books`() = serverTest(insecureCookies = true) { ctx ->
+        val device = ctx.pairDevice()
+        val bier = newId(); val keg = newId(); val wurst = newId()
+        ctx.push(
+            device.token,
+            insertOp("stock_items", buildJsonObject { put("id", bier); put("name", "Helles"); put("unit", "l"); put("tracking", "CONTAINER"); put("min_level", 20.0) }),
+            insertOp("container_types", buildJsonObject { put("id", keg); put("stock_item_id", bier); put("label", "50 l Fass"); put("nominal_size", 50.0); put("initial_yield_estimate", 47.0) }),
+            insertOp("stock_items", buildJsonObject { put("id", wurst); put("name", "Bratwurst"); put("unit", "Stk"); put("tracking", "SIMPLE"); put("min_level", 10.0) }),
+        )
+        val since = ctx.client.get("/v1/sync/changes?since=0") { bearerAuth(device.token) }.body<ChangesResponse>().nextSince
+        val browser = browser()
+        browser.setUpAdmin(); browser.signIn()
+        val page = browser.page("/verwaltung/einkauf?neu=1")
+        assertContains(page, "Beleg erfassen")
+
+        // Der Beleg mit PDF: multipart, wie ein Browser es schickt.
+        val pdf = "%PDF-1.4\n%Beispiel\n".toByteArray()
+        val saved = browser.submitFormWithBinaryData("/verwaltung/einkauf/beleg", formData {
+            append("_csrf", csrfOf(page)); append("lieferant", "Getränkehandel Brandl"); append("nummer", "RE-2026-1187")
+            append("datum", LocalDate.now().toString()); append("faellig", LocalDate.now().plusDays(14).toString())
+            append("brutto", "684,00"); append("ust", "114"); append("zahlung", "OPEN"); append("notiz", "")
+            append("datei", pdf, Headers.build { append(HttpHeaders.ContentType, "application/pdf"); append(HttpHeaders.ContentDisposition, "filename=\"rechnung.pdf\"") })
+        })
+        val doc = assertNotNull(Regex("b=([0-9a-f-]{36})").find(assertNotNull(saved.headers[HttpHeaders.Location]))).groupValues[1]
+        val detail = browser.page("/verwaltung/einkauf?b=$doc")
+        assertContains(detail, "Getränkehandel Brandl")
+        assertContains(detail, "Rechnung als PDF öffnen")
+        val fileKey = Regex("""/verwaltung/einkauf/datei/([0-9a-f-]{36}\.pdf)""").find(detail)!!.groupValues[1]
+        val file = browser.get("/verwaltung/einkauf/datei/$fileKey")
+        assertEquals(HttpStatusCode.OK, file.status)
+        assertEquals("application/pdf", file.headers[HttpHeaders.ContentType])
+        // Eine Dublette wird abgewiesen.
+        val twice = browser.submitFormWithBinaryData("/verwaltung/einkauf/beleg", formData {
+            append("_csrf", csrfOf(page)); append("lieferant", "getränkehandel brandl"); append("nummer", "re-2026-1187"); append("datum", LocalDate.now().toString())
+        })
+        assertContains(assertNotNull(twice.headers[HttpHeaders.Location]), "fehler=")
+
+        // Zwei Fässer und Würste ins Lager, Pfand auf ein Konto.
+        browser.form("/verwaltung/einkauf/$doc/lager", "_csrf" to csrfOf(page), "artikel" to bier, "gebinde" to keg, "menge" to "2", "kosten" to "284")
+        val noKeg = browser.form("/verwaltung/einkauf/$doc/lager", "_csrf" to csrfOf(page), "artikel" to bier, "gebinde" to "", "menge" to "1")
+        assertContains(assertNotNull(noKeg.headers[HttpHeaders.Location]), "fehler=", message = "Fassware braucht ein Gebinde")
+        browser.form("/verwaltung/einkauf/$doc/lager", "_csrf" to csrfOf(page), "artikel" to wurst, "gebinde" to "", "menge" to "40", "kosten" to "52")
+        val konto = Regex("""<option value="([0-9a-f-]{36})">Getränkeeinkauf""").find(browser.page("/verwaltung/einkauf?b=$doc"))!!.groupValues[1]
+        browser.form("/verwaltung/einkauf/$doc/zeile", "_csrf" to csrfOf(page), "text" to "5 × Fasspfand", "betrag" to "60", "konto" to konto)
+
+        val after = browser.page("/verwaltung/einkauf?b=$doc")
+        assertContains(after, "2 Lagerpositionen, 1 ohne")
+        assertContains(after, "5 × Fasspfand")
+        assertContains(after, "Zugeordnet 396,00 € von 684,00 €", message = "284 + 52 + 60")
+        assertContains(browser.page("/verwaltung/lager"), "ca. 94 l", message = "zwei Fässer zu 47 l Ertrag")
+        assertContains(browser.page("/verwaltung"), "Offen gesamt")
+
+        // Beim Tablet kommen Wareneingang und beide Lagerpositionen an, nichts vom Serverseitigen.
+        val pulled = ctx.client.get("/v1/sync/changes?since=$since") { bearerAuth(device.token) }.body<ChangesResponse>()
+        assertEquals(listOf("deliveries", "stock_entries", "stock_entries"), pulled.changes.map { it.entity })
+        assertEquals("Getränkehandel Brandl", pulled.changes[0].row["supplier"]!!.jsonPrimitive.content)
+        assertEquals("684.00", pulled.changes[0].row["receipt_total"]!!.jsonPrimitive.content)
+        assertEquals(keg, pulled.changes[1].row["container_type_id"]!!.jsonPrimitive.content)
+        assertEquals("284.00", pulled.changes[1].row["total_cost"]!!.jsonPrimitive.content)
+
+        // Bezahlt — und aus den offenen Posten verschwunden.
+        browser.form("/verwaltung/einkauf/$doc/bezahlt", "_csrf" to csrfOf(page), "zahlung" to "BANK", "am" to LocalDate.now().toString())
+        assertFalse(browser.page("/verwaltung").contains("Offen gesamt"))
+        assertContains(browser.page("/verwaltung/berichte"), "684,00 €", message = "Wareneingang im Bericht aus dem Beleg")
     }
 
     @Test

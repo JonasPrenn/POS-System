@@ -41,6 +41,9 @@ enum class Role(val label: String, val hint: String, vararg areas: Area) {
 
     /** Mitglieder anlegen und auf Deckel buchen: wer das Geld verantwortet, sonst niemand. */
     val writesMembers: Boolean get() = this == ADMIN || this == KASSIER
+
+    /** Belege erfassen und Wareneingang buchen: Kassier und Budenwart. */
+    val writesPurchases: Boolean get() = this == ADMIN || this == KASSIER || this == BUDENWART
 }
 
 class WebUser(

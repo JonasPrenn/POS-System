@@ -28,14 +28,7 @@ internal fun Route.warePages(web: Web) {
             call.html { stockPage(ctx, stock) }
         }
     }
-    get("/einkauf") {
-        call.guarded(web, Area.PURCHASES) { ctx ->
-            val all = web.reads.deliveries(60)
-            val selected = uuidOrNull(call.request.queryParameters["b"])?.let { id -> all.firstOrNull { it.id == id } }
-            val shown = selected ?: all.firstOrNull()
-            call.html { purchasesPage(ctx, all, shown, selected != null, shown?.let { web.reads.deliveryPositions(it.id) }.orEmpty()) }
-        }
-    }
+    purchasePages(web)
 }
 
 // -------------------------------------------------------------------- Lager
@@ -147,73 +140,6 @@ private fun FlowContent.kegPanel(ctx: PageContext, line: StockLine, tapped: com.
         span("cap") {
             +(if (estimate.isLearned) "Gerechnet mit dem gelernten Ertrag von ${Quantity.format(estimate.perContainer)} $unit, nicht mit dem Nennwert."
             else "Gerechnet mit dem Schätzwert von ${Quantity.format(estimate.perContainer)} $unit — noch kein Fass dieser Größe gemessen.")
-        }
-    }
-}
-
-// ------------------------------------------------------------------ Einkauf
-
-private fun HTML.purchasesPage(ctx: PageContext, all: List<DeliveryLine>, shown: DeliveryLine?, chosen: Boolean, positions: List<DeliveryPosition>) {
-    val thisMonth = all.filter { java.time.YearMonth.from(it.at.atZone(ctx.zone)) == java.time.YearMonth.from(ctx.today) }
-    shell(ctx, Area.PURCHASES, "Einkauf", "Wareneingänge, wie sie am Tablet gebucht wurden — mit Belegfoto") {
-        panel {
-            div("figures") {
-                figure("Wareneingang diesen Monat") { span("money-m") { +euro(thisMonth.sumOf { it.total ?: 0.0 }) }; span("cap") { +"${thisMonth.size} Belege" } }
-                figure("Mit Foto") { span("money-m") { +"${all.count { it.photoKey != null }} von ${all.size}" }; span("cap") { +"Fotos kommen beim Abgleich mit" } }
-                figure("Ohne Betrag") { span("money-m") { +"${all.count { it.total == null }}" }; span("cap") { +"Bonsumme am Tablet nicht eingetragen" } }
-                figure("Noch nicht hier") { span("title-s") { +"Fälligkeit, Zahlung, Konten" }; span("cap") { +"kommt mit der Stammdatenpflege" } }
-            }
-        }
-        div("cols cols-side split${if (chosen) " has-sel" else ""}") {
-            panel("split-list") {
-                panelHead("Eingangsbelege")
-                if (all.isEmpty()) p("empty") { +"Noch kein Wareneingang gebucht. Er entsteht am Tablet unter Lagerbestand → Wareneingang." }
-                else table("t") {
-                    thead { tr { th { +"Lieferant" }; th(classes = "hide-sm") { +"Positionen" }; th(classes = "num") { +"Bonsumme" } } }
-                    tbody {
-                        for (d in all) tr("pick") {
-                            if (chosen && d.id == shown?.id) attributes["aria-selected"] = "true"
-                            td {
-                                div("row") {
-                                    span("c-muted") { icon(if (d.photoKey != null) "camera" else "filein") }
-                                    a(href = "$BASE/einkauf?b=${d.id}", classes = "cover two") {
-                                        span("title-s") { +d.supplier.ifBlank { "Ohne Lieferant" } }
-                                        span("cap") { +ctx.friendly(d.at) }
-                                    }
-                                }
-                            }
-                            td("c-muted tnum hide-sm") { +"${d.positions}" }
-                            td("num") { span("money-s") { +(d.total?.let(::euro) ?: "—") } }
-                        }
-                    }
-                }
-            }
-            div("split-detail stack") {
-                a(href = "$BASE/einkauf", classes = "back") { icon("back", "m"); +"Alle Belege" }
-                if (shown != null) panel {
-                    div("panel-body") {
-                        div("row-between") {
-                            div("two") { h2("title-m") { +shown.supplier.ifBlank { "Ohne Lieferant" } }; span("muted") { +ctx.dayYear(shown.at) } }
-                            span("money-m") { +(shown.total?.let(::euro) ?: "—") }
-                        }
-                        if (shown.photoKey != null) a(href = "$BASE/einkauf/foto/${shown.photoKey}") { img(alt = "Belegfoto", src = "$BASE/einkauf/foto/${shown.photoKey}", classes = "photo") }
-                        else div("photo-none") { icon("camera", "l"); span("cap") { +"Kein Foto zu diesem Beleg" } }
-                        shown.note?.takeIf { it.isNotBlank() }?.let { p("muted") { +it } }
-                        div {
-                            h3("title-s") { +"Positionen" }
-                            if (positions.isEmpty()) p("cap") { +"Keine Lagerpositionen — nur der Beleg." }
-                            else table("t t-tight t-flush") {
-                                tbody {
-                                    for (pos in positions) tr {
-                                        td { twoLine(pos.item, "${Quantity.formatSigned(pos.quantity)} ${pos.unit}${if (pos.source == "CORRECTION") " · Korrektur" else ""}") }
-                                        td("num") { span("money-s") { +(pos.cost?.let(::euro) ?: "—") } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }

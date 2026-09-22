@@ -53,6 +53,8 @@ private val ACTIONS = mapOf(
     "settings.save" to "Einstellungen geändert",
     "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert",
     "tab.topup" to "Deckel aufgeladen", "tab.correction" to "Deckel korrigiert",
+    "purchase.create" to "Beleg erfasst", "purchase.update" to "Belegdaten geändert", "purchase.paid" to "Beleg bezahlt",
+    "purchase.stock" to "Wareneingang gebucht", "purchase.line" to "Belegzeile zugeordnet", "purchase.line.remove" to "Belegzeile entfernt", "supplier.update" to "Lieferant geändert",
 )
 
 internal fun Route.systemPages(web: Web) {

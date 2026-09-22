@@ -119,7 +119,7 @@ internal fun Route.mainPages(web: Web) {
             val members = web.reads.members()
             val stock = if (ctx.user.role.may(Area.STOCK)) web.reads.stock() else emptyList()
             call.html {
-                overviewPage(ctx, week, web.reads.tabTotals(members), web.reads.recentCheckouts(8), web.devices.list(), stock, web.reads.deliveries(3))
+                overviewPage(ctx, week, web.reads.tabTotals(members), web.reads.recentCheckouts(8), web.devices.list(), stock, if (ctx.user.role.may(Area.PURCHASES)) web.purchases.openDocuments() else emptyList())
             }
         }
     }
@@ -263,7 +263,7 @@ private fun paymentChip(type: String, topUp: Boolean, refund: Boolean): Pair<Str
 
 private fun HTML.overviewPage(
     ctx: PageContext, week: List<DayRevenue>, tabs: TabTotals, checkouts: List<Checkout>,
-    devices: List<com.example.vereins_kassensystem.server.devices.DeviceRecord>, stock: List<StockLine>, deliveries: List<DeliveryLine>,
+    devices: List<com.example.vereins_kassensystem.server.devices.DeviceRecord>, stock: List<StockLine>, open: List<Document>,
 ) = shell(ctx, Area.OVERVIEW, "Übersicht", ctx.longDate()) {
     val today = week.last().revenue
     val weekTotal = week.fold(Revenue()) { a, d -> a + d.revenue }
@@ -352,14 +352,15 @@ private fun HTML.overviewPage(
             }
         }
         if (ctx.user.role.may(Area.PURCHASES)) panel {
-            panelHead("Letzte Wareneingänge") { more("Einkauf", "$BASE/einkauf") }
-            if (deliveries.isEmpty()) p("empty") { +"Noch kein Wareneingang gebucht." }
+            panelHead("Offene Belege") { more("Einkauf", "$BASE/einkauf") }
+            if (open.isEmpty()) p("empty") { +"Nichts offen." }
             else table("t") {
                 tbody {
-                    for (d in deliveries) tr {
-                        td { twoLine(d.supplier.ifBlank { "Ohne Lieferant" }, "${ctx.friendly(d.at)} · ${d.positions} Positionen") }
-                        td("num") { span("money-s") { +(d.total?.let(::euro) ?: "—") } }
+                    for (d in open.take(4)) tr {
+                        td("fill") { twoLine(d.supplier.ifBlank { "Ohne Lieferant" }, listOfNotNull(d.number.takeIf { it.isNotBlank() }, d.dueDate?.let { "fällig ${ctx.dayShort(it)}" } ?: "ohne Fälligkeit").joinToString(" · ")) }
+                        td("num") { span("money-s") { +(d.gross?.let(::euro) ?: "—") } }
                     }
+                    tr("sum") { td { +"Offen gesamt" }; td("num") { span("money-s") { +euro(open.sumOf { it.gross ?: 0.0 }) } } }
                 }
             }
         }

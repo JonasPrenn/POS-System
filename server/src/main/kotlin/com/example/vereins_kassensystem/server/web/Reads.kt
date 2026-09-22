@@ -274,10 +274,17 @@ class Reads(private val db: Database, val zone: ZoneId) {
             """.trimIndent(),
             zone.id, Ledger.TOPUP_REF, Ledger.TIP_REF, Ledger.TOPUP_REF, from, to
         ) { r -> listOf(r.getDate("month").toLocalDate(), r.getString("payment_type"), r.getDouble("revenue"), r.getDouble("top_up"), r.getDouble("tips"), r.getDouble("refunds")) }
+        // Wareneingang: der Beleg, wo es einen gibt (Belegdatum, Brutto), sonst der Wareneingang vom Tablet.
         val purchases = c.query(
-            "SELECT date_trunc('month', occurred_at AT TIME ZONE ?)::date AS month, COALESCE(SUM(receipt_total), 0) AS total " +
-                "FROM deliveries WHERE NOT deleted AND occurred_at >= ? AND occurred_at < ? GROUP BY 1",
-            zone.id, from, to
+            """
+            SELECT date_trunc('month', day)::date AS month, SUM(amount) AS total FROM (
+              SELECT p.document_date AS day, p.gross AS amount FROM purchase_documents p WHERE p.gross IS NOT NULL
+              UNION ALL
+              SELECT (d.occurred_at AT TIME ZONE ?)::date, d.receipt_total FROM deliveries d
+               WHERE NOT d.deleted AND d.receipt_total IS NOT NULL AND NOT EXISTS (SELECT 1 FROM purchase_documents p WHERE p.delivery_id = d.id)
+            ) x WHERE day >= ? AND day < ? GROUP BY 1
+            """.trimIndent(),
+            zone.id, java.sql.Date.valueOf(first.atDay(1)), java.sql.Date.valueOf(first.plusMonths(12).atDay(1))
         ) { YearMonth.from(it.getDate("month").toLocalDate()) to it.getDouble("total") }.toMap()
 
         (0 until 12).map { first.plusMonths(it.toLong()) }.map { month ->

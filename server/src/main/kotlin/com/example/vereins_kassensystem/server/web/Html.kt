@@ -67,6 +67,7 @@ object Icons {
         "logout" to """<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/>""",
         "keg" to """<path d="M7 3h10M7 21h10M6.5 3c-1.5 3-1.5 15 0 18M17.5 3c1.5 3 1.5 15 0 18M5.5 9h13M5.5 15h13"/>""",
         "camera" to """<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2.5h5L16 6"/>""",
+        "close" to """<path d="M6 6l12 12M18 6L6 18"/>""",
         "more" to """<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>""",
     )
 

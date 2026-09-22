@@ -205,6 +205,7 @@ summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
 .confirm { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; width: 300px; padding: 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--hairline); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
 .confirm-left { right: auto; left: 0; }
+.confirm-wide { width: min(640px, calc(100vw - 32px)); padding: 0; }
 .check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .check input { width: 20px; height: 20px; accent-color: var(--primary); }
 .more-list { display: flex; flex-direction: column; }

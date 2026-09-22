@@ -57,6 +57,12 @@ object TestPostgres {
 
 const val ADMIN_TOKEN = "test-admin-token-1234"
 
+/** Die höchste Migrationsnummer im Klassenpfad — was /v1/health als Schemaversion melden muss. */
+val SCHEMA_VERSION: String by lazy {
+    val dir = checkNotNull(TestPostgres::class.java.getResource("/db/migration")) { "db/migration fehlt" }
+    java.io.File(dir.toURI()).list()!!.mapNotNull { Regex("V(\\d+)__").find(it)?.groupValues?.get(1)?.toInt() }.max().toString()
+}
+
 class TestContext(val db: Database, val client: HttpClient)
 
 /** Startet den Dienst wie in Main.kt, nur ohne Netz, und räumt danach auf. */
