@@ -4,7 +4,21 @@ import com.example.vereins_kassensystem.data.entity.StockTracking
 import com.example.vereins_kassensystem.data.stock.Inventory
 import com.example.vereins_kassensystem.ui.format.Quantity
 import io.ktor.server.routing.Route
+import com.example.vereins_kassensystem.ui.format.Money
+import io.ktor.http.encodeURLParameter
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import kotlinx.html.ButtonType
+import kotlinx.html.InputType
+import kotlinx.html.button
+import kotlinx.html.details
+import kotlinx.html.hiddenInput
+import kotlinx.html.input
+import kotlinx.html.label
+import kotlinx.html.option
+import kotlinx.html.select
+import kotlinx.html.summary
 import kotlinx.html.FlowContent
 import kotlinx.html.HTML
 import kotlinx.html.a
@@ -25,7 +39,23 @@ internal fun Route.warePages(web: Web) {
     get("/lager") {
         call.guarded(web, Area.STOCK) { ctx ->
             val stock = web.reads.stock()
-            call.html { stockPage(ctx, stock, web.reads.lastSuppliers()) }
+            call.html { stockPage(ctx, stock, web.reads.lastSuppliers(), web.purchases.depositKinds(), web.purchases.depositMovements(limit = 12), call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"]) }
+        }
+    }
+    post("/lager/pfand") {
+        call.guardedPost(web, Area.STOCK) { ctx, form ->
+            if (!ctx.user.role.writesPurchases) return@guardedPost call.forbidden(ctx, "Pfand buchen Kassier und Budenwart.")
+            val outcome = try {
+                if (form["neu"] == "1") {
+                    web.purchases.createDepositKind(ctx.user, form["name"].orEmpty(), uuidOrNull(form["lieferant"]), "", Money.parse(form["pfand"].orEmpty()) ?: throw AccountProblem("Das Pfand je Gebinde bitte als Zahl, etwa 36,00."))
+                    "hinweis=" + "Gebinde angelegt.".encodeURLParameter()
+                } else {
+                    val kind = uuidOrNull(form["gebinde"]) ?: throw AccountProblem("Bitte ein Gebinde wählen.")
+                    web.purchases.recordDeposit(ctx.user, kind, null, java.time.LocalDate.parse(form["tag"].orEmpty().ifBlank { ctx.today.toString() }), form["geliefert"]?.toIntOrNull() ?: 0, form["zurueck"]?.toIntOrNull() ?: 0, form["notiz"].orEmpty())
+                    "hinweis=" + "Pfand gebucht.".encodeURLParameter()
+                }
+            } catch (e: AccountProblem) { "fehler=" + e.message.orEmpty().encodeURLParameter() } catch (e: java.time.format.DateTimeParseException) { "fehler=" + "Das Datum fehlt.".encodeURLParameter() }
+            call.respondRedirect("$BASE/lager?$outcome")
         }
     }
     purchasePages(web)
@@ -33,12 +63,13 @@ internal fun Route.warePages(web: Web) {
 
 // -------------------------------------------------------------------- Lager
 
-private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>, suppliers: Map<String, String>) {
+private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>, suppliers: Map<String, String>, kinds: List<Purchases.DepositKind>, moves: List<Purchases.DepositMovement>, notice: String?, problem: String?) {
     val low = stock.filter { it.low }
     val priced = stock.filter { it.value != null }
     val open = stock.mapNotNull { line -> Inventory.openContainer(line.state)?.let { line to it } }
 
-    shell(ctx, Area.STOCK, "Lager", "Was die Tablets führen, von oben gesehen: Bestand, Fässer, was fehlt") {
+    shell(ctx, Area.STOCK, "Lager", "Was die Tablets führen, von oben gesehen: Bestand, Fässer, was fehlt — und das Pfand beim Lieferanten") {
+        flash(notice, problem)
         panel {
             div("figures") {
                 figure("Lagerwert") {
@@ -66,6 +97,7 @@ private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>, suppliers: 
             }
         }
         div("cols cols-side") {
+            div("stack") {
             panel {
                 panelHead("Bestand") { span("cap") { +"Eingänge minus Abgänge — kein Zähler, den zwei Theken gleichzeitig fortschreiben" } }
                 if (stock.isEmpty()) p("empty") { +"Noch keine Lagerartikel. Sie entstehen am Tablet und kommen mit dem Abgleich." }
@@ -89,6 +121,8 @@ private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>, suppliers: 
                         }
                     }
                 }
+            }
+            depositPanel(ctx, kinds, moves)
             }
             div("stack") {
                 for ((line, tapped) in open) kegPanel(ctx, line, tapped)
@@ -128,6 +162,55 @@ private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>, suppliers: 
                 }
             }
         }
+    }
+}
+
+/** Pfand und Leergut: je Gebindeart, was beim Lieferanten liegt — geliefert minus zurück, mal Pfand je Stück. */
+private fun FlowContent.depositPanel(ctx: PageContext, kinds: List<Purchases.DepositKind>, moves: List<Purchases.DepositMovement>) = panel {
+    val writes = ctx.user.role.writesPurchases
+    panelHead("Pfand und Leergut") { span("cap") { +"je Gebindeart, unabhängig vom Inhalt" } }
+    if (kinds.isEmpty()) p("empty") { +"Noch kein Pfandgebinde. Es entsteht aus einer gelesenen Rechnung (Gebindetabelle oder Pfandzeile) oder hier von Hand." }
+    else table("t t-tight") {
+        thead { tr { th { +"Gebinde" }; th(classes = "num") { +"Bestand" }; th(classes = "num hide-sm") { +"Pfand/Stk" }; th(classes = "num") { +"Pfandwert" } } }
+        tbody {
+            for (k in kinds) tr {
+                td("fill") { twoLine(k.name, listOfNotNull(k.supplier.takeIf { it.isNotBlank() }, k.code.takeIf { it.isNotBlank() }?.let { "Nr. $it" }, k.lastAt?.let { "zuletzt ${ctx.dayShort(it)}" }).joinToString(" · ")) }
+                td("num") { span("money-s${if (k.held < 0) " c-warning" else ""}") { +"${k.held}" } }
+                td("num tnum c-muted hide-sm") { +euro(k.deposit) }
+                td("num") { span("money-s") { +euro(k.value) } }
+            }
+            tr("sum") { td { +"Beim Lieferanten liegt" }; td { }; td("hide-sm") { }; td("num") { span("money-m") { +euro(kinds.sumOf { it.value }) } } }
+        }
+    }
+    if (moves.isNotEmpty()) div("panel-note") {
+        span("cap") { +("Zuletzt: " + moves.take(6).joinToString(" · ") { m -> "${ctx.dayShort(m.day)} ${m.kind} ${listOfNotNull(m.delivered.takeIf { it > 0 }?.let { "+$it" }, m.returned.takeIf { it > 0 }?.let { "−$it" }).joinToString("/")}" }) }
+    }
+    if (writes) div("panel-foot") {
+        div("row wrap") {
+            if (kinds.isNotEmpty()) details {
+                summary("btn") { icon("plus", "m"); +"Leergut zurück / geliefert" }
+                postForm(ctx, "$BASE/lager/pfand", "stack-tight confirm confirm-left") {
+                    label("field") { span { +"Gebinde" }; select { name = "gebinde"; for (k in kinds) option { value = k.id.toString(); +"${k.name}${k.supplier.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""}" } } }
+                    div("form-grid") {
+                        label("field") { span { +"Zurückgegeben" }; input(InputType.text, name = "zurueck") { placeholder = "5"; attributes["inputmode"] = "numeric" } }
+                        label("field") { span { +"Geliefert (ohne Beleg)" }; input(InputType.text, name = "geliefert") { placeholder = "0"; attributes["inputmode"] = "numeric" } }
+                        label("field") { span { +"Am" }; input(InputType.date, name = "tag") { value = ctx.today.toString() } }
+                    }
+                    label("field") { span { +"Notiz" }; input(InputType.text, name = "notiz") { maxLength = "120"; placeholder = "Leergut mitgegeben, Gutschrift folgt" } }
+                    button(type = ButtonType.submit, classes = "btn btn-primary") { +"Buchen" }
+                }
+            }
+            details {
+                summary("btn btn-quiet") { +"Gebinde anlegen" }
+                postForm(ctx, "$BASE/lager/pfand", "stack-tight confirm confirm-left") {
+                    hiddenInput(name = "neu") { value = "1" }
+                    label("field") { span { +"Name (etwa Fass 20 l, Kiste 12 × 1 l)" }; input(InputType.text, name = "name") { required = true; maxLength = "80" } }
+                    label("field") { span { +"Pfand je Gebinde in Euro, brutto" }; input(InputType.text, name = "pfand") { required = true; placeholder = "36,00"; attributes["inputmode"] = "decimal" } }
+                    button(type = ButtonType.submit, classes = "btn btn-primary") { +"Anlegen" }
+                }
+            }
+        }
+        p("cap") { +"Pfand aus einer Rechnung kommt über den Beleg (Zeile „Pfand: …“); hier nur, was ohne Beleg läuft — Leergut, das mit dem Fahrer zurückgeht." }
     }
 }
 

@@ -62,6 +62,7 @@ private val ACTIONS = mapOf(
     "product.create" to "Produkt angelegt", "product.update" to "Produkt geändert", "product.retire" to "Produkt aus dem Sortiment genommen",
     "variant.create" to "Variante angelegt", "variant.update" to "Variante geändert", "variant.remove" to "Variante entfernt",
     "component.set" to "Rezeptur geändert", "component.remove" to "Rezepturzeile entfernt",
+    "deposit.kind" to "Pfandgebinde angelegt oder geändert", "deposit.move" to "Pfand gebucht",
     "books.bank" to "Bankstand eingetragen", "books.bundle" to "Prüfermappe erzeugt",
     "category.create" to "Kategorie angelegt", "category.update" to "Kategorie geändert", "category.remove" to "Kategorie entfernt",
     "purchase.stock" to "Wareneingang gebucht", "purchase.line" to "Belegzeile zugeordnet", "purchase.line.remove" to "Belegzeile entfernt", "supplier.update" to "Lieferant geändert",

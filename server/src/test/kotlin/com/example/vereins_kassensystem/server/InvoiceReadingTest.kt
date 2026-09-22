@@ -159,14 +159,22 @@ class InvoiceReadingTest {
         assertEquals(20.0, read.vatRate)
         assertTrue(read.linesAreNet)
         // Nur der erste Block: die Lieferaufstellung wiederholt alles, die Artikelklassen sind keine Positionen, der Nuller fällt weg.
-        assertEquals(11, read.lines.size)
-        assertEquals(listOf("10020", "10030", "50850", "51012", "51016", "60500", "70403", "70502", "70530", "70535", null), read.lines.map { it.article })
-        assertEquals("VOÜS soda PEM Container (20 Liter)", read.lines[2].description, "der Umbruch ist wieder zusammengesetzt")
-        assertEquals("VOÜS tafelwasser prickelnd Kiste (12 Flaschen à 1 Liter)", read.lines[4].description)
-        assertEquals("leih - glaskorb Festkrug 15x0,50 l", read.lines[9].description, "„0,50“ hinter dem x ist kein Betrag")
-        assertEquals(listOf(6.0, 4.0, 4.0, 5.0, 5.0, 1.0, 2.0, 1.0, 4.0, 5.0, null), read.lines.map { it.quantity })
+        // Dazu die vier Gebinde aus der Pfandtabelle; der Gebindesaldo darunter ist dann keine eigene Zeile mehr.
+        assertEquals(14, read.lines.size)
+        val items = read.lines.filter { it.kind == InvoiceReader.Kind.ITEM }
+        assertEquals(listOf("10020", "10030", "50850", "51012", "51016", "60500", "70403", "70502", "70530", "70535"), items.map { it.article })
+        val pfand = read.lines.filter { it.kind == InvoiceReader.Kind.DEPOSIT }
+        assertEquals(listOf("Fass 20 l", "Fass 30 l", "Kiste mit Flaschen 12x1,0 l (VOÜS)", "Container 20 l (VOÜS)"), pfand.map { it.description })
+        assertEquals(listOf(6 to 5, 4 to 3, 10 to 2, 4 to 1), pfand.map { it.delivered to it.returned })
+        assertEquals(listOf("90004", "90005", "90103", "90232"), pfand.map { it.article })
+        assertEquals(36.0, assertNotNull(pfand[0].unitPrice), 0.001, "30,00 netto Pfand je Fass, brutto")
+        assertEquals(231.84, pfand.sumOf { it.total }, 0.02, "der Gebindesaldo, aus den Zeilen")
+        assertTrue(read.lines.none { it.kind == InvoiceReader.Kind.EXTRA })
+        assertEquals("VOÜS soda PEM Container (20 Liter)", items[2].description, "der Umbruch ist wieder zusammengesetzt")
+        assertEquals("VOÜS tafelwasser prickelnd Kiste (12 Flaschen à 1 Liter)", items[4].description)
+        assertEquals("leih - glaskorb Festkrug 15x0,50 l", items[9].description, "„0,50“ hinter dem x ist kein Betrag")
+        assertEquals(listOf(6.0, 4.0, 4.0, 5.0, 5.0, 1.0, 2.0, 1.0, 4.0, 5.0), items.map { it.quantity })
         assertEquals(298.56, assertNotNull(read.lines[0].net), 0.001); assertEquals(358.27, read.lines[0].total, 0.001)
-        assertEquals("Gebindesaldo (Pfandberechnung)", read.lines.last().description); assertEquals(231.84, read.lines.last().total, 0.001)
         assertEquals(1442.86, read.lines.sumOf { it.total }, 0.02, "brutto hochgerechnet ergeben die Zeilen den Endbetrag")
         assertEquals("10020 gold spezial fass 20 liter", read.lines[0].key, "die Artikelnummer ist der Schlüssel fürs Gedächtnis")
         // Ein bekannter Lieferant gewinnt, auch anders geschrieben.
@@ -207,18 +215,25 @@ class InvoiceReadingTest {
         assertContains(detail, "value=\"item:$bier:$keg\" selected")
         assertContains(detail, "value=\"item:$limo\" selected", message = "„Almdudler“ steckt in der Zeile")
 
-        // Bestätigen: Fass wie vorgeschlagen, die Kiste sind 20 Flaschen, das Pfand ist eine Zeile mit Konto.
-        val pfand = "00000000-0000-0000-0001-000000000018"
+        // Bestätigen: Fass wie vorgeschlagen, die Kiste sind 20 Flaschen, das Pfand wird ein neues Gebinde.
         val applied = kassier.submitForm("/verwaltung/einkauf/$doc/positionen", parameters {
             append("_csrf", csrf); append("n", "3")
             append("key_0", "fass mohrenbräu helles 50 l"); append("orig_0", "2,00"); append("text_0", "Fass Mohrenbräu Helles 50 l"); append("wahl_0", "item:$bier:$keg"); append("menge_0", "2"); append("betrag_0", "284,00")
             append("key_1", "kiste almdudler 0 5 l 20x"); append("orig_1", "5,00"); append("text_1", "Kiste Almdudler 0,5 l 20x"); append("wahl_1", "item:$limo"); append("menge_1", "100"); append("betrag_1", "80,00")
-            append("key_2", "fasspfand"); append("orig_2", "5,00"); append("text_2", "Fasspfand"); append("wahl_2", "acct:$pfand"); append("menge_2", ""); append("betrag_2", "150,00")
+            append("key_2", "fasspfand"); append("orig_2", "5,00"); append("text_2", "Fasspfand"); append("wahl_2", "pfand:neu"); append("menge_2", "5"); append("betrag_2", "150,00")
         })
         assertContains(location(applied), "3%20Positionen")
         val after = kassier.page("/verwaltung/einkauf?b=$doc")
         assertContains(after, "Alles zugeordnet", message = "284 + 80 + 150 = 514")
-        assertContains(after, "Sonstiges")
+        assertContains(after, "Pfand und Leergut"); assertContains(after, "Pfand zu diesem Beleg")
+        // Das Pfandgebinde ist da: 5 Fässer beim Lieferanten zu 30 € — und drei gehen ohne Beleg zurück.
+        val lager = kassier.page("/verwaltung/lager")
+        assertContains(lager, "Fasspfand"); assertContains(lager, "150,00 €")
+        val kindId = assertNotNull(Regex("""<option value="([0-9a-f-]{36})">Fasspfand""").find(lager)).groupValues[1]
+        kassier.submitForm("/verwaltung/lager/pfand", parameters { append("_csrf", csrfOf(lager)); append("gebinde", kindId); append("zurueck", "3"); append("geliefert", ""); append("tag", "2026-09-21"); append("notiz", "mit dem Fahrer") })
+        val lagerAfter = kassier.page("/verwaltung/lager")
+        assertContains(lagerAfter, "60,00 €", message = "2 Fässer × 30 €")
+        assertContains(kassier.page("/verwaltung/buecher"), "Pfand beim Lieferanten")
         val pulled = ctx.client.get("/v1/sync/changes?since=$since") { bearerAuth(device.token) }.body<ChangesResponse>()
         val entries = pulled.changes.filter { it.entity == "stock_entries" }
         assertEquals(setOf("2.0" to keg, "100.0" to null), entries.map { it.row["quantity"]!!.jsonPrimitive.content to it.row["container_type_id"]?.let { c -> if (c is kotlinx.serialization.json.JsonNull) null else c.jsonPrimitive.content } }.toSet())
@@ -231,7 +246,7 @@ class InvoiceReadingTest {
         val second = assertNotNull(Regex("b=([0-9a-f-]{36})").find(location(next))).groupValues[1]
         val again = kassier.page("/verwaltung/einkauf?b=$second&lesen=1")
         assertContains(again, "gemerkt vom letzten Beleg")
-        assertContains(again, "value=\"acct:$pfand\" selected")
+        assertContains(again, "value=\"pfand:$kindId\" selected", message = "das Pfand liegt gemerkt auf dem Gebinde")
         assertTrue(Regex("""name="menge_1" value="100"""").containsMatchIn(again), "5 Kisten × 20 = 100 Flaschen, gemerkt")
 
         // Ein Foto liest niemand: Der Beleg wird gespeichert, die Seite sagt es — auch bei einer Datei, die größer ist als ein Formularfeld (früher ein 500).

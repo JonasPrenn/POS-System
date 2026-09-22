@@ -113,7 +113,7 @@ internal fun Route.purchasePages(web: Web) {
                     ctx, all, shown, selected != null || fresh, fresh, web.purchases.openDocuments(),
                     stockLines, expenseLines,
                     web.purchases.suppliers(), web.purchases.expenseAccounts(), choices,
-                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"], reading, suggestions, prefill
+                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"], reading, suggestions, prefill, web.purchases.depositKinds(), shown?.takeIf { it.hasDocument }?.let { web.purchases.depositMovements(it.id) }.orEmpty()
                 )
             }
         }
@@ -193,6 +193,9 @@ internal fun Route.purchasePages(web: Web) {
                         containerTypeId = if (parts[0] == "item") uuidOrNull(parts.getOrNull(2)) else null,
                         accountId = if (parts[0] == "acct") uuidOrNull(parts.getOrNull(1)) else null,
                         quantity = quantity, amount = amount,
+                        depositKindId = if (parts[0] == "pfand") uuidOrNull(parts.getOrNull(1)) else null,
+                        newDepositName = if (choice == "pfand:neu") description else null,
+                        delivered = form["gel_$i"]?.toIntOrNull(), returned = form["ret_$i"]?.toIntOrNull(),
                     )
                 }
                 val booked = web.purchases.applyLines(ctx.user, id, chosen)
@@ -258,6 +261,7 @@ private fun HTML.purchasesPage(
     ctx: PageContext, all: List<Document>, shown: Document?, chosen: Boolean, fresh: Boolean, open: List<Document>,
     stockLines: List<StockLine2>, expenseLines: List<ExpenseLine>, suppliers: List<Supplier>, accounts: List<Account>, choices: List<StockChoice>,
     notice: String?, problem: String?, reading: InvoiceReader.Extract? = null, suggestions: List<Purchases.Suggestion>? = null, prefill: Prefill? = null,
+    depositKinds: List<Purchases.DepositKind> = emptyList(), deposits: List<Purchases.DepositMovement> = emptyList(),
 ) {
     val writes = ctx.user.role.writesPurchases
     val thisMonth = all.filter { java.time.YearMonth.from(it.date) == java.time.YearMonth.from(ctx.today) }
@@ -339,7 +343,14 @@ private fun HTML.purchasesPage(
                     shown == null -> panel { p("empty") { +"Noch kein Beleg." } }
                     else -> {
                         documentDetail(ctx, shown, stockLines, expenseLines, suppliers, accounts, choices, writes)
-                        if (reading != null && suggestions != null) readingPanel(ctx, shown, reading, suggestions, accounts, choices, writes)
+                        if (deposits.isNotEmpty()) panel {
+                            div("panel-body") {
+                                h3("title-s") { +"Pfand zu diesem Beleg" }
+                                table("t t-tight t-flush") { tbody { for (m in deposits) tr { td("fill") { twoLine(m.kind, m.note) }; td("num tnum") { +listOfNotNull(m.delivered.takeIf { it > 0 }?.let { "+$it" }, m.returned.takeIf { it > 0 }?.let { "−$it" }).joinToString(" / ") } } } }
+                                p("cap") { +"Geliefert und zurück je Gebinde; der Bestand steht unter Lager → Pfand und Leergut." }
+                            }
+                        }
+                        if (reading != null && suggestions != null) readingPanel(ctx, shown, reading, suggestions, accounts, choices, depositKinds, writes)
                     }
                 }
             }
@@ -507,7 +518,7 @@ private fun FlowContent.documentDetail(
 }
 
 /** Was der Leser in der Datei gefunden hat: je Zeile ein Vorschlag, den der Kassier bestätigt, ändert oder auslässt. */
-private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: InvoiceReader.Extract, suggestions: List<Purchases.Suggestion>, accounts: List<Account>, choices: List<StockChoice>, writes: Boolean) = panel {
+private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: InvoiceReader.Extract, suggestions: List<Purchases.Suggestion>, accounts: List<Account>, choices: List<StockChoice>, depositKinds: List<Purchases.DepositKind>, writes: Boolean) = panel {
     div("panel-body") {
         div("row-between") {
             h3("title-s") { +"Aus der Rechnung gelesen" }
@@ -521,12 +532,15 @@ private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: Inv
                 hiddenInput(name = "n") { value = suggestions.size.toString() }
                 p("cap") { +"Je Zeile: Lagerartikel (mit Gebinde) oder ein Konto für Zeilen ohne Lager — oder auslassen. Menge ist die Lagermenge: bei einer Kiste zu 20 Flaschen also 20 je Kiste; die Verwaltung merkt sich das Verhältnis für den nächsten Beleg.${if (reading.linesAreNet) " Die Rechnung weist die Zeilen netto aus; die Beträge hier sind brutto hochgerechnet." else ""}" }
                 suggestions.forEachIndexed { i, sg ->
-                    val selected = sg.mapping?.let { m -> if (m.itemId != null) "item:${m.itemId}${m.containerTypeId?.let { ":$it" } ?: ""}" else m.accountId?.let { "acct:$it" } } ?: ""
+                    val isDeposit = sg.line.kind == InvoiceReader.Kind.DEPOSIT
+                    val selected = sg.mapping?.let { m -> if (m.itemId != null) "item:${m.itemId}${m.containerTypeId?.let { ":$it" } ?: ""}" else if (m.depositKindId != null) "pfand:${m.depositKindId}" else m.accountId?.let { "acct:$it" } } ?: (if (isDeposit) "pfand:neu" else "")
                     div("sub stack-tight") {
                         hiddenInput(name = "key_$i") { value = sg.key }
                         hiddenInput(name = "orig_$i") { value = sg.line.quantity?.let(Money::formatPlain).orEmpty() }
+                        sg.line.delivered?.let { hiddenInput(name = "gel_$i") { value = it.toString() } }
+                        sg.line.returned?.let { hiddenInput(name = "ret_$i") { value = it.toString() } }
                         label("field") {
-                            span { +listOfNotNull("Zeile ${i + 1}", sg.line.article?.let { "Art. $it" }, sg.line.quantity?.let { "${Money.formatPlain(it).removeSuffix(",00")} laut Rechnung" }, sg.line.unitPrice?.let { "à ${euro(it)}" }, sg.line.net?.let { "netto ${euro(it)}${reading.vatRate?.let { r -> " + ${Money.formatPlain(r).removeSuffix(",00")} % USt" } ?: ""}" }, if (sg.learned) "gemerkt vom letzten Beleg" else null).joinToString(" · ") }
+                            span { +listOfNotNull("Zeile ${i + 1}", if (isDeposit) "Pfand" else null, sg.line.article?.let { "Art. $it" }, if (isDeposit) "${sg.line.delivered} geliefert, ${sg.line.returned} zurück" else sg.line.quantity?.let { "${Money.formatPlain(it).removeSuffix(",00")} laut Rechnung" }, sg.line.unitPrice?.let { "à ${euro(it)}" }, sg.line.net?.let { "netto ${euro(it)}${reading.vatRate?.let { r -> " + ${Money.formatPlain(r).removeSuffix(",00")} % USt" } ?: ""}" }, if (sg.learned) "gemerkt vom letzten Beleg" else null).joinToString(" · ") }
                             input(InputType.text, name = "text_$i") { value = sg.line.description; maxLength = "120" }
                         }
                         div("form-grid") {
@@ -540,9 +554,11 @@ private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: Inv
                                         for ((typeId, label) in c.containerTypes) option { value = "item:${c.id}:$typeId"; if (selected == "item:${c.id}:$typeId") this.selected = true; +"${c.name}: $label" }
                                     }
                                     for (a in accounts) option { value = "acct:${a.id}"; if (selected == "acct:${a.id}") this.selected = true; +"Konto: ${a.name}" }
+                                    for (k in depositKinds) option { value = "pfand:${k.id}"; if (selected == "pfand:${k.id}") this.selected = true; +"Pfand: ${k.name}${k.supplier.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""}" }
+                                    option { value = "pfand:neu"; if (selected == "pfand:neu") this.selected = true; +"Pfand: neues Gebinde „${sg.line.description.take(40)}“" }
                                 }
                             }
-                            label("field") { span { +"Lagermenge" }; input(InputType.text, name = "menge_$i") { value = sg.quantity?.let { Money.formatPlain(it).removeSuffix(",00") }.orEmpty(); attributes["inputmode"] = "decimal" } }
+                            label("field") { span { +(if (isDeposit) "Saldo (geliefert − zurück)" else "Lagermenge") }; input(InputType.text, name = "menge_$i") { value = sg.quantity?.let { Money.formatPlain(it).removeSuffix(",00") }.orEmpty(); attributes["inputmode"] = "decimal" } }
                             label("field") { span { +"Betrag in Euro" }; input(InputType.text, name = "betrag_$i") { value = Money.formatPlain(sg.line.total); attributes["inputmode"] = "decimal" } }
                         }
                     }

@@ -55,7 +55,7 @@ internal fun Route.bookPages(web: Web) {
             val books = web.books.year(year, web.books.fiscalYear(choice.year - 1, start))
             val asOf = if (year.contains(ctx.today)) ctx.today else year.to.minusDays(1)
             val stockValue = web.reads.stock().mapNotNull { it.value }.takeIf { it.isNotEmpty() }?.sum()
-            val assets = web.books.assets(asOf, ctx.today, web.books.bankBalance(choice.year), stockValue)
+            val assets = web.books.assets(asOf, ctx.today, web.books.bankBalance(choice.year), stockValue, web.purchases.depositValue())
             call.html { booksPage(ctx, choice, books, assets, call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"]) }
         }
     }
@@ -91,7 +91,7 @@ internal fun Route.bookPages(web: Web) {
             val books = web.books.year(year, web.books.fiscalYear(choice.year - 1, start))
             val asOf = if (year.contains(ctx.today)) ctx.today else year.to.minusDays(1)
             val stockValue = web.reads.stock().mapNotNull { it.value }.takeIf { it.isNotEmpty() }?.sum()
-            val assets = web.books.assets(asOf, ctx.today, web.books.bankBalance(choice.year), stockValue)
+            val assets = web.books.assets(asOf, ctx.today, web.books.bankBalance(choice.year), stockValue, web.purchases.depositValue())
             val pdf = AuditBundlePdf.render(AuditBundlePdf.Input(
                 club = ctx.verein.name, year = books, assets = assets,
                 cashBook = web.cash.book(year.from, year.to.minusDays(1)),
@@ -173,6 +173,7 @@ private fun HTML.booksPage(ctx: PageContext, choice: YearChoice, books: YearBook
                         assetRow("Kassabestand", assets.cash, assets.cashDetail)
                         assetRow("Bankstand", assets.bank, if (assets.bank == null) "nicht eingetragen" else "laut Kontoauszug, eingetragen")
                         assetRow("Lagerwert", assets.stockValue, if (assets.stockValue == null) (if (assets.asOf >= ctx.today) "noch kein Wareneingang mit Betrag" else "nur für heute rechenbar") else "zu Einstandspreisen, Stand heute")
+                        assetRow("Pfand beim Lieferanten", assets.deposits, "gehaltene Gebinde mal Pfand je Stück")
                         assetRow("Forderungen", assets.receivables, "Deckel im Minus")
                         assetRow("Verbindlichkeiten: Guthaben", -assets.memberCredits, "Deckel im Plus — der Verein schuldet es")
                         assetRow("Verbindlichkeiten: offene Belege", -assets.openInvoices, "Lieferantenbelege, noch nicht bezahlt")

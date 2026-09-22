@@ -25,8 +25,16 @@ object InvoiceReader {
      * [article] ist die Artikelnummer des Lieferanten, wenn die Zeile eine trägt — der
      * stabilste Schlüssel fürs Gedächtnis.
      */
-    class Line(val article: String?, val description: String, val quantity: Double?, val unitPrice: Double?, val total: Double, val net: Double?, val raw: String) {
+    enum class Kind { ITEM, EXTRA, DEPOSIT }
+
+    class Line(
+        val article: String?, val description: String, val quantity: Double?, val unitPrice: Double?, val total: Double, val net: Double?, val raw: String,
+        val kind: Kind = Kind.ITEM,
+        /** Nur Pfand: geliefert und zurück, aus der Gebindetabelle — der Saldo ist [quantity]. */
+        val delivered: Int? = null, val returned: Int? = null,
+    ) {
         val key: String get() = articleKey(listOfNotNull(article, description).joinToString(" "))
+        fun scaled(factor: Double) = Line(article, description, quantity, unitPrice?.let { Money.cents(it * factor) }, Money.cents(total * factor), total, raw, kind, delivered, returned)
     }
 
     class Extract(
@@ -66,14 +74,16 @@ object InvoiceReader {
             .groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
 
         val items = items(lines, gross)
-        val extras = extras(lines)
+        val deposits = deposits(lines)
+        // Steht die Gebindetabelle da, trägt sie das Pfand — der Gebindesaldo darunter wäre dieselbe Summe noch einmal.
+        val extras = extras(lines).filter { deposits.isEmpty() || !it.description.contains("saldo", ignoreCase = true) }
         // Netto ausgewiesen? Dann ergibt erst die Summe mal Steuersatz den Endbetrag — und die Zeilen werden hochgerechnet.
-        val itemsNet = items.sumOf { it.total }
+        val itemsNet = items.sumOf { it.total } + deposits.sumOf { it.total }
         val extrasGross = extras.sumOf { if (it.net != null || vatRate == null) it.total else it.total * (1 + vatRate / 100) }
         val scaled = if (gross != null && vatRate != null && items.isNotEmpty() && itemsNet + extras.sumOf { it.total } < gross - 0.5 && near(itemsNet * (1 + vatRate / 100) + extrasGross, gross, tolerance = maxOf(1.0, gross * 0.01))) {
-            items.map { Line(it.article, it.description, it.quantity, it.unitPrice?.let { u -> Money.cents(u * (1 + vatRate / 100)) }, Money.cents(it.total * (1 + vatRate / 100)), it.total, it.raw) } +
-                extras.map { if (it.net != null) it else Line(it.article, it.description, it.quantity, null, Money.cents(it.total * (1 + vatRate / 100)), it.total, it.raw) }
-        } else items + extras
+            val factor = 1 + vatRate / 100
+            items.map { it.scaled(factor) } + deposits.map { it.scaled(factor) } + extras.map { if (it.net != null) it else it.scaled(factor) }
+        } else items + deposits + extras
         return Extract(supplier, number, date, dueDate?.takeIf { d -> date == null || !d.isBefore(date) }, gross, vat, vatRate, scaled, hasText = true)
     }
 
@@ -143,6 +153,29 @@ object InvoiceReader {
         return Line(article, description.take(120), quantity, unitPrice, total, null, line)
     }
 
+    /**
+     * Die Gebindetabelle einer Brauereirechnung: „Fass 20 l (90004) 6 5 1 30,0000 30,00“ — Gebinde,
+     * Nummer, geliefert, zurück, Differenz, Pfand je Stück, Betrag. Nur unter einer Kopfzeile, die
+     * „Gebinde“ und „Gel“ nennt; sonst wäre jede Zeile mit drei Zahlen und einem Preis ein Kandidat.
+     */
+    private fun deposits(lines: List<String>): List<Line> {
+        val start = lines.indexOfFirst { DEPOSIT_HEAD.containsMatchIn(it) }
+        if (start < 0) return emptyList()
+        val result = ArrayList<Line>()
+        for (line in lines.drop(start + 1)) {
+            if (STOP.containsMatchIn(line) || SUM_WORDS.containsMatchIn(line)) break
+            val m = DEPOSIT_ROW.find(line) ?: continue
+            val delivered = m.groupValues[3].toIntOrNull() ?: continue
+            val returned = m.groupValues[4].toIntOrNull() ?: continue
+            val unit = parseAmount(m.groupValues[6]) ?: continue
+            val total = parseAmount(m.groupValues[7]) ?: continue
+            val name = m.groupValues[1].replace(Regex("\\s+"), " ").trim(' ', '-', ':')
+            if (name.length < 3) continue
+            result += Line(m.groupValues[2].ifEmpty { null }, name, (delivered - returned).toDouble(), unit, total, null, line, Kind.DEPOSIT, delivered, returned)
+        }
+        return result
+    }
+
     /** Was neben den Positionen noch Geld kostet und einen eigenen Block hat: der Gebindesaldo (Pfand), Fracht, Zustellung. */
     private fun extras(lines: List<String>): List<Line> = lines.mapNotNull { line ->
         val m = EXTRA.find(line) ?: return@mapNotNull null
@@ -152,7 +185,7 @@ object InvoiceReader {
         if (total <= 0) return@mapNotNull null
         // „193,20 20,00% 38,64 231,84“: netto, Steuer, brutto — dann steht brutto schon da.
         val net = amounts.takeIf { it.size >= 3 && near(it[it.size - 3] + it[it.size - 2], total) }?.let { it[it.size - 3] }
-        Line(null, m.groupValues[1].trim().take(120), null, null, total, net, line)
+        Line(null, m.groupValues[1].trim().take(120), null, null, total, net, line, Kind.EXTRA)
     }
 
     /** Ein Artikel als Schlüssel fürs Gedächtnis: klein, ohne doppelte Leerzeichen, ohne Satzzeichen am Rand. */
@@ -196,6 +229,9 @@ object InvoiceReader {
     private val ARTICLE = Regex("^[A-Za-z]?\\d{3,}(?:[.\\-/]\\d+)*$")
     private val SUM_WORDS = Regex("(?i)\\b(Summe|Gesamt|Brutto|Netto|MwSt|USt|Umsatzsteuer|Zwischensumme|Skonto|Übertrag|Rabatt gesamt|Zahlbar|Warenwert|Gebindewert|Steuersatz)\\b")
     private val STOP = Regex("(?i)\\b(Warenwert|Netto|Nettobetrag|Endbetrag|Gesamtbetrag|Rechnungsbetrag|Zu zahlen|Gesamtsumme|Summen|G\\s?E\\s?S\\s?A\\s?M\\s?T)\\b")
+    private val DEPOSIT_HEAD = Regex("(?i)\\bGebinde\\b.*\\bGel\\b")
+    // Gebinde (Nummer) geliefert zurück Differenz Pfand/Stück Betrag — der Preis darf vier Nachkommastellen haben.
+    private val DEPOSIT_ROW = Regex("^(.+?)\\s*(?:\\((\\d{3,})\\))?\\s+(-?\\d+)\\s+(-?\\d+)\\s+(-?\\d+)\\s+(\\d{1,3}(?:\\.\\d{3})*,\\d{2,4})\\s+(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2})$")
     private val EXTRA = Regex("(?i)^((?:Gebindesaldo|Pfandsaldo|Leergutsaldo|Pfand gesamt|Fracht|Zustellung|Transportkosten|Versandkosten)[^\\d\\n]{0,40})")
     private val COMPANY = Regex("\\b(?:GmbH|eGen|e\\.U\\.|KG|OG|AG|GesmbH|Ges\\.m\\.b\\.H\\.|Genossenschaft|Brauerei|Getränke\\w*|Metzgerei|Bäckerei|Handels\\w*)\\b")
     private val RECIPIENT = Regex("(?i)\\b(?:Kundenkennzeichen|Kundennummer|Kunden-Nr|zH|z\\.H\\.|Lieferadresse|Geliefert an|Rechnungsadresse)\\b")

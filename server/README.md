@@ -161,6 +161,14 @@ Adresse begrenzt.
 | `TRUST_PROXY` | `true`, wenn der Dienst nur über Caddy erreichbar ist — dann gilt `X-Forwarded-For` als Adresse des Anrufers. In `compose.yaml` gesetzt, in `compose.dev.yaml` nicht |
 | `WEB_INSECURE_COOKIES` | `true` nur zum Ausprobieren ohne HTTPS (`compose.dev.yaml`); im Betrieb nie |
 
+Unter dem Lager steht **Pfand und Leergut** (`deposit_kinds`, `deposit_movements`, V10): je
+Gebindeart — Fass 20 l, Fass 30 l, Kiste 12 × 1 l, Container — unabhängig vom Inhalt, was beim
+Lieferanten liegt (geliefert minus zurück, aus Bewegungen hergeleitet) und der Pfandwert dazu.
+Gefüttert wird es aus der Rechnung: die Gebindetabelle einer Brauereirechnung wird gelesen
+(geliefert, zurück, Pfand je Stück), eine Pfandzeile eines Händlers ordnet der Kassier einem
+Gebinde zu; Leergut ohne Beleg bucht er von Hand. In den Büchern ist Pfand ein Abfluss auf
+„Pfand und Leergut“, der beim Zurückgeben zufließt; der Bestand steht in der Vermögensübersicht.
+
 Das Lager zeigt neben dem Bestand den **Bestellvorschlag**: alles unter Mindestbestand,
 gruppiert nach dem Lieferanten der letzten Lieferung (aus dem Beleg oder dem Wareneingang),
 aufgefüllt auf das Doppelte des Mindestbestands, Fässer in ganzen Gebinden. Bestellt wird
@@ -205,6 +213,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `src/main/resources/db/migration/V10__pfand.sql` | Pfandgebinde und Bewegungen, Konto „Pfand und Leergut“ |
 | `src/main/resources/db/migration/V9__rechnung_lesen.sql` | `supplier_articles` — was eine Rechnungszeile eines Lieferanten im Lager ist, einmal bestätigt |
 | `src/main/resources/db/migration/V8__sperre.sql` | `members.blocked_reason`, synchronisiert |
 | `src/main/resources/db/migration/V7__kasse.sql` | `cash_sessions` und `cash_movements`, synchronisiert — die Schichten und Barbewegungen der Tablets |

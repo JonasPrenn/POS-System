@@ -250,7 +250,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
     // ------------------------------------------------- Rechnung lesen und zuordnen
 
     /** Wohin eine Rechnungszeile geht: ein Lagerartikel (mit Gebinde), ein Konto, oder nichts. */
-    class ArticleMapping(val itemId: UUID?, val containerTypeId: UUID?, val accountId: UUID?, val factor: Double)
+    class ArticleMapping(val itemId: UUID?, val containerTypeId: UUID?, val accountId: UUID?, val factor: Double, val depositKindId: UUID? = null)
 
     class Suggestion(val line: InvoiceReader.Line, val key: String, val mapping: ArticleMapping?, val learned: Boolean) {
         /** Die vorgeschlagene Lagermenge: Rechnungsmenge mal gelerntem Faktor. */
@@ -258,13 +258,17 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
     }
 
     /** Eine vom Kassier bestätigte Zeile: was sie ist, wie viel, was sie kostet. */
-    class ChosenLine(val key: String, val description: String, val invoiceQuantity: Double?, val itemId: UUID?, val containerTypeId: UUID?, val accountId: UUID?, val quantity: Double?, val amount: Double)
+    class ChosenLine(
+        val key: String, val description: String, val invoiceQuantity: Double?, val itemId: UUID?, val containerTypeId: UUID?, val accountId: UUID?, val quantity: Double?, val amount: Double,
+        /** Pfand: ein bestehendes Gebinde, oder ein neues mit diesem Namen; geliefert und zurück aus der Rechnung, sonst aus der Menge. */
+        val depositKindId: UUID? = null, val newDepositName: String? = null, val delivered: Int? = null, val returned: Int? = null,
+    )
 
     fun supplierKey(doc: Document): String = doc.supplierId?.toString() ?: doc.supplier.trim().lowercase()
 
     fun mappings(supplierKey: String): Map<String, ArticleMapping> = db.read { c ->
-        c.query("SELECT article_key, stock_item_id, container_type_id, account_id, factor FROM supplier_articles WHERE supplier_key = ?", supplierKey) {
-            it.getString("article_key") to ArticleMapping(it.getObject("stock_item_id", UUID::class.java), it.getObject("container_type_id", UUID::class.java), it.getObject("account_id", UUID::class.java), it.getDouble("factor"))
+        c.query("SELECT article_key, stock_item_id, container_type_id, account_id, factor, deposit_kind_id FROM supplier_articles WHERE supplier_key = ?", supplierKey) {
+            it.getString("article_key") to ArticleMapping(it.getObject("stock_item_id", UUID::class.java), it.getObject("container_type_id", UUID::class.java), it.getObject("account_id", UUID::class.java), it.getDouble("factor"), it.getObject("deposit_kind_id", UUID::class.java))
         }.toMap()
     }
 
@@ -275,9 +279,16 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
      */
     fun suggest(extract: InvoiceReader.Extract, doc: Document, choices: List<StockChoice>, sizes: Map<UUID, Double>): List<Suggestion> {
         val learned = mappings(supplierKey(doc))
+        val kinds = depositKinds()
         return extract.lines.map { line ->
             val key = line.key
             learned[key]?.let { return@map Suggestion(line, key, it, learned = true) }
+            if (line.kind == InvoiceReader.Kind.DEPOSIT) {
+                // Ein Pfandgebinde: das mit derselben Nummer, sonst dasselbe Wort (Fass 20 l) — sonst neu anlegen.
+                val known = kinds.firstOrNull { line.article != null && it.code == line.article }
+                    ?: kinds.firstOrNull { InvoiceReader.articleKey(it.name) == InvoiceReader.articleKey(line.description) }
+                return@map Suggestion(line, key, known?.let { ArticleMapping(null, null, null, 1.0, it.id) }, learned = false)
+            }
             val words = key.split(' ').filter { it.length >= 3 }.toSet()
             val best = choices.map { choice ->
                 val tokens = InvoiceReader.articleKey(choice.name).split(' ').filter { it.length >= 3 }
@@ -297,24 +308,99 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
         val doc = document(documentId) ?: throw AccountProblem("Diesen Beleg gibt es nicht.")
         var booked = 0
         for (line in chosen) {
+            var depositKind: UUID? = null
             when {
                 line.itemId != null -> { addStockLine(by, documentId, line.itemId, line.containerTypeId, line.quantity ?: throw AccountProblem("Für „${line.description}“ fehlt die Menge."), line.amount); booked++ }
                 line.accountId != null -> { addExpenseLine(by, documentId, line.description, line.amount, line.accountId); booked++ }
+                line.depositKindId != null || line.newDepositName != null -> {
+                    val delivered = line.delivered ?: line.quantity?.takeIf { it > 0 }?.toInt() ?: 0
+                    val returned = line.returned ?: line.quantity?.takeIf { it < 0 }?.let { -it.toInt() } ?: 0
+                    val perUnit = (delivered - returned).takeIf { it != 0 }?.let { Money.cents(kotlin.math.abs(line.amount / it)) }
+                    depositKind = line.depositKindId ?: createDepositKind(by, line.newDepositName!!, doc.supplierId, line.key.substringBefore(' ').takeIf { it.all(Char::isDigit) } ?: "", perUnit ?: 0.0)
+                    recordDeposit(by, depositKind, documentId, doc.date, delivered, returned, line.description)
+                    if (line.amount != 0.0) addExpenseLine(by, documentId, "Pfand: ${line.description}", line.amount, DEPOSIT_ACCOUNT)
+                    booked++
+                }
                 else -> continue
             }
             val factor = if (line.itemId != null && line.invoiceQuantity != null && line.invoiceQuantity > 0 && line.quantity != null) line.quantity / line.invoiceQuantity else 1.0
             db.transaction { c ->
                 c.execute(
                     """
-                    INSERT INTO supplier_articles (id, supplier_key, article_key, stock_item_id, container_type_id, account_id, factor) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT (supplier_key, article_key) DO UPDATE SET stock_item_id = EXCLUDED.stock_item_id, container_type_id = EXCLUDED.container_type_id, account_id = EXCLUDED.account_id, factor = EXCLUDED.factor, updated_at = now()
+                    INSERT INTO supplier_articles (id, supplier_key, article_key, stock_item_id, container_type_id, account_id, factor, deposit_kind_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (supplier_key, article_key) DO UPDATE SET stock_item_id = EXCLUDED.stock_item_id, container_type_id = EXCLUDED.container_type_id, account_id = EXCLUDED.account_id, factor = EXCLUDED.factor, deposit_kind_id = EXCLUDED.deposit_kind_id, updated_at = now()
                     """.trimIndent(),
-                    UUID.fromString(Ids.new()), supplierKey(doc), line.key, line.itemId, line.containerTypeId, line.accountId, BigDecimal.valueOf(factor)
+                    UUID.fromString(Ids.new()), supplierKey(doc), line.key, line.itemId, line.containerTypeId, line.accountId, BigDecimal.valueOf(factor), depositKind
                 )
             }
         }
         return booked
     }
+
+    // ------------------------------------------------------------ Pfand
+
+    class DepositKind(val id: UUID, val name: String, val supplierId: UUID?, val supplier: String, val code: String, val deposit: Double, val held: Int, val lastAt: LocalDate?) {
+        /** Was an Pfand beim Lieferanten liegt: die gehaltenen Gebinde mal Pfand je Stück. */
+        val value: Double get() = Money.cents(held * deposit)
+    }
+
+    class DepositMovement(val id: UUID, val kind: String, val day: LocalDate, val delivered: Int, val returned: Int, val note: String, val by: String)
+
+    /** Die Gebindearten mit Bestand: geliefert minus zurück über alle Bewegungen — kein Zähler. */
+    fun depositKinds(): List<DepositKind> = db.read { c ->
+        c.query(
+            """
+            SELECT k.id, k.name, k.supplier_id, COALESCE(s.name, '') AS supplier, k.code, k.deposit,
+                   COALESCE((SELECT SUM(m.delivered - m.returned) FROM deposit_movements m WHERE m.kind_id = k.id), 0) AS held,
+                   (SELECT MAX(m.day) FROM deposit_movements m WHERE m.kind_id = k.id) AS last_at
+            FROM deposit_kinds k LEFT JOIN suppliers s ON s.id = k.supplier_id WHERE k.active ORDER BY s.name NULLS LAST, k.name
+            """.trimIndent()
+        ) { DepositKind(it.getObject("id", UUID::class.java), it.getString("name"), it.getObject("supplier_id", UUID::class.java), it.getString("supplier"), it.getString("code"), it.getDouble("deposit"), it.getInt("held"), it.getDate("last_at")?.toLocalDate()) }
+    }
+
+    fun depositMovements(documentId: UUID? = null, limit: Int = 60): List<DepositMovement> = db.read { c ->
+        c.query(
+            "SELECT m.id, k.name, m.day, m.delivered, m.returned, m.note, m.created_by FROM deposit_movements m JOIN deposit_kinds k ON k.id = m.kind_id " +
+                (if (documentId != null) "WHERE m.document_id = ? " else "") + "ORDER BY m.day DESC, m.created_at DESC LIMIT ?",
+            *listOfNotNull<Any>(documentId, limit).toTypedArray()
+        ) { DepositMovement(it.getObject("id", UUID::class.java), it.getString("name"), it.getDate("day").toLocalDate(), it.getInt("delivered"), it.getInt("returned"), it.getString("note"), it.getString("created_by")) }
+    }
+
+    fun createDepositKind(by: WebUser, name: String, supplierId: UUID?, code: String, deposit: Double): UUID {
+        val clean = name.trim().replace(Regex("\\s+"), " ").take(80).ifEmpty { throw AccountProblem("Das Gebinde braucht einen Namen, etwa „Fass 20 l“ oder „Kiste 12 × 1 l“.") }
+        if (deposit < 0 || deposit > 500) throw AccountProblem("Das Pfand je Gebinde ist nicht plausibel.")
+        return db.transaction { c ->
+            c.queryOne("SELECT id FROM deposit_kinds WHERE active AND lower(name) = lower(?) AND supplier_id IS NOT DISTINCT FROM ?", clean, supplierId) { it.getObject("id", UUID::class.java) }?.let { return@transaction it }
+            val id = UUID.fromString(Ids.new())
+            c.execute("INSERT INTO deposit_kinds (id, name, supplier_id, code, deposit) VALUES (?, ?, ?, ?, ?)", id, clean, supplierId, code.trim().take(20), money(deposit))
+            AuditLog.record(c, by.id, by.displayName, "deposit.kind", clean, "Pfand ${euro(deposit)}")
+            id
+        }
+    }
+
+    fun updateDepositKind(by: WebUser, id: UUID, name: String, deposit: Double) {
+        val clean = name.trim().replace(Regex("\\s+"), " ").take(80).ifEmpty { throw AccountProblem("Ein Name fehlt.") }
+        if (deposit < 0 || deposit > 500) throw AccountProblem("Das Pfand je Gebinde ist nicht plausibel.")
+        db.transaction { c ->
+            c.execute("UPDATE deposit_kinds SET name = ?, deposit = ? WHERE id = ?", clean, money(deposit), id)
+            AuditLog.record(c, by.id, by.displayName, "deposit.kind", clean, "Pfand ${euro(deposit)}")
+        }
+    }
+
+    /** Eine Bewegung: geliefert und zurück, mit oder ohne Beleg — Leergut, das ohne Rechnung zurückgeht, ist die Regel, nicht die Ausnahme. */
+    fun recordDeposit(by: WebUser, kindId: UUID, documentId: UUID?, day: LocalDate, delivered: Int, returned: Int, note: String) {
+        if (delivered < 0 || returned < 0 || delivered > 10_000 || returned > 10_000) throw AccountProblem("Geliefert und zurück sind Stückzahlen ab null.")
+        if (delivered == 0 && returned == 0) throw AccountProblem("Weder geliefert noch zurück — nichts zu buchen.")
+        db.transaction { c ->
+            val kind = c.queryOne("SELECT name FROM deposit_kinds WHERE id = ? AND active", kindId) { it.getString("name") } ?: throw AccountProblem("Dieses Gebinde gibt es nicht.")
+            c.execute("INSERT INTO deposit_movements (id, kind_id, document_id, day, delivered, returned, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                UUID.fromString(Ids.new()), kindId, documentId, Date.valueOf(day), delivered, returned, note.trim().take(120), by.displayName)
+            AuditLog.record(c, by.id, by.displayName, "deposit.move", kind, listOfNotNull(delivered.takeIf { it > 0 }?.let { "$it geliefert" }, returned.takeIf { it > 0 }?.let { "$it zurück" }).joinToString(", "))
+        }
+    }
+
+    /** Was an Pfand beim Lieferanten liegt, gesamt — für die Vermögensübersicht. */
+    fun depositValue(): Double = Money.cents(depositKinds().sumOf { it.value })
 
     fun containerSizes(): Map<UUID, Double> = db.read { c ->
         c.query("SELECT id, nominal_size FROM container_types WHERE NOT deleted") { it.getObject("id", UUID::class.java) to it.getDouble("nominal_size") }.toMap()
@@ -330,4 +416,9 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
     }
 
     private fun money(v: Double): BigDecimal = BigDecimal.valueOf(Money.cents(v))
+
+    companion object {
+        /** Das Konto „Pfand und Leergut“ aus V10. */
+        val DEPOSIT_ACCOUNT: UUID = UUID.fromString("00000000-0000-0000-0001-000000000019")
+    }
 }

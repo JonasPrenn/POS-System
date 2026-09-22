@@ -70,6 +70,7 @@ object AuditBundlePdf {
         append(row("Kassabestand", a.cash, a.cashDetail))
         append(row("Bankstand", a.bank, if (a.bank == null) "nicht eingetragen" else "laut Kontoauszug, vom Kassier eingetragen"))
         append(row("Lagerwert", a.stockValue, if (a.stockValue == null) "nicht rechenbar für diesen Stichtag" else "zu Einstandspreisen"))
+        append(row("Pfand beim Lieferanten", a.deposits, "gehaltene Gebinde mal Pfand je Stück"))
         append(row("Forderungen", a.receivables, "Deckel im Minus"))
         append(row("Verbindlichkeiten: Guthaben", -a.memberCredits, "Deckel im Plus"))
         append(row("Verbindlichkeiten: offene Belege", -a.openInvoices, "Lieferantenbelege, nicht bezahlt"))

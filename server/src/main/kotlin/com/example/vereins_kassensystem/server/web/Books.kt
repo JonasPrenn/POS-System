@@ -30,8 +30,10 @@ class YearBooks(val year: FiscalYear, val previous: FiscalYear, val lines: List<
 class Assets(
     val asOf: LocalDate, val cash: Double, val cashDetail: String, val bank: Double?, val stockValue: Double?,
     val receivables: Double, val memberCredits: Double, val openInvoices: Double,
+    /** Pfand, das beim Lieferanten liegt: gehaltene Gebinde mal Pfand je Stück — kommt zurück, wenn das Leergut geht. */
+    val deposits: Double = 0.0,
 ) {
-    val total get() = cash + (bank ?: 0.0) + (stockValue ?: 0.0) + receivables - memberCredits - openInvoices
+    val total get() = cash + (bank ?: 0.0) + (stockValue ?: 0.0) + deposits + receivables - memberCredits - openInvoices
 }
 
 class JournalEntry(val day: LocalDate, val account: String, val area: String, val text: String, val amount: Double, val reference: String)
@@ -109,7 +111,7 @@ class Books(private val db: Database, private val zone: ZoneId) {
      * eingetragen, Lagerwert nur für heute (die Vergangenheit rechnet niemand zurück), Forderungen und
      * Guthaben aus den Buchungen bis zum Stichtag, offene Belege zum Stichtag.
      */
-    fun assets(asOf: LocalDate, today: LocalDate, bankBalance: Double?, stockValueToday: Double?): Assets = db.read { c ->
+    fun assets(asOf: LocalDate, today: LocalDate, bankBalance: Double?, stockValueToday: Double?, deposits: Double = 0.0): Assets = db.read { c ->
         val cutoff = startOf(asOf.plusDays(1))
         val counts = c.query(
             """
@@ -138,9 +140,14 @@ class Books(private val db: Database, private val zone: ZoneId) {
         ) { it.getDouble("v") } ?: 0.0
         Assets(
             asOf, Money.cents(cash), detail, bankBalance, if (asOf >= today) stockValueToday else null,
-            Money.cents(-balances.filter { it < 0 }.sum()), Money.cents(balances.filter { it > 0 }.sum()), Money.cents(open)
+            Money.cents(-balances.filter { it < 0 }.sum()), Money.cents(balances.filter { it > 0 }.sum()), Money.cents(open), if (asOf >= today) deposits else depositsAt(c, asOf)
         )
     }
+
+    /** Das Pfand zum Stichtag: Bewegungen bis dahin, zum heutigen Pfandsatz je Gebinde. */
+    private fun depositsAt(c: Connection, asOf: LocalDate): Double = Money.cents(
+        c.queryOne("SELECT COALESCE(SUM((SELECT COALESCE(SUM(m.delivered - m.returned), 0) FROM deposit_movements m WHERE m.kind_id = k.id AND m.day <= ?) * k.deposit), 0) AS v FROM deposit_kinds k", java.sql.Date.valueOf(asOf)) { it.getDouble("v") } ?: 0.0
+    )
 
     /** Das Journal fürs CSV: Einnahmen je Tag und Konto, Ausgaben je Beleg — mit dem, was als Beleg dient. */
     fun journal(y: FiscalYear): List<JournalEntry> = db.read { c ->
