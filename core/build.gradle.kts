@@ -53,3 +53,39 @@ java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
+
+// AppVersion.kt aus VERSION im Repo, damit App und Server dieselbe Nummer zeigen — erzeugt,
+// nicht eingecheckt; wer VERSION aendert (docs/tools/version.sh), bekommt sie beim naechsten Build.
+val generateVersion by tasks.registering {
+    val versionFile = rootProject.file("VERSION")
+    val outDir = layout.buildDirectory.dir("generated/version/commonMain/kotlin")
+    val number = rootProject.extra["vdVersionNumber"] as String
+    val stage = rootProject.extra["vdVersionStage"] as String
+    val label = rootProject.extra["vdVersionLabel"] as String
+    val code = rootProject.extra["vdVersionCode"] as Int
+    inputs.file(versionFile)
+    outputs.dir(outDir)
+    doLast {
+        val file = outDir.get().file("com/example/vereins_kassensystem/AppVersion.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            |package com.example.vereins_kassensystem
+            |
+            |/** Erzeugt aus VERSION im Repo (core/build.gradle.kts) — nicht von Hand aendern, beim naechsten Build waere es weg. */
+            |object AppVersion {
+            |    /** x.y.z */
+            |    const val NUMBER = "$number"
+            |    /** "beta" in der Entwicklung, leer nach der Freigabe durch den Besitzer. */
+            |    const val STAGE = "$stage"
+            |    /** Was Menschen lesen: "1.2.0 Beta" oder "1.2.0". */
+            |    const val LABEL = "$label"
+            |    /** Android versionCode und iOS CURRENT_PROJECT_VERSION; steigt mit jeder Nummer. */
+            |    const val CODE = $code
+            |    val isBeta: Boolean get() = STAGE.isNotEmpty()
+            |}
+            |""".trimMargin()
+        )
+    }
+}
+kotlin.sourceSets.named("commonMain") { kotlin.srcDir(generateVersion) }

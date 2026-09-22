@@ -52,7 +52,8 @@ check() {
   date=$(git -C "$REPO" log -1 --format=%cI "origin/$BRANCH")
   message=$(git -C "$REPO" log -1 --format=%s "origin/$BRANCH")
   behind=$(git -C "$REPO" rev-list --count "HEAD..origin/$BRANCH" 2>/dev/null || echo 0)
-  write_status idle "Zuletzt gesucht $(now)" checkedAt "$(now)" latest "$latest" latestDate "$date" latestMessage "$message" behind "$behind" log ""
+  version=$(git -C "$REPO" show "origin/$BRANCH:VERSION" 2>/dev/null | tr -d '[:space:]')
+  write_status idle "Zuletzt gesucht $(now)" checkedAt "$(now)" latest "$latest" latestDate "$date" latestMessage "$message" behind "$behind" latestVersion "$version" log ""
   log "im Repo: $latest ($behind voraus)"
   [ "$behind" != "0" ]
 }
@@ -73,7 +74,7 @@ install() {
   if ! out=$("${COMPOSE[@]}" up -d --no-deps api 2>&1); then
     write_status failed "Neustart fehlgeschlagen." log "$(echo "$out" | tail -n 40)"; return 1
   fi
-  write_status installed "Stand $GIT_SHA eingespielt $(now); der Dienst startet neu." behind "0" latest "$GIT_SHA" log ""
+  write_status installed "Stand $GIT_SHA eingespielt $(now); der Dienst startet neu." behind "0" latest "$GIT_SHA" installedVersion "$(tr -d '[:space:]' < "$REPO/VERSION" 2>/dev/null)" log ""
   log "fertig: $GIT_SHA"
 }
 

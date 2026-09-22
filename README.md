@@ -99,6 +99,13 @@ cd server/deploy && DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-adm
 
 Everything else is in `server/README.md`.
 
+## Versions
+
+The version lives in one file, `VERSION`: `x.y.z-beta` while in development, `x.y.z` once
+the owner has released it. `docs/tools/version.sh` changes it (`beta x.y.z`, `release` —
+which also tags `vx.y.z` — and `next`); Android, iOS, the app's settings screen, the
+server's health endpoint and the web administration all show the same number from there.
+
 ## Documentation
 
 - **`docs/VereinsDeckel-Server-und-API.pdf`** — how the server database and REST API have

@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.ui.screens
 
+import com.example.vereins_kassensystem.AppVersion
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -271,7 +272,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
                 Text(
-                    text = "VereinsDeckel $APP_VERSION",
+                    text = "VereinsDeckel ${AppVersion.LABEL}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -285,5 +286,3 @@ fun SettingsScreen(
     }
 }
 
-/** Shown at the foot of Settings. Kept next to its only use rather than in a config file. */
-private const val APP_VERSION = "1.1.2"

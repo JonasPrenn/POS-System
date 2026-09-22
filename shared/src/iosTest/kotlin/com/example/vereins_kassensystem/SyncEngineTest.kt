@@ -143,7 +143,9 @@ class SyncEngineTest {
         assertTrue(theke.engine.syncOnce())
         assertEquals(0, theke.pending())
         assertEquals(3, server.count("transactions"), "der Wiederholungsversuch bucht nichts doppelt")
-        assertNull(theke.engine.status.first { !it.running && it.pending == 0 && it.lastSyncAt != null }.problem)
+        // „Offline" verschwindet, sobald der Abgleich durch ist — die Ströme hinter dem Status melden es nacheinander,
+        // deshalb auf den aufgeräumten Status warten statt den ersten passenden lesen (sonst flackert der Test).
+        assertNull(theke.engine.status.first { !it.running && it.lastSyncAt != null && it.problem == null }.problem)
     }
 
     @Test

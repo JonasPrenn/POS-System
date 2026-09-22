@@ -20,7 +20,7 @@ val WireJson: Json = Json {
 }
 
 @Serializable
-data class HealthResponse(val status: String, val serverTime: String, val schemaVersion: String?, val database: String)
+data class HealthResponse(val status: String, val serverTime: String, val schemaVersion: String?, val database: String, /** Welche Version antwortet — "1.2.0 Beta"; leer bei einem Server von vor der Nummer. */ val version: String = "")
 
 @Serializable
 data class RegisterRequest(val pairingCode: String, val label: String, val platform: String)

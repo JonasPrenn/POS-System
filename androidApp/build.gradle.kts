@@ -11,8 +11,9 @@ android {
         applicationId = "com.example.vereins_kassensystem"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // Aus VERSION im Repo (Root-Skript); geaendert wird sie mit docs/tools/version.sh.
+        versionCode = rootProject.extra["vdVersionCode"] as Int
+        versionName = rootProject.extra["vdVersionLabel"] as String
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

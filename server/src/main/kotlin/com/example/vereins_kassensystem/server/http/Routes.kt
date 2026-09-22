@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.server.http
 
+import com.example.vereins_kassensystem.AppVersion
 import com.example.vereins_kassensystem.server.db.Database
 import com.example.vereins_kassensystem.server.db.queryOne
 import com.example.vereins_kassensystem.server.devices.DevicePrincipal
@@ -52,6 +53,7 @@ fun Route.apiRoutes(
                 serverTime = Values.format(Instant.now()),
                 schemaVersion = runCatching { db.schemaVersion() }.getOrNull(),
                 database = if (databaseOk) "ok" else "unreachable",
+                version = AppVersion.LABEL,
             )
             call.respond(if (databaseOk) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable, body)
         }

@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.server.web
 
+import com.example.vereins_kassensystem.AppVersion
 import kotlinx.html.pre
 import com.example.vereins_kassensystem.server.devices.DeviceRecord
 import io.ktor.http.encodeURLParameter
@@ -359,8 +360,8 @@ private fun FlowContent.updatesPanel(ctx: PageContext, web: Web) = panel {
         if (!updates.available) p("muted") { +"Kein Updater aufgestellt. Läuft der Dienst über server/deploy/compose.yaml mit dem Dienst „updater“, steht hier, was im Git-Repo neu ist — und ein Klick spielt es ein." }
         else {
         p("muted") {
-            +"Läuft: Stand ${updates.runningVersion}${updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()}. "
-            +(status.latest?.let { "Im Repo (${status.branch ?: "main"}): Stand $it${status.latestDate?.let { d -> " vom ${d.take(10)}" }.orEmpty()}${status.latestMessage?.takeIf { m -> m.isNotBlank() }?.let { m -> " — „$m“" }.orEmpty()}${if (available && status.behindCount > 0) ", ${count(status.behindCount, "Commit", "Commits")} voraus" else ""}. " } ?: "Noch nicht im Repo gesucht. ")
+            +"Läuft: Version ${AppVersion.LABEL}, Stand ${updates.runningVersion}${updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()}. "
+            +(status.latest?.let { "Im Repo (${status.branch ?: "main"}): ${updates.label(status.latestVersion)?.let { v -> "Version $v, " }.orEmpty()}Stand $it${status.latestDate?.let { d -> " vom ${d.take(10)}" }.orEmpty()}${status.latestMessage?.takeIf { m -> m.isNotBlank() }?.let { m -> " — „$m“" }.orEmpty()}${if (available && status.behindCount > 0) ", ${count(status.behindCount, "Commit", "Commits")} voraus" else ""}. " } ?: "Noch nicht im Repo gesucht. ")
             +status.message
         }
         if (status.state == "failed" && status.log.isNotBlank()) pre("cap") { +status.log.takeLast(1200) }
@@ -477,7 +478,7 @@ private fun HTML.settingsPage(ctx: PageContext, web: Web, notice: String?, probl
         panel {
             div("panel-body") {
                 h2("title-m") { +"Server" }
-                p("muted") { +"Stand ${web.updates.runningVersion}${web.updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()} · Zeitzone ${ctx.zone.id} · Serverzeit ${ctx.now.atOffset(ZoneOffset.UTC).toLocalTime().withNano(0)} UTC. Sicherung und Zertifikat sind Sache des Betriebs; die Anleitung steht in server/README.md." }
+                p("muted") { +"Version ${AppVersion.LABEL} · Stand ${web.updates.runningVersion}${web.updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()} · Zeitzone ${ctx.zone.id} · Serverzeit ${ctx.now.atOffset(ZoneOffset.UTC).toLocalTime().withNano(0)} UTC. Sicherung und Zertifikat sind Sache des Betriebs; die Anleitung steht in server/README.md." }
             }
         }
     }

@@ -133,6 +133,15 @@ eine Farbe ändert, zieht sie hier nach. Und: Die Verwaltung rechnet das Lager m
 Dialoge sind HTML-Popover (`dialog()` in `Html.kt`): `popovertarget` öffnet und schließt ohne
 Skript, `body:has(.dialog:popover-open)` stellt die Seite dahinter still.
 
+**Die Version steht genau einmal.** In `VERSION`: `x.y.z-beta` in der Entwicklung, `x.y.z`
+nach der Freigabe durch den Besitzer — geändert nur über `docs/tools/version.sh`
+(`beta x.y.z`, `release` mit Commit und Tag `vx.y.z`, `next`). Daraus erzeugt `:core` das
+Objekt `AppVersion` für App und Server, Android nimmt `versionName` und `versionCode` aus dem
+Root-Skript, iOS liest `iosApp/Configuration/Version.xcconfig`, das dasselbe Skript schreibt;
+`VersionTest` prüft, dass alles zusammenpasst. Der Code ist major·100000 + minor·1000 +
+patch·10, plus 9 bei Freigabe: Eine Beta liegt unter ihrer Freigabe, die Freigabe unter der
+nächsten Beta. Einen Tag gibt es nur für Freigaben.
+
 **Plattformgrenzen sind fachlich geschnitten.** `PaymentProcessor` heißt so, weil die App
 eine Karte belasten will, nicht weil SumUp ein SDK hat. Schlüsselbund und SumUp-iOS-SDK
 werden über Swift-Interfaces hereingereicht statt über Kotlin/Native-Interop angebunden —

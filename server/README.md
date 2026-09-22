@@ -75,7 +75,8 @@ sieht weder git noch Docker. Installieren heißt: Zweig holen, Image bauen, `api
 starten; schlägt das Bauen fehl, läuft der alte Stand weiter, und der Grund steht in der
 Verwaltung. Von Hand geht dasselbe mit `./update.sh`. Welcher Stand läuft, trägt das Image
 als `VEREINSDECKEL_VERSION` (Commit-Kennung, gesetzt von `install.sh`, `update.sh` und dem
-Updater).
+Updater); die Versionsnummer dazu (`VERSION` im Repo, etwa „1.2.0 Beta“) zeigen die Seite,
+`/v1/health` und der Updater für den Stand im Repo.
 
 ### Zum Ausprobieren auf dem eigenen Rechner
 

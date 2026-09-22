@@ -16,6 +16,9 @@ import java.nio.file.StandardCopyOption
  */
 class Updates(private val dir: Path?, val runningVersion: String, val runningDate: String) {
 
+    /** Was Menschen lesen: aus "1.2.1-beta" wird "1.2.1 Beta". */
+    fun label(versionText: String?): String? = versionText?.trim()?.takeIf { it.isNotEmpty() }?.let { if (it.endsWith("-beta")) it.removeSuffix("-beta") + " Beta" else it }
+
     enum class Mode(val label: String, val hint: String) {
         MANUAL("Nur auf Knopfdruck", "Gesucht und installiert wird nur, wenn hier jemand klickt."),
         CHECK("Suchen, installieren auf Knopfdruck", "Der Updater sucht regelmäßig; was er findet, steht hier — installiert wird mit einem Klick."),
@@ -33,6 +36,8 @@ class Updates(private val dir: Path?, val runningVersion: String, val runningDat
         val state: String = "unknown", val message: String = "", val updatedAt: String? = null, val checkedAt: String? = null,
         val branch: String? = null, val installed: String? = null,
         val latest: String? = null, val latestDate: String? = null, val latestMessage: String? = null, val behind: String? = null,
+        /** Die Versionsnummer im Repo (Datei VERSION auf dem Zweig) und die des eingespielten Stands. */
+        val latestVersion: String? = null, val installedVersion: String? = null,
         val log: String = "",
     ) {
         val behindCount: Int get() = behind?.toIntOrNull() ?: 0
