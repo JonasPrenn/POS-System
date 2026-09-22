@@ -46,6 +46,9 @@ fun SettingsScreen(
     val backupDestination by settingsRepository.backupDestination.collectAsState(initial = null)
     val autoBackupEnabled by settingsRepository.autoBackupEnabled.collectAsState(initial = false)
     val lastBackupAt by backupRepository.lastBackupAt.collectAsState(initial = null)
+    // Gekoppelt heißt: Name, Farbe, SumUp-Schlüssel und die tägliche Sicherung setzt die Verwaltung — hier nur zu sehen.
+    val sync by syncEngine.status.collectAsState()
+    val managed = sync.paired
 
     // Der Ort ist ein plattformeigener Verweis; lesbar macht ihn erst die Plattform.
     val destinationLabel by produceState<String?>(initialValue = null, backupDestination) {
@@ -91,7 +94,8 @@ fun SettingsScreen(
             ClubIdentitySection(
                 identity = clubIdentity,
                 onNameChange = { scope.launch { settingsRepository.setClubName(it) } },
-                onAccentChange = { scope.launch { settingsRepository.setClubAccent(it) } }
+                onAccentChange = { scope.launch { settingsRepository.setClubAccent(it) } },
+                readOnly = managed
             )
 
             AppearanceSection(
@@ -100,13 +104,18 @@ fun SettingsScreen(
             )
 
             VdSection(title = "Kartenzahlung", icon = VdIcons.Payments) {
-                Text(
+                if (managed) Text(
+                    text = if (sumUpKey.isBlank()) "Kein SumUp-Schlüssel hinterlegt. Der Kassier trägt ihn in der Verwaltung ein; er kommt mit dem nächsten Abgleich."
+                    else "SumUp-Schlüssel hinterlegt — eingetragen in der Verwaltung, gekommen mit dem Abgleich.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ) else Text(
                     text = "Der Affiliate Key verbindet die Kasse mit eurem SumUp-Konto. " +
                         "Ohne ihn bleibt nur Bar und Deckel.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
+                if (!managed) OutlinedTextField(
                     value = editedKey,
                     onValueChange = { editedKey = it },
                     label = { Text("SumUp Affiliate Key") },
@@ -114,7 +123,7 @@ fun SettingsScreen(
                     singleLine = true,
                     shape = MaterialTheme.shapes.small
                 )
-                Button(
+                if (!managed) Button(
                     onClick = {
                         scope.launch {
                             settingsRepository.saveSumUpAffiliateKey(editedKey)
@@ -179,6 +188,8 @@ fun SettingsScreen(
                         Text(
                             text = when {
                                 backupDestination == null -> "Erst einen Speicherort wählen."
+                                managed -> (if (autoBackupEnabled) "Eingeschaltet" else "Ausgeschaltet") + " — das stellt die Verwaltung ein." +
+                                    (last?.let { " Zuletzt gesichert: ${VdDate.dayAndTime(it)}" } ?: "")
                                 last != null -> "Zuletzt gesichert: ${VdDate.dayAndTime(last)}"
                                 else -> "Läuft im Hintergrund, sobald das Gerät Zeit dafür hat."
                             },
@@ -190,7 +201,7 @@ fun SettingsScreen(
                     Switch(
                         checked = autoBackupEnabled,
                         onCheckedChange = { scope.launch { settingsRepository.setAutoBackupEnabled(it) } },
-                        enabled = backupDestination != null
+                        enabled = backupDestination != null && !managed
                     )
                 }
 

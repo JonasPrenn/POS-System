@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.data.sync
 
+import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.AppDatabase
 import kotlinx.serialization.json.JsonObject
 
@@ -14,7 +15,7 @@ import kotlinx.serialization.json.JsonObject
  * jede hochgeladene Zeile beim nächsten Ziehen zurück, und ohne die Marke zählte die
  * Kassenlade danach ihre eigenen Barverkäufe nicht mehr.
  */
-class SyncApplier(database: AppDatabase) {
+class SyncApplier(database: AppDatabase, private val settings: SettingsRepository) {
 
     private val syncDao = database.syncDao()
     private val deliveryDao = database.deliveryDao()
@@ -44,6 +45,8 @@ class SyncApplier(database: AppDatabase) {
             SyncTables.STOCK_DRAWS -> syncDao.upsertStockDraw(RowCodec.decodeStockDraw(row, deleted))
             SyncTables.CASH_SESSIONS -> syncDao.upsertCashSession(RowCodec.decodeCashSession(row, deleted))
             SyncTables.CASH_MOVEMENTS -> syncDao.upsertCashMovement(RowCodec.decodeCashMovement(row, deleted))
+            // Was die Verwaltung für alle Tablets setzt: nicht in die Datenbank, sondern in die Einstellungen — wie von Hand, nur ohne Hand.
+            SyncTables.DEVICE_SETTINGS -> if (!deleted) RowCodec.decodeSetting(row).let { (key, value) -> settings.applyFromServer(key, value) }
             // Eine Tabelle, die diese App-Version nicht kennt: übergehen, nicht stolpern.
             else -> Unit
         }

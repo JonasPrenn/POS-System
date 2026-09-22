@@ -213,6 +213,14 @@ alte Blatt sieht. Am Telefon rückt ein Status-Abzeichen unter den Namen, statt 
 den Rand zu schieben. Der Couleurname steht überall, wo der Name steht: Liste, Kopf,
 Kontoauszug, PDF.
 
+**Einstellungen der Tablets:** Vereinsname und Vereinsfarbe aus den Einstellungen, dazu
+der SumUp-Affiliate-Key und ob die Tablets täglich sichern, gehen an alle gekoppelten
+Geräte — als Zeilen der synchronisierten Tabelle `device_settings` (V12, eine je
+Schlüssel), die nur der Server schreibt (`VereinSettings.mirror`, unter der Sperre von
+`Database.write`). Unverändertes bekommt keine neue Sequenznummer. Die App liest die
+Zeilen im Abgleich und legt sie ab, wo sie immer lagen — den Key im Schlüsselbund; am
+Gerät sind sie dann nur zu sehen. Ein Tablet, das solche Zeilen schiebt, bekommt 422.
+
 ## Die ersten Anfragen
 
 ```bash
@@ -247,6 +255,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `src/main/resources/db/migration/V12__geraeteeinstellungen.sql` | `device_settings`, synchronisiert, nur vom Server geschrieben — Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung für alle Tablets |
 | `src/main/resources/db/migration/V11__posteingang.sql` | Posteingang, freigegebene Absender, gebuchte Zeilen je Beleg |
 | `src/main/resources/db/migration/V10__pfand.sql` | Pfandgebinde und Bewegungen, Konto „Pfand und Leergut“ |
 | `src/main/resources/db/migration/V9__rechnung_lesen.sql` | `supplier_articles` — was eine Rechnungszeile eines Lieferanten im Lager ist, einmal bestätigt |
@@ -267,6 +276,10 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
   umschriebe. Die App hält beim Verkauf fest, was sie dem Keller entnommen hat. Gezapft je
   Anstich ist die Summe der Abgänge des Artikels im Zeitfenster des Anstichs — so zählen
   auch die Abgänge eines Geräts, dessen doppelter Anstich verworfen wurde.
+- **`device_settings` ist eine synchronisierte Tabelle, die nur der Server schreibt** (V12).
+  Die Spezifikation kennt keine Einstellungen über den Draht; Vereinsname, Vereinsfarbe,
+  SumUp-Schlüssel und die tägliche Sicherung sollen aber an einer Stelle gepflegt werden,
+  nicht je Tablet. Ein Schieben darauf beantwortet der Server mit 422.
 - `members.last_used_timestamp` schreibt die App nicht mehr: „zuletzt benutzt" ergibt sich
   aus der letzten Buchung des Mitglieds, sonst gäbe es bei zwei Theken laufend
   Stammdatenkonflikte.

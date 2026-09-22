@@ -153,6 +153,7 @@ internal fun Route.systemPages(web: Web) {
                 when (form["teil"]) {
                     "bank" -> { web.settings.saveBank(form["inhaber"].orEmpty(), form["iban"].orEmpty(), form["bic"].orEmpty(), form["text"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Bankverbindung und Text der Abrechnung") }
                     "smtp" -> { web.settings.saveSmtp(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 587, form["benutzer"].orEmpty(), form["passwort"], form["absender"].orEmpty(), form["starttls"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Versand") }
+                    "tablets" -> { web.settings.saveTablets(form["sumup"], form["sumup_entfernen"] == "1", form["sicherung"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "Tablets: SumUp-Schlüssel und Sicherung") }
                     "imap" -> { web.settings.saveImap(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 993, form["benutzer"].orEmpty(), form["passwort"], form["ordner"].orEmpty(), form["aktiv"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Empfang") }
                     else -> { web.settings.save(form["name"].orEmpty(), form["farbe"].orEmpty(), form["monat"]?.toIntOrNull() ?: 1, form["anschrift"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Name, Vereinsfarbe, Rechnungsjahr, Anschrift") }
                 }
@@ -324,10 +325,11 @@ private fun HTML.usersPage(ctx: PageContext, users: List<WebUser>, notice: Strin
 private val MONTHS = listOf("Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember")
 
 private fun HTML.settingsPage(ctx: PageContext, notice: String?, problem: String?) =
-    shell(ctx, Area.SETTINGS, "Einstellungen", "Name, Farbe und Rechnungsjahr der Verbindung — gilt für die Verwaltung, nicht für die Tablets") {
+    shell(ctx, Area.SETTINGS, "Einstellungen", "Name, Farbe und Rechnungsjahr der Verbindung — und was die Tablets von hier bekommen") {
         flash(notice, problem)
         panel {
             postForm(ctx, "$BASE/einstellungen", "panel-body") {
+                p("muted") { +"Name und Vereinsfarbe gelten auch für die gekoppelten Tablets — sie kommen mit dem nächsten Abgleich dort an und sind am Gerät dann nur zu sehen." }
                 div("form-grid") {
                     label("field") { span { +"Name der Verbindung" }; input(InputType.text, name = "name") { value = ctx.verein.name; maxLength = "80" } }
                     label("field") {
@@ -345,6 +347,19 @@ private fun HTML.settingsPage(ctx: PageContext, notice: String?, problem: String
                         }
                     }
                 }
+                div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+            }
+        }
+        panel {
+            postForm(ctx, "$BASE/einstellungen", "panel-body") {
+                hiddenInput(name = "teil") { value = "tablets" }
+                h2("title-m") { +"Tablets: Kartenzahlung und Sicherung" }
+                p("muted") { +"Gilt für alle gekoppelten Tablets, mit dem nächsten Abgleich; am Gerät ist beides dann nur zu sehen. ${if (ctx.verein.sumUpKey.isNotEmpty()) "Ein SumUp-Schlüssel ist hinterlegt." else "Ohne SumUp-Schlüssel bleibt an der Theke Bar und Deckel."}" }
+                div("form-grid") {
+                    label("field") { span { +(if (ctx.verein.sumUpKey.isNotEmpty()) "SumUp Affiliate Key (leer: bleibt)" else "SumUp Affiliate Key") }; input(InputType.password, name = "sumup") { attributes["autocomplete"] = "off" } }
+                }
+                if (ctx.verein.sumUpKey.isNotEmpty()) label("check") { input(InputType.checkBox, name = "sumup_entfernen") { value = "1" }; span { +"Schlüssel entfernen — die Tablets verlieren die Kartenzahlung" } }
+                label("check") { input(InputType.checkBox, name = "sicherung") { value = "1"; checked = ctx.verein.tabletBackup }; span { +"Tablets sichern täglich von selbst — den Ordner dafür wählt man am Gerät" } }
                 div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
             }
         }

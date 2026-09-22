@@ -106,6 +106,9 @@ class SyncStore(private val db: Database) {
         if (op.entity in Entities.derivedEntities) {
             throw Unprocessable("$what: '${op.entity}' ist abgeleitet und nur lesbar")
         }
+        if (op.entity in Entities.serverOnly) {
+            throw Unprocessable("$what: '${op.entity}' setzt die Verwaltung; die Geräte lesen sie nur")
+        }
         val def = Entities.byName[op.entity] ?: throw Unprocessable("$what: unbekannte Entität")
         val values = decodeRow(def, op.row, partial = op.op != "insert", what)
         val id = values["id"] as? UUID ?: throw Unprocessable("$what: 'id' fehlt")

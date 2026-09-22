@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.ui.components
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,9 @@ fun ClubIdentitySection(
     identity: ClubIdentity,
     onNameChange: (String) -> Unit,
     onAccentChange: (Color) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Gekoppelt mit einem Server kommen Name und Farbe aus der Verwaltung: hier nur zu sehen.
+    readOnly: Boolean = false
 ) {
     VdSection(
         title = "Verein",
@@ -54,6 +57,28 @@ fun ClubIdentitySection(
         iconTint = identity.accent,
         contentSpacing = Spacing.lg
     ) {
+        if (readOnly) {
+            Text(
+                text = identity.name.ifBlank { "Noch kein Vereinsname" },
+                style = MaterialTheme.typography.titleMedium
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Surface(modifier = Modifier.size(Spacing.lg), shape = CircleShape, color = identity.accent) {}
+                Text(
+                    text = ClubAccentPresets.firstOrNull { it.second.value == identity.accent.value }?.first ?: "Eigene Farbe",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Text(
+                text = "Name und Farbe setzt die Verwaltung; sie kommen mit dem Abgleich auf dieses Gerät.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            return@VdSection
+        }
         OutlinedTextField(
             value = identity.name,
             onValueChange = onNameChange,

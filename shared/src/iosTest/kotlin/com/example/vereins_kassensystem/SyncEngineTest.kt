@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem
 
+import androidx.compose.ui.graphics.toArgb
 import com.example.vereins_kassensystem.data.AppDatabase
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.data.SettingsRepository
@@ -39,8 +40,9 @@ class SyncEngineTest {
         val repository = AppRepository(db)
         // Der Handler schluckt, was ein abgebrochener Beobachter beim Schließen der Datenbank noch wirft.
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, _ -> })
+        val settings = SettingsRepository(store)
         val engine = SyncEngine(
-            database = db, repository = repository, settings = SettingsRepository(store),
+            database = db, repository = repository, settings = settings,
             platform = TestPlatform(label), scope = scope, apiFactory = { _, _ -> server.api() }
         )
 
@@ -262,6 +264,26 @@ class SyncEngineTest {
         assertEquals(0, theke.pending())
         assertEquals(1, server.count("transactions"))
         assertNull(theke.engine.status.first { !it.running && it.pending == 0 }.problem)
+    }
+
+    @Test
+    fun `what the web sets for all tablets arrives with the next sync and never goes back up`() = devices { server, theke, ipad ->
+        theke.pair(); theke.engine.syncOnce()
+        // Die Verwaltung setzt Name, Farbe, SumUp-Schlüssel und die tägliche Sicherung — als Zeilen, die nur der Server schreibt.
+        server.putSetting("club_name", "KMV Clunia Feldkirch"); server.putSetting("club_accent", "#C62828")
+        server.putSetting("sumup_affiliate_key", "sup_afk_geheim"); server.putSetting("tablet_auto_backup", "1")
+        theke.engine.syncOnce()
+        val identity = theke.settings.clubIdentity.first()
+        assertEquals("KMV Clunia Feldkirch", identity.name)
+        assertEquals(0xFFC62828.toInt(), identity.accent.toArgb())
+        assertEquals("sup_afk_geheim", theke.settings.sumUpAffiliateKey.first(), "im Schlüsselbund, wie von Hand eingetragen")
+        assertTrue(theke.settings.autoBackupEnabled.first())
+        assertEquals(0, theke.pending(), "Einstellungen gehen nie zum Server zurück")
+        // Wer später koppelt, bekommt sie mit der Erstbefüllung; ein unbekannter Schlüssel stört nicht.
+        server.putSetting("something_newer", "x")
+        ipad.pair(); ipad.engine.syncOnce()
+        assertEquals("KMV Clunia Feldkirch", ipad.settings.clubIdentity.first().name)
+        assertEquals("sup_afk_geheim", ipad.settings.sumUpAffiliateKey.first())
     }
 
     @Test

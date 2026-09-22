@@ -315,16 +315,23 @@ grep -rn "^import java\.\|^import android\.\|^import androidx\.security\|^import
 Soll leer bleiben. (`androidx.compose.ui.tooling.preview.Preview` ist die Ausnahme und
 wird vom Muster nicht getroffen.)
 
-## Was bewusst nicht synchronisiert wird
+## Was bewusst nicht synchronisiert wird — und was seit dem 22. September 2026 doch
 
-Der SumUp-Affiliate-Key und die Darstellungseinstellungen bleiben gerätelokal. Der Key
-ist ein Zugangsgeheimnis und hat in einem Sync-Payload nichts verloren; Hell/Dunkel ist
-pro Gerät sinnvoll verschieden — das Wandtablet hinter der Theke will abends dunkel
-bleiben, auch wenn das iPad im Garten hell läuft. Dasselbe gilt für den Zeitpunkt der
-letzten Sicherung.
+Gerätelokal bleiben: Hell/Dunkel (das Wandtablet hinter der Theke will abends dunkel
+bleiben, auch wenn das iPad im Garten hell läuft), der Zeitpunkt der letzten Sicherung
+und der Sicherungsordner (ein plattformeigener Verweis, den nur das Gerät deuten kann),
+das Gerätetoken (Schlüsselbund bzw. verschlüsselte Einstellungen, nie in der Datenbank
+und damit nie in einer Sicherung), die Serveradresse, und der lokale Pfad eines
+Belegfotos — über den Draht geht nur der Schlüssel, unter dem der Server das Foto hält.
 
-Seit Schritt 7 kommen dazu: das Gerätetoken (Schlüsselbund bzw. verschlüsselte
-Einstellungen, nie in der Datenbank und damit nie in einer Sicherung), die Serveradresse,
-und der lokale Pfad eines Belegfotos — über den Draht geht nur der Schlüssel, unter dem
-der Server das Foto hält. Vereinsname und Vereinsfarbe sind ebenfalls noch je Gerät
-einzustellen; die Spezifikation sieht dafür keine Tabelle vor.
+**Vereinsname, Vereinsfarbe, der SumUp-Affiliate-Key und ob täglich gesichert wird
+kommen seit dem 22. September 2026 aus der Verwaltung.** Das kehrt die frühere
+Entscheidung um, den Key gerätelokal zu halten; der Besitzer wollte diese Einstellungen
+an einer Stelle pflegen, nicht je Tablet. Der Server führt dafür die synchronisierte
+Tabelle `device_settings` (eine Zeile je Schlüssel), die nur er schreibt — ein Schieben
+darauf beantwortet er mit 422. Die App nimmt die Zeilen im Abgleich entgegen
+(`SyncApplier` → `SettingsRepository.applyFromServer`) und legt sie ab, wo sie immer
+lagen: der Key im Schlüsselbund, der Rest in den Einstellungen; nichts davon geht je
+wieder hoch. Gekoppelt zeigt der Einstellungsbildschirm Name, Farbe und Schlüssel nur
+an; ein Gerät ohne Server stellt sie weiterhin selbst ein. Der Key reist nur über den
+authentifizierten Abgleich (Gerätetoken, im Betrieb TLS) an gekoppelte Geräte.

@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem
 
+import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.data.entity.CashMovementKind
 import com.example.vereins_kassensystem.data.entity.Member
@@ -54,7 +55,7 @@ class CashOnIosTest {
                     productCategory = "Getränke", price = 4.2, quantity = 5, paymentType = "CASH"
                 )
             )
-            SyncApplier(db).apply(SyncTables.TRANSACTIONS, pulled, deleted = false)
+            SyncApplier(db, SettingsRepository(MemorySettings())).apply(SyncTables.TRANSACTIONS, pulled, deleted = false)
 
             money(138.4, repository.expectedCash(session), "150 + 8,40 + 20 − 50 + 10; Karte, Deckel und die gezogene Zeile nicht")
 

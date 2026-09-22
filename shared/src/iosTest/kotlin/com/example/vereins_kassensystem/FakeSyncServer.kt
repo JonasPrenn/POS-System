@@ -56,6 +56,16 @@ class FakeSyncServer {
 
     fun row(entity: String, id: String): JsonObject? = rows["$entity/$id"]?.row
 
+    /** Was die Verwaltung für alle Tablets setzt: eine Zeile je Schlüssel, die nur der Server schreibt. */
+    fun putSetting(key: String, value: String) {
+        val id = "device-setting-$key"
+        clock += 1_000
+        val stored = rows.getOrPut("device_settings/$id") { Stored(JsonObject(emptyMap()), 0, "") }
+        stored.row = JsonObject(mapOf("id" to JsonPrimitive(id), "key" to JsonPrimitive(key), "value" to JsonPrimitive(value)))
+        stored.seq = ++seq
+        stored.updatedAt = RowCodec.iso(clock)
+    }
+
     /** Was die Verwaltung am Server tut: eine Stammdatenzeile ändern, mit neuer Sequenznummer — ohne ein Gerät dahinter. */
     fun blockMember(id: String, reason: String?) {
         val stored = rows["members/$id"] ?: error("kein Mitglied $id")

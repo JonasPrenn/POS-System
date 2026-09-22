@@ -175,6 +175,13 @@ object Entities {
             Column("by_name", ColumnType.TEXT, default = ""),
             Column("occurred_at", ColumnType.TIMESTAMP),
         )),
+        // Was die Verwaltung für alle Tablets setzt (V12): eine Zeile je Schlüssel, vom Server geschrieben,
+        // von den Geräten nur gelesen — siehe serverOnly.
+        EntityDef("device_settings", EntityKind.MASTER, listOf(
+            id,
+            Column("key", ColumnType.TEXT),
+            Column("value", ColumnType.TEXT, default = ""),
+        )),
     )
 
     val byName: Map<String, EntityDef> = all.associateBy { it.table }
@@ -185,4 +192,7 @@ object Entities {
     /** Abgeleitete Werte (2.2, 2.3). Ein Schreibversuch darauf ist ein Programmfehler: 422. */
     val derivedColumns = setOf("balance", "simple_quantity", "full_count", "drawn")
     val derivedEntities = setOf("member_balances")
+
+    /** Vom Server geführt, von den Geräten nur gelesen. Ein Schieben darauf: 422. */
+    val serverOnly = setOf("device_settings")
 }

@@ -134,7 +134,7 @@ class SyncEngine(
     private val apiFactory: (baseUrl: String, token: suspend () -> String?) -> SyncApi = { url, token -> SyncClient(sharedHttpClient, url, token) },
 ) {
     private val syncDao = database.syncDao()
-    private val applier = SyncApplier(database)
+    private val applier = SyncApplier(database, settings)
 
     private val running = MutableStateFlow(false)
     private val problem = MutableStateFlow<SyncProblem?>(null)

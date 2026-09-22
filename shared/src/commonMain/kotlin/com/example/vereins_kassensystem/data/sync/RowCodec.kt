@@ -50,6 +50,8 @@ object SyncTables {
     const val STOCK_DRAWS = "stock_draws"
     const val CASH_SESSIONS = "cash_sessions"
     const val CASH_MOVEMENTS = "cash_movements"
+    /** Was die Verwaltung für alle Tablets setzt; nur der Server schreibt sie. */
+    const val DEVICE_SETTINGS = "device_settings"
 }
 
 /**
@@ -201,6 +203,9 @@ object RowCodec {
         put("occurred_at", iso(row.timestamp))
         put("note", row.note)
     }
+
+    /** Eine Einstellung der Verwaltung: Schlüssel und Wert, mehr steht nicht in der Zeile. */
+    fun decodeSetting(row: JsonObject): Pair<String, String> = row.text("key") to row.textOrNull("value").orEmpty()
 
     // ------------------------------------------------------------- vom Server
 

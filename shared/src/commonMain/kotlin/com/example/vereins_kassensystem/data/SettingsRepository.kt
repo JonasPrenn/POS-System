@@ -138,6 +138,24 @@ class SettingsRepository(private val store: SettingsStore) {
     suspend fun setLastBackupAt(at: Long) =
         write({ store.putString(KEY_LAST_BACKUP_AT, at.toString()) }) { it.copy(lastBackupAt = at) }
 
+    /**
+     * Was die Verwaltung für alle Tablets setzt (Tabelle `device_settings`): Vereinsname, Vereinsfarbe,
+     * SumUp-Schlüssel, ob täglich gesichert wird. Kommt mit dem Abgleich, landet wo es immer lag —
+     * der Schlüssel im Schlüsselbund. Einen Schlüssel, den diese App-Version nicht kennt, übergeht sie.
+     */
+    suspend fun applyFromServer(key: String, value: String) {
+        when (key) {
+            "club_name" -> setClubName(value)
+            "club_accent" -> parseHex(value)?.let { setClubAccent(it) }
+            "sumup_affiliate_key" -> saveSumUpAffiliateKey(value)
+            "tablet_auto_backup" -> setAutoBackupEnabled(value == "1")
+        }
+    }
+
+    private fun parseHex(hex: String): Color? = hex.trim().removePrefix("#")
+        .takeIf { it.length == 6 && it.all { c -> c.isDigit() || c.lowercaseChar() in 'a'..'f' } }
+        ?.let { Color(0xFF000000L or it.toLong(16)) }
+
     private companion object {
         // Die Namen stammen aus der DataStore-Fassung und bleiben, damit ein bestehendes
         // Android-Gerät seine Einstellungen nach dem Update behält.

@@ -240,6 +240,7 @@ class VereinSettings(private val db: Database) {
         val name: String, val accent: String, val fiscalStartMonth: Int, val address: String,
         val bank: BankAccount, val smtp: Smtp, val statementText: String,
         val imap: Imap = Imap("", 993, "", "", "INBOX", false), val mailLastPoll: Instant? = null, val mailLastError: String? = null,
+        val sumUpKey: String = "", val tabletBackup: Boolean = false,
     )
 
     fun load(): Values = db.transaction { c ->
@@ -254,6 +255,7 @@ class VereinSettings(private val db: Database) {
             statementText = all[STATEMENT_TEXT].orEmpty(),
             imap = Imap(all[IMAP_HOST].orEmpty(), all[IMAP_PORT]?.toIntOrNull() ?: 993, all[IMAP_USER].orEmpty(), all[IMAP_PASSWORD].orEmpty(), all[IMAP_FOLDER].orEmpty().ifBlank { "INBOX" }, all[IMAP_ENABLED] == "1"),
             mailLastPoll = all[MAIL_LAST_POLL]?.let { runCatching { Instant.parse(it) }.getOrNull() }, mailLastError = all[MAIL_LAST_ERROR]?.takeIf { it.isNotBlank() },
+            sumUpKey = all[SUMUP_KEY].orEmpty(), tabletBackup = all[TABLET_BACKUP] == "1",
         )
     }
 
@@ -261,6 +263,7 @@ class VereinSettings(private val db: Database) {
         if (!HEX.matches(accent)) throw AccountProblem("Die Vereinsfarbe muss eine Farbe der Form #RRGGBB sein.")
         if (fiscalStartMonth !in 1..12) throw AccountProblem("Der Monat muss zwischen 1 und 12 liegen.")
         put(NAME to name.trim(), ACCENT to accent.uppercase(), FISCAL to fiscalStartMonth.toString(), ADDRESS to address.trim().take(400))
+        mirror(NAME to name.trim(), ACCENT to accent.uppercase())
     }
 
     fun saveBank(holder: String, iban: String, bic: String, statementText: String) {
@@ -285,6 +288,42 @@ class VereinSettings(private val db: Database) {
 
     /** Wann zuletzt abgerufen wurde und ob es gut ging — für die Seite, nicht fürs Protokoll. */
     fun notePoll(at: Instant, error: String?) = put(MAIL_LAST_POLL to at.toString(), MAIL_LAST_ERROR to error.orEmpty())
+
+    /** Was die Tablets bekommen: der SumUp-Schlüssel (leer abgeschickt bleibt er, [removeKey] löscht ihn) und ob sie täglich sichern. */
+    fun saveTablets(sumUpKey: String?, removeKey: Boolean, backup: Boolean) {
+        val key = when { removeKey -> ""; sumUpKey.isNullOrBlank() -> null; else -> sumUpKey.trim() }
+        put(TABLET_BACKUP to if (backup) "1" else "0")
+        if (key != null) put(SUMUP_KEY to key)
+        mirror(*listOfNotNull(TABLET_BACKUP to (if (backup) "1" else "0"), key?.let { SUMUP_KEY to it }).toTypedArray())
+    }
+
+    /**
+     * Was die Tablets davon wissen müssen, als synchronisierte Zeilen (`device_settings`) — unter
+     * derselben Sperre wie jeder Schreibzugriff auf eine Sync-Tabelle. Unverändertes wird nicht
+     * angefasst: keine neue Sequenznummer, kein Rauschen auf den Geräten.
+     */
+    private fun mirror(vararg pairs: Pair<String, String>) = db.write { c ->
+        for ((key, value) in pairs) {
+            val current = c.queryOne("SELECT value, deleted FROM device_settings WHERE key = ?", key) { it.getString("value") to it.getBoolean("deleted") }
+            if (current == (value to false)) continue
+            c.execute(
+                "INSERT INTO device_settings (id, key, value) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, deleted = false, deleted_at = NULL",
+                UUID.nameUUIDFromBytes("device_setting:$key".toByteArray()), key, value
+            )
+        }
+    }
+
+    /** Beim Start: Was schon gespeichert ist, steht auch für die Tablets bereit — aber nur, was je gespeichert wurde. */
+    fun mirrorDeviceSettings() {
+        val all = db.read { c -> c.query("SELECT key, value FROM settings WHERE key = ANY(?)", c.createArrayOf("text", arrayOf(NAME, ACCENT, SUMUP_KEY, TABLET_BACKUP))) { it.getString("key") to it.getString("value") } }.toMap()
+        val pairs = listOfNotNull(
+            all[NAME]?.let { NAME to it },
+            all[ACCENT]?.takeIf(HEX::matches)?.let { ACCENT to it.uppercase() },
+            all[SUMUP_KEY]?.let { SUMUP_KEY to it },
+            all[TABLET_BACKUP]?.let { TABLET_BACKUP to (if (it == "1") "1" else "0") },
+        )
+        if (pairs.isNotEmpty()) mirror(*pairs.toTypedArray())
+    }
 
     private fun put(vararg pairs: Pair<String, String>) = db.transaction { c ->
         for ((key, value) in pairs) c.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", key, value)
@@ -313,6 +352,8 @@ class VereinSettings(private val db: Database) {
         private const val IMAP_ENABLED = "imap_enabled"
         private const val MAIL_LAST_POLL = "mail_last_poll"
         private const val MAIL_LAST_ERROR = "mail_last_error"
+        private const val SUMUP_KEY = "sumup_affiliate_key"
+        private const val TABLET_BACKUP = "tablet_auto_backup"
 
         /** ISO 7064 mod 97-10, wie jede Bank sie prüft. */
         fun ibanValid(iban: String): Boolean {
