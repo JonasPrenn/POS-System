@@ -189,7 +189,7 @@ private fun Route.gate(web: Web) {
 // ------------------------------------------------------------------ Dateien
 
 private fun Route.assets(web: Web) {
-    val css = checkNotNull(Web::class.java.getResource("/web/app.css")) { "web/app.css fehlt im Klassenpfad" }.readText()
+    val css = Stylesheet.css
     val oneHour = CachingOptions(CacheControl.MaxAge(3600))
 
     get("/assets/app.css") {

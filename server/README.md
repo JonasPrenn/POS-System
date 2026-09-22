@@ -63,8 +63,10 @@ Unter `/verwaltung` liegt die Web-Oberfläche (`docs/WEB-VERWALTUNG.md`), dersel
 server-gerendertes HTML. Gebaut ist Phase 1: Anmeldung mit Rollen, Übersicht, Mitglieder mit
 Deckelstand und Kontoauszug, Berichte, Lager, Einkauf (die Wareneingänge mit Belegfoto),
 Geräte koppeln und sperren, Benutzer, Protokoll, Einstellungen. Aus Phase 2 dazu: Kassier und
-Administrator legen Mitglieder an, ändern Name und Kategorie, sperren einen Deckel mit Grund
-(die Theke zeigt ihn und schreibt nicht mehr an), und buchen Aufladungen (bar, Karte,
+Administrator legen Mitglieder an, ändern Name, Couleurname und Kategorie, sperren einen Deckel
+mit Grund (die Theke zeigt ihn und schreibt nicht mehr an), löschen ein Mitglied, dessen Deckel
+auf null steht (weich: die Tablets nehmen es aus ihren Listen, die Buchungen behalten den Namen,
+das Profil am Server ist weg), und buchen Aufladungen (bar, Karte,
 Überweisung) und Korrekturen mit Grund auf den Deckel. Das ist das Einzige, was die
 Verwaltung in synchronisierte Tabellen schreibt, und es geht über `Database.write`
 (`web/Writes.kt`) — dieselbe Sequenzsperre wie beim Abgleich; die Tablets holen es sich beim
@@ -192,6 +194,17 @@ Die Berichte zeigen, was sich aus den Buchungen der Theke sicher sagen lässt: U
 Zahlart je Monat, Aufladungen, Wareneingang, Forderungen und Guthaben, dazu die Schwellen
 des § 131b BAO fürs Kalenderjahr. Die Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht
 steht unter „Bücher“ (Phase 4), mit Vermögensübersicht und CSV-Export.
+
+**Erscheinungsbild:** Was etwas ändert — anlegen, aufladen, korrigieren, sperren, löschen —
+liegt als Dialog über der Seite (`dialog()` in `Html.kt`): ein HTML-Popover ohne Skript,
+`popovertarget` öffnet, Escape, das × oder ein Klick daneben schließt, und solange einer offen
+ist, ist die Seite dahinter still. Die Symbole sind dieselben Material-Icons wie in der App, als
+Pfade in `web/MaterialIcons.kt`, erzeugt von `docs/tools/gen_web_icons.py` aus
+`docs/tools/web-icons/` — nicht von Hand ändern. Das Stylesheet ist mit einem Kürzel aus
+seinem Inhalt verlinkt (`app.css?v=…`), damit nach einem Update niemand eine Stunde lang das
+alte Blatt sieht. Am Telefon rückt ein Status-Abzeichen unter den Namen, statt die Zeile über
+den Rand zu schieben. Der Couleurname steht überall, wo der Name steht: Liste, Kopf,
+Kontoauszug, PDF.
 
 ## Die ersten Anfragen
 

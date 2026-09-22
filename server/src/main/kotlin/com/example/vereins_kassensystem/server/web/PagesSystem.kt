@@ -53,7 +53,7 @@ private val ACTIONS = mapOf(
     "device.code" to "Kopplungscode erzeugt", "device.register" to "Gerät gekoppelt", "device.revoke" to "Gerät gesperrt",
     "user.create" to "Benutzer angelegt", "user.update" to "Benutzer geändert", "user.password" to "Passwort gesetzt",
     "settings.save" to "Einstellungen geändert",
-    "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert", "member.block" to "Deckel gesperrt", "member.unblock" to "Sperre aufgehoben",
+    "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert", "member.delete" to "Mitglied gelöscht", "member.block" to "Deckel gesperrt", "member.unblock" to "Sperre aufgehoben",
     "tab.topup" to "Deckel aufgeladen", "tab.correction" to "Deckel korrigiert",
     "purchase.create" to "Beleg erfasst", "purchase.update" to "Belegdaten geändert", "purchase.paid" to "Beleg bezahlt",
     "profile.update" to "Profil geändert", "statement.run" to "Abrechnungslauf erstellt", "statement.sent" to "Abrechnung versandt",
@@ -183,17 +183,17 @@ private fun HTML.devicesPage(ctx: PageContext, devices: List<DeviceRecord>, log:
                     div("panel-note cap") { +"„Stand“ ist die höchste Sequenznummer, die das Gerät bestätigt hat. Wer hinter $top liegt, hat noch nicht alles." }
                     if (devices.isEmpty()) p("empty") { +"Noch kein Gerät. Rechts einen Code erzeugen und am Tablet eintragen." }
                     else table("t") {
-                        thead { tr { th { +"Gerät" }; th(classes = "hide-sm") { +"Zuletzt gesehen" }; th(classes = "hide-sm") { +"Stand" }; th { +"Status" }; th { span("sr") { +"Aktion" } } } }
+                        thead { tr { th { +"Gerät" }; th(classes = "hide-sm") { +"Zuletzt gesehen" }; th(classes = "hide-sm") { +"Stand" }; th(classes = "hide-sm") { +"Status" }; th { span("sr") { +"Aktion" } } } }
                         tbody {
                             for (d in devices.sortedBy { it.revoked }) tr {
-                                td { div("row") { span("c-muted") { icon("tablet") }; twoLine(d.label, "${platformName(d.platform)} · seit ${ctx.dayYear(d.createdAt.toInstant())}") } }
+                                val status: FlowContent.() -> Unit = { if (d.revoked) chip("Gesperrt", "neutral", "lock") else deviceChip(ctx, d.lastSeenAt?.toInstant()) }
+                                td("fill") { div("row") { span("c-muted") { icon("tablet") }; twoLine(d.label, "${platformName(d.platform)} · seit ${ctx.dayYear(d.createdAt.toInstant())}", status) } }
                                 td("nowrap hide-sm") { +ctx.ago(d.lastSeenAt?.toInstant()) }
                                 td("c-muted tnum hide-sm") { +"${d.lastAckSeq}" }
-                                td { if (d.revoked) chip("Gesperrt", "neutral", "lock") else deviceChip(ctx, d.lastSeenAt?.toInstant()) }
+                                td("hide-sm") { status() }
                                 td("num") {
-                                    if (!d.revoked) details {
-                                        summary("btn btn-danger") { +"Sperren" }
-                                        postForm(ctx, "$BASE/geraete/${d.id}/sperren", "stack-tight confirm") {
+                                    if (!d.revoked) dialog("$BASE/geraete/${d.id}/sperren", "btn btn-danger", "Sperren", "Gerät sperren") {
+                                        postForm(ctx, "$BASE/geraete/${d.id}/sperren", "stack-tight") {
                                             label("field") {
                                                 span { +"Grund, fürs Protokoll" }
                                                 input(InputType.text, name = "grund") { placeholder = "verloren, defekt, falsches Gerät …"; maxLength = "200" }
@@ -283,9 +283,8 @@ private fun HTML.usersPage(ctx: PageContext, users: List<WebUser>, notice: Strin
                                 }
                             }
                             td("num") {
-                                details {
-                                    summary("btn") { +"Ändern" }
-                                    postForm(ctx, "$BASE/benutzer/${u.id}", "stack-tight confirm") {
+                                dialog("$BASE/benutzer/${u.id}", "btn", "Ändern", "Benutzer ändern") {
+                                    postForm(ctx, "$BASE/benutzer/${u.id}", "stack-tight") {
                                         roleSelect(u.role)
                                         label("field") { span { +"Zugang bis (leer: unbegrenzt)" }; input(InputType.date, name = "bis") { value = u.validUntil?.toString().orEmpty() } }
                                         label("field") { span { +"Neues Passwort (leer: bleibt)" }; input(InputType.password, name = "passwort") { attributes["autocomplete"] = "new-password" } }

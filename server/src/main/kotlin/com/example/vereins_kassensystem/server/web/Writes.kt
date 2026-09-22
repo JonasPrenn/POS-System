@@ -66,6 +66,23 @@ class Writes(private val db: Database) {
         }
     }
 
+    /**
+     * Löschen nach Austritt (Konzept 4.1): weich, wie die App es tut — die Tablets nehmen das Mitglied
+     * beim nächsten Abgleich aus der Liste. Die Buchungen bleiben mit dem Namen als Schnappschuss, weil
+     * sie der Aufbewahrungspflicht unterliegen; das Profil (Adresse, E-Mail) geht sofort. Ein Deckel,
+     * der nicht auf null steht, lässt sich nicht löschen — das Geld verschwände sonst mit dem Namen.
+     */
+    fun deleteMember(by: WebUser, id: UUID) {
+        db.write { c ->
+            val row = c.queryOne("SELECT m.name, b.balance FROM members m JOIN member_balances b ON b.member_id = m.id WHERE m.id = ? AND NOT m.deleted FOR UPDATE OF m", id) { it.getString("name") to it.getDouble("balance") }
+                ?: throw AccountProblem("Dieses Mitglied gibt es nicht mehr.")
+            if (kotlin.math.abs(row.second) >= 0.005) throw AccountProblem("Der Deckel von ${row.first} steht auf ${euro(row.second)}. Erst ausgleichen — Aufladung oder Korrektur —, dann löschen.")
+            c.execute("UPDATE members SET deleted = true, deleted_at = now() WHERE id = ?", id)
+            c.execute("DELETE FROM member_profiles WHERE member_id = ?", id)
+            AuditLog.record(c, by.id, by.displayName, "member.delete", row.first, "Profil gelöscht, Buchungen bleiben")
+        }
+    }
+
     /** Die Sperre (Konzept 4.1): mit Grund, synchronisiert; die Theke zeigt sie und schreibt nicht mehr an. Leerer Grund hebt sie auf. */
     fun blockMember(by: WebUser, id: UUID, reason: String) {
         val clean = reason.trim().replace(Regex("\\s+"), " ").take(120)

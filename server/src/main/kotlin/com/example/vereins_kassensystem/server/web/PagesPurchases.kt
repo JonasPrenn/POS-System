@@ -321,7 +321,7 @@ private fun HTML.purchasesPage(
                     panelHead("Belege")
                     if (all.isEmpty()) p("empty") { +"Noch kein Beleg. Wareneingänge vom Tablet erscheinen hier von selbst; alles andere über „Beleg erfassen“." }
                     else table("t") {
-                        thead { tr { th { +"Lieferant und Beleg" }; th(classes = "hide-sm") { +"Datum" }; th { +"Zahlung" }; th(classes = "num") { +"Brutto" } } }
+                        thead { tr { th { +"Lieferant und Beleg" }; th(classes = "hide-sm") { +"Datum" }; th(classes = "hide-sm") { +"Zahlung" }; th(classes = "num") { +"Brutto" } } }
                         tbody {
                             for (d in all) tr("pick") {
                                 if (chosen && !fresh && d.id == shown?.id) attributes["aria-selected"] = "true"
@@ -331,11 +331,12 @@ private fun HTML.purchasesPage(
                                         a(href = "$BASE/einkauf?b=${d.id}", classes = "cover two") {
                                             span("title-s") { +d.supplier.ifBlank { "Ohne Lieferant" } }
                                             span("cap") { +listOfNotNull(d.number.takeIf { it.isNotBlank() }, "${count(d.stockLines, "Lagerposition", "Lagerpositionen")}${if (d.expenseLines > 0) ", ${d.expenseLines} ohne" else ""}", if (!d.hasDocument) "Belegdaten fehlen" else null).joinToString(" · ") }
+                                            span("only-sm") { paymentChip(ctx, d) }
                                         }
                                     }
                                 }
                                 td("c-muted tnum nowrap hide-sm") { +ctx.dayShort(d.date) }
-                                td { paymentChip(ctx, d) }
+                                td("hide-sm") { paymentChip(ctx, d) }
                                 td("num") { span("money-s") { +(d.gross?.let(::euro) ?: "—") } }
                             }
                         }
@@ -348,9 +349,8 @@ private fun HTML.purchasesPage(
                             for (s in suppliers) tr {
                                 td("fill") { twoLine(s.name, listOfNotNull(s.customerNumber.takeIf { it.isNotBlank() }?.let { "Kundennummer $it" }, s.contact.takeIf { it.isNotBlank() }).joinToString(" · ").ifEmpty { count(s.documents, "Beleg", "Belege") }) }
                                 td("num") {
-                                    if (writes) details {
-                                        summary("btn") { +"Ändern" }
-                                        postForm(ctx, "$BASE/einkauf/lieferant/${s.id}", "stack-tight confirm") {
+                                    if (writes) dialog("$BASE/einkauf/lieferant/${s.id}", "btn", "Ändern", "Lieferant ändern") {
+                                        postForm(ctx, "$BASE/einkauf/lieferant/${s.id}", "stack-tight") {
                                             label("field") { span { +"Kundennummer" }; input(InputType.text, name = "kundennummer") { value = s.customerNumber } }
                                             label("field") { span { +"Kontakt (Telefon, E-Mail, Ansprechperson)" }; input(InputType.text, name = "kontakt") { value = s.contact } }
                                             button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" }
@@ -396,12 +396,12 @@ internal fun PageContext.dayShort(date: LocalDate): String =
     if (date.year == today.year) "%02d.%02d.".format(date.dayOfMonth, date.monthValue) else "%02d.%02d.%d".format(date.dayOfMonth, date.monthValue, date.year)
 
 /** Kopfdaten eines Belegs — leer für einen neuen, sonst vorbelegt. Mit Datei, deshalb multipart. */
-private fun FlowContent.documentForm(ctx: PageContext, d: Document?, suppliers: List<Supplier>, prefill: Prefill? = null) = panel {
+private fun FlowContent.documentForm(ctx: PageContext, d: Document?, suppliers: List<Supplier>, prefill: Prefill? = null, heading: Boolean = true) = panel {
     form(action = "$BASE/einkauf/beleg", method = FormMethod.post, encType = FormEncType.multipartFormData, classes = "panel-body") {
         csrf(ctx)
         d?.let { hiddenInput(name = "id") { value = it.id.toString() } }
         prefill?.let { hiddenInput(name = "datei") { value = it.fileKey } }
-        h2("title-m") { +(if (d == null) "Beleg erfassen" else if (d.hasDocument) "Belegdaten ändern" else "Belegdaten ergänzen") }
+        if (heading) h2("title-m") { +(if (d == null) "Beleg erfassen" else if (d.hasDocument) "Belegdaten ändern" else "Belegdaten ergänzen") }
         if (d != null && !d.hasDocument) p("muted") { +"Der Wareneingang kam vom Tablet. Nummer, Fälligkeit und Zahlung kennt nur die Verwaltung." }
         div("form-grid") {
             label("field") {
@@ -457,18 +457,15 @@ private fun FlowContent.documentDetail(
             if (d.fileKey == null && d.photoKey == null) div("photo-none") { icon("camera", "l"); span("cap") { +"Keine Datei zu diesem Beleg" } }
             d.note.takeIf { it.isNotBlank() }?.let { p("muted") { +it } }
             if (writes) div("row wrap") {
-                if (d.open && d.hasDocument) details {
-                    summary("btn btn-primary") { icon("check", "m"); +"Als bezahlt buchen" }
-                    postForm(ctx, "$BASE/einkauf/${d.id}/bezahlt", "stack-tight confirm confirm-left") {
+                if (d.open && d.hasDocument) dialog("$BASE/einkauf/${d.id}/bezahlt", "btn btn-primary", "Als bezahlt buchen", triggerIcon = "check") {
+                    postForm(ctx, "$BASE/einkauf/${d.id}/bezahlt", "stack-tight") {
                         label("field") { span { +"Bezahlt per" }; select { name = "zahlung"; for (p in Payment.entries.filter { it != Payment.OPEN }) option { value = p.name; if (p == Payment.BANK) selected = true; +p.label } } }
                         label("field") { span { +"Am" }; input(InputType.date, name = "am") { value = ctx.today.toString() } }
                         button(type = ButtonType.submit, classes = "btn btn-primary") { +"Bezahlt" }
                     }
                 }
-                details {
-                    summary("btn") { +(if (d.hasDocument) "Belegdaten ändern" else "Belegdaten ergänzen") }
-                    div("confirm confirm-left confirm-wide") { documentForm(ctx, d, suppliers) }
-                }
+                val headTitle = if (d.hasDocument) "Belegdaten ändern" else "Belegdaten ergänzen"
+                dialog("$BASE/einkauf/${d.id}/kopf", "btn", headTitle) { documentForm(ctx, d, suppliers, heading = false) }
             }
         }
     }
@@ -585,8 +582,7 @@ private fun FlowContent.intakePanel(ctx: PageContext, rows: List<IntakeRow>, sen
         }
     }
     if (writes && senders.isNotEmpty()) div("panel-foot") {
-        details {
-            summary("btn btn-quiet") { +"Freigegebene Absender (${senders.size})" }
+        dialog("$BASE/einkauf/post/absender", "btn btn-quiet", "Freigegebene Absender (${senders.size})", "Freigegebene Absender") {
             div("stack-tight") {
                 for ((address, supplier) in senders) div("row-between") {
                     twoLine(address, supplier.ifBlank { "Lieferant aus der Datei" })

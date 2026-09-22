@@ -59,7 +59,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .c-warning { color: var(--warning); } .c-error { color: var(--error); } .c-muted { color: var(--on-surface-variant); }
 
 /* ------------------------------------------------------------------- Icons */
-.ic { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.ic { width: 20px; height: 20px; flex-shrink: 0; fill: currentColor; stroke: none; }
 .ic-s { width: 14px; height: 14px; } .ic-m { width: 18px; height: 18px; } .ic-l { width: 24px; height: 24px; }
 
 /* ------------------------------------------------------------------ Gerüst */
@@ -112,6 +112,10 @@ main { display: flex; flex-direction: column; gap: 24px; flex-grow: 1; min-width
 .row-between { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .two { display: flex; flex-direction: column; min-width: 0; }
 .two > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Überschriften in einem Zweizeiler laufen um; nur die Unterzeile kürzt. */
+.two > h2 { overflow: visible; white-space: normal; }
+.head-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
+.head-row > .two { flex: 1 1 200px; }
 
 .figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .figure { display: flex; flex-direction: column; gap: 6px; padding: 20px 24px; min-width: 0; border-left: 1px solid var(--hairline); }
@@ -202,6 +206,24 @@ main { display: flex; flex-direction: column; gap: 24px; flex-grow: 1; min-width
 .photo { display: block; max-width: 100%; border-radius: 10px; border: 1px solid var(--hairline); }
 .photo-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 150px; border-radius: 10px; border: 1px dashed var(--outline); background: var(--panel-sub); color: var(--on-surface-variant); text-align: center; }
 .back { display: none; }
+/* Dialoge: über der Seite, zentriert, wie die Dialoge der App (Radius large, abgedunkelter Grund). */
+.dialog { display: none; }
+@supports selector(:popover-open) {
+  .dialog { position: fixed; inset: 0; margin: auto; width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--hairline); border-radius: 24px; background: var(--panel); color: var(--on-surface); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4); overflow: auto; text-align: left; }
+  .dialog:popover-open { display: flex; flex-direction: column; }
+  .dialog::backdrop { background: rgba(9, 13, 10, 0.55); }
+  /* Hinter dem Dialog ist die Seite still: nichts klickt durch den Schleier, nichts scrollt weg. */
+  body:has(.dialog:popover-open) { overflow: hidden; pointer-events: none; }
+  .dialog:popover-open { pointer-events: auto; }
+}
+@supports not selector(:popover-open) {
+  .dialog { display: block; margin-top: 8px; padding: 0; border: 1px solid var(--hairline); border-radius: 16px; background: var(--panel); text-align: left; }
+}
+.dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px 4px; }
+.dialog-body { padding: 12px 24px 24px; }
+.dialog-body .form-grid { grid-template-columns: 1fr 1fr; }
+.dialog-body .panel { border: 0; }
+@media (max-width: 860px) { .dialog-body .form-grid { grid-template-columns: 1fr; } }
 details { position: relative; display: inline-block; text-align: left; }
 summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
@@ -236,7 +258,12 @@ summary::-webkit-details-marker { display: none; }
   .panel-foot { padding: 12px 16px; } .toolbar { padding: 12px 16px; }
   .t th:first-child, .t td:first-child { padding-left: 16px; } .t th:last-child, .t td:last-child { padding-right: 16px; }
   .hide-sm { display: none; }
+  .t td.fill .two > :first-child { white-space: normal; }
   .only-sm { display: inline; }
+  .two > .only-sm { display: block; margin-top: 4px; }
+  .btn.only-sm { display: inline-flex; }
+  /* Ein langes Abzeichen unter dem Namen bricht um, statt am Zellenrand abzureißen. */
+  .two > .only-sm .chip { height: auto; min-height: 24px; padding: 3px 8px; white-space: normal; }
   /* Aufgeklappte Formulare stehen am Telefon im Fluss, nicht als schwebende Karte am Rand. */
   details[open] { display: block; width: 100%; }
   .confirm, .confirm-left { position: static; width: auto; margin-top: 8px; box-shadow: none; }

@@ -187,9 +187,8 @@ private fun FlowContent.depositPanel(ctx: PageContext, kinds: List<Purchases.Dep
     }
     if (writes) div("panel-foot") {
         div("row wrap") {
-            if (kinds.isNotEmpty()) details {
-                summary("btn") { icon("plus", "m"); +"Leergut zurück / geliefert" }
-                postForm(ctx, "$BASE/lager/pfand", "stack-tight confirm confirm-left") {
+            if (kinds.isNotEmpty()) dialog("$BASE/lager/pfand/bewegung", "btn", "Leergut zurück / geliefert", triggerIcon = "plus") {
+                postForm(ctx, "$BASE/lager/pfand", "stack-tight") {
                     label("field") { span { +"Gebinde" }; select { name = "gebinde"; for (k in kinds) option { value = k.id.toString(); +"${k.name}${k.supplier.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""}" } } }
                     div("form-grid") {
                         label("field") { span { +"Zurückgegeben" }; input(InputType.text, name = "zurueck") { placeholder = "5"; attributes["inputmode"] = "numeric" } }
@@ -200,9 +199,8 @@ private fun FlowContent.depositPanel(ctx: PageContext, kinds: List<Purchases.Dep
                     button(type = ButtonType.submit, classes = "btn btn-primary") { +"Buchen" }
                 }
             }
-            details {
-                summary("btn btn-quiet") { +"Gebinde anlegen" }
-                postForm(ctx, "$BASE/lager/pfand", "stack-tight confirm confirm-left") {
+            dialog("$BASE/lager/pfand/neu", "btn btn-quiet", "Gebinde anlegen", "Pfandgebinde anlegen") {
+                postForm(ctx, "$BASE/lager/pfand", "stack-tight") {
                     hiddenInput(name = "neu") { value = "1" }
                     label("field") { span { +"Name (etwa Fass 20 l, Kiste 12 × 1 l)" }; input(InputType.text, name = "name") { required = true; maxLength = "80" } }
                     label("field") { span { +"Pfand je Gebinde in Euro, brutto" }; input(InputType.text, name = "pfand") { required = true; placeholder = "36,00"; attributes["inputmode"] = "decimal" } }

@@ -162,6 +162,19 @@ internal fun Route.mainPages(web: Web) {
             call.respondRedirect("$BASE/mitglieder?m=$id&$outcome")
         }
     }
+    post("/mitglieder/{id}/loeschen") {
+        call.guardedPost(web, Area.MEMBERS) { ctx, _ ->
+            if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Mitglieder löscht der Kassier.")
+            val id = uuidOrNull(call.parameters["id"]) ?: return@guardedPost call.respondRedirect("$BASE/mitglieder")
+            val outcome = try {
+                web.writes.deleteMember(ctx.user, id)
+                "hinweis=" + "Gelöscht. Die Buchungen behalten den Namen; die Tablets nehmen das Mitglied beim nächsten Abgleich aus der Liste.".encodeURLParameter()
+            } catch (e: AccountProblem) {
+                "m=$id&fehler=" + e.message.orEmpty().encodeURLParameter()
+            }
+            call.respondRedirect("$BASE/mitglieder?$outcome")
+        }
+    }
     post("/mitglieder/{id}/sperre") {
         call.guardedPost(web, Area.MEMBERS) { ctx, form ->
             if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Deckel sperrt der Kassier.")
@@ -421,9 +434,8 @@ private fun HTML.membersPage(
 
     shell(ctx, Area.MEMBERS, "Mitglieder", "${count(all.size, "Mitglied", "Mitglieder")} · $tabs im Minus · ${all.count { it.overLimit }} über dem Limit", actions = {
         a(href = "$BASE/mitglieder/kategorien", classes = "btn btn-quiet") { +"Kategorien und Limits" }
-        if (ctx.user.role.writesMembers) details {
-            summary("btn btn-primary") { icon("plus", "m"); +"Mitglied anlegen" }
-            postForm(ctx, "$BASE/mitglieder", "stack-tight confirm") {
+        if (ctx.user.role.writesMembers) dialog("$BASE/mitglieder/neu", "btn btn-primary", "Mitglied anlegen", triggerIcon = "plus") {
+            postForm(ctx, "$BASE/mitglieder", "stack-tight") {
                 label("field") { span { +"Name" }; input(InputType.text, name = "name") { required = true; maxLength = "80" } }
                 label("field") { span { +"Couleurname (Vulgo)" }; input(InputType.text, name = "vulgo") { placeholder = "Sokrates"; maxLength = "60" } }
                 categorySelect(categories, null)
@@ -459,8 +471,8 @@ private fun HTML.membersPage(
                                 div("row") {
                                     span("avatar avatar-s") { +initialsOf(m.name) }
                                     a(href = url(m = m), classes = "cover two") {
-                                        span("title-s") { +m.name }
-                                        span("cap") { +listOfNotNull(m.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }, m.category ?: "Ohne Kategorie", "Deckel gesperrt".takeIf { m.blocked }).joinToString(" · ") }
+                                        span("title-s") { +m.displayName }
+                                        span("cap") { +listOfNotNull(m.category ?: "Ohne Kategorie", "Deckel gesperrt".takeIf { m.blocked }).joinToString(" · ") }
                                     }
                                 }
                             }
@@ -496,9 +508,8 @@ private fun FlowContent.categorySelect(categories: List<MemberCategoryOption>, s
 
 /** Aufladen, Korrektur, Ändern — aufklappbar, ohne Skript. Jede Buchung trägt ihren eigenen Schlüssel gegen den Doppelklick. */
 private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categories: List<MemberCategoryOption>) = div("row wrap") {
-    details {
-        summary("btn btn-brass") { icon("plus", "m"); +"Aufladen" }
-        postForm(ctx, "$BASE/mitglieder/${m.id}/buchung", "stack-tight confirm confirm-left") {
+    dialog("$BASE/mitglieder/${m.id}/aufladen", "btn btn-brass", "Aufladen", "Deckel aufladen", triggerIcon = "plus") {
+        postForm(ctx, "$BASE/mitglieder/${m.id}/buchung", "stack-tight") {
             hiddenInput(name = "buchung") { value = Ids.new() }
             hiddenInput(name = "art") { value = "aufladung" }
             label("field") { span { +"Betrag in Euro" }; input(InputType.text, name = "betrag") { required = true; placeholder = "20,00"; attributes["inputmode"] = "decimal" } }
@@ -510,9 +521,8 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
             button(type = ButtonType.submit, classes = "btn btn-brass") { +"Aufladung buchen" }
         }
     }
-    details {
-        summary("btn") { +"Korrektur" }
-        postForm(ctx, "$BASE/mitglieder/${m.id}/buchung", "stack-tight confirm confirm-left") {
+    dialog("$BASE/mitglieder/${m.id}/korrektur", "btn", "Korrektur", "Deckel korrigieren") {
+        postForm(ctx, "$BASE/mitglieder/${m.id}/buchung", "stack-tight") {
             hiddenInput(name = "buchung") { value = Ids.new() }
             hiddenInput(name = "art") { value = "korrektur" }
             label("field") { span { +"Betrag mit Vorzeichen: −4,20 zieht ab, 4,20 schreibt gut" }; input(InputType.text, name = "betrag") { required = true; placeholder = "−4,20"; attributes["inputmode"] = "text" } }
@@ -520,9 +530,8 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
             button(type = ButtonType.submit, classes = "btn btn-primary") { +"Korrektur buchen" }
         }
     }
-    details {
-        summary("btn") { +(if (m.blocked) "Sperre aufheben" else "Sperren") }
-        postForm(ctx, "$BASE/mitglieder/${m.id}/sperre", "stack-tight confirm") {
+    dialog("$BASE/mitglieder/${m.id}/sperre", "btn", if (m.blocked) "Sperre aufheben" else "Sperren", if (m.blocked) "Sperre aufheben" else "Deckel sperren") {
+        postForm(ctx, "$BASE/mitglieder/${m.id}/sperre", "stack-tight") {
             if (m.blocked) {
                 p("cap") { +"Gesperrt: ${m.blockedReason}" }
                 hiddenInput(name = "grund") { value = "" }
@@ -533,24 +542,30 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
             }
         }
     }
-    details {
-        summary("btn") { +"Ändern" }
-        postForm(ctx, "$BASE/mitglieder/${m.id}", "stack-tight confirm") {
+    dialog("$BASE/mitglieder/${m.id}/aendern", "btn", "Ändern", "Mitglied ändern") {
+        postForm(ctx, "$BASE/mitglieder/${m.id}", "stack-tight") {
             label("field") { span { +"Name" }; input(InputType.text, name = "name") { value = m.name; required = true; maxLength = "80" } }
             label("field") { span { +"Couleurname (Vulgo)" }; input(InputType.text, name = "vulgo") { value = m.nickname; maxLength = "60" } }
             categorySelect(categories, m.category)
             button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" }
         }
     }
+    dialog("$BASE/mitglieder/${m.id}/loeschen", "btn btn-quiet", "Löschen", "Mitglied löschen") {
+        postForm(ctx, "$BASE/mitglieder/${m.id}/loeschen", "stack-tight") {
+            p { +"${m.displayName} verschwindet von den Tablets und aus dieser Liste; das Profil mit Adresse und E-Mail wird gelöscht. Die Buchungen bleiben mit dem Namen, weil sie aufbewahrt werden müssen." }
+            if (kotlin.math.abs(m.balance) >= 0.005) div("note note-warn") { icon("alert", "m"); span { +"Der Deckel steht auf ${euro(m.balance)}. Erst ausgleichen, dann löschen." } }
+            button(type = ButtonType.submit, classes = "btn btn-danger") { +"Ja, löschen" }
+        }
+    }
 }
 
 private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement: List<StatementLine>, categories: List<MemberCategoryOption>, profile: Profile, history: List<Statement>) = panel {
     div("panel-body") {
-        div("row") {
+        div("head-row") {
             span("avatar avatar-l") { +initialsOf(m.name) }
             div("two") {
-                h2("title-m") { +m.name }
-                span("muted") { +listOfNotNull(m.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }, m.category ?: "Ohne Kategorie").joinToString(" · ") }
+                h2("title-m") { +m.displayName }
+                span("muted") { +(m.category ?: "Ohne Kategorie") }
             }
             if (m.blocked) chip("Deckel gesperrt", "warn", "lock")
         }

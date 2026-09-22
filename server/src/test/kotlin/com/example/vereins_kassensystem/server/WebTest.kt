@@ -310,6 +310,17 @@ class WebTest {
         assertEquals(null, lifted.changes.single { it.entity == "members" }.row["blocked_reason"]?.let { if (it is kotlinx.serialization.json.JsonNull) null else it.jsonPrimitive.content })
         val log = kassier.page("/verwaltung/protokoll")
         assertContains(log, "Deckel gesperrt"); assertContains(log, "Sperre aufgehoben")
+
+        // Löschen: weich, nur bei ausgeglichenem Deckel — die Tablets bekommen die Löschmarke, das Protokoll den Namen.
+        ctx.push(device.token, insertOp("transactions", buildJsonObject { put("id", newId()); put("transaction_group_id", newId()); put("member_id", member); put("product_ref", Ledger.TOPUP_REF); put("product_name", "Guthabenaufladung"); put("price", "5.00"); put("quantity", 1); put("payment_type", "CASH"); put("occurred_at", java.time.Instant.now().toString()); put("is_refund", false) }))
+        assertContains(assertNotNull(kassier.form("/verwaltung/mitglieder/$member/loeschen", "_csrf" to csrfOf(page)).headers[HttpHeaders.Location]), "fehler=", message = "5,00 € Guthaben: nicht löschbar")
+        kassier.form("/verwaltung/mitglieder/$member/buchung", "_csrf" to csrfOf(page), "buchung" to newId(), "art" to "korrektur", "betrag" to "−5,00", "notiz" to "Guthaben ausbezahlt")
+        val deleted = kassier.form("/verwaltung/mitglieder/$member/loeschen", "_csrf" to csrfOf(page))
+        assertContains(assertNotNull(deleted.headers[HttpHeaders.Location]), "hinweis=")
+        assertFalse(kassier.page("/verwaltung/mitglieder").contains("m=$member"))
+        val gone = ctx.client.get("/v1/sync/changes?since=${lifted.nextSince}") { bearerAuth(device.token) }.body<ChangesResponse>()
+        assertTrue(gone.changes.any { it.entity == "members" && it.deleted }, "die Löschmarke geht zu den Tablets")
+        assertContains(kassier.page("/verwaltung/protokoll"), "Mitglied gelöscht")
     }
 
     @Test

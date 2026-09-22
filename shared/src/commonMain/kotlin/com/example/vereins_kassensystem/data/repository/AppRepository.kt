@@ -189,7 +189,8 @@ class AppRepository(private val database: AppDatabase) {
 
     suspend fun updateMember(member: Member) = write {
         val current = memberDao.getRow(member.id) ?: return@write
-        val row = current.copy(name = member.name, categoryId = member.categoryId)
+        // Alles, was der Dialog ändern kann — der Couleurname fehlte hier und ging beim Speichern verloren.
+        val row = current.copy(name = member.name, nickname = member.nickname.trim(), categoryId = member.categoryId)
         memberDao.update(row)
         update(SyncTables.MEMBERS, row.id, RowCodec.encode(row), current.sync.serverUpdatedAt)
     }

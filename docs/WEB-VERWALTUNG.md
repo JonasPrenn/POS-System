@@ -178,6 +178,8 @@ Heute: Name, Kategorie, Saldo. Für Abrechnung und Verwaltung fehlt der Rest.
   einzelnes Mitglied (Auskunft) und das **Löschen nach Austritt**: Das Profil wird
   gelöscht, der Name in den Buchungen bleibt als Schnappschuss, weil die Buchungen der
   Aufbewahrungspflicht unterliegen — nach Ablauf der Frist wird auch er anonymisiert.
+  Gebaut ist das Löschen: nur bei ausgeglichenem Deckel, weich über den Abgleich, das
+  Profil geht mit; die Anonymisierung nach Frist steht aus.
 
 Dazu: Tabelle `member_profiles` (nicht synchronisiert), Feld `status` und `blocked_reason`
 auf `members` (synchronisiert).

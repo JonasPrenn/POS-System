@@ -42,45 +42,16 @@ class PageContext(val session: WebSession, val verein: VereinSettings.Values, va
 }
 
 // ------------------------------------------------------------------- Icons
-// Eigene Strichzeichnungen im 24er-Raster, dieselben wie im Entwurf.
+// Dieselben Material-Pfade wie in der App (MaterialIcons, erzeugt aus VdIcons.kt) — gefüllt, wie
+// dort. Nur das Vereinszeichen ist eine eigene Strichzeichnung.
 
 object Icons {
-    private val paths = mapOf(
-        "mark" to """<rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8M6 14.8l12-5.6"/>""",
-        "grid" to """<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>""",
-        "users" to """<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M17.5 14.3c2.4.6 4 2.6 4 5.7"/>""",
-        "book" to """<path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/>""",
-        "ledger" to """<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>""",
-        "tag" to """<path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="8.5" r="1.5"/>""",
-        "box" to """<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>""",
-        "filein" to """<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/>""",
-        "tablet" to """<rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M11 18h2"/>""",
-        "shield" to """<path d="M12 3 5 6v5c0 4.5 2.9 8.3 7 10 4.1-1.7 7-5.5 7-10V6z"/><circle cx="12" cy="10" r="2"/><path d="M8.8 16c.6-1.6 1.8-2.5 3.2-2.5s2.6.9 3.2 2.5"/>""",
-        "history" to """<path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5M12 8v4.5l3 1.8"/>""",
-        "gear" to """<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>""",
-        "search" to """<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>""",
-        "plus" to """<path d="M12 5v14M5 12h14"/>""",
-        "check" to """<path d="M5 12.5l4.5 4.5L19 7.5"/>""",
-        "alert" to """<path d="M12 4 2.8 20h18.4z"/><path d="M12 10v4.5M12 17.4v.1"/>""",
-        "cloudoff" to """<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 10.5a3.75 3.75 0 0 1-.5 7.5z"/><path d="M4 4l16 16"/>""",
-        "lock" to """<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>""",
-        "chevron" to """<path d="M9 6l6 6-6 6"/>""",
-        "back" to """<path d="M15 6l-6 6 6 6"/>""",
-        "logout" to """<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/>""",
-        "keg" to """<path d="M7 3h10M7 21h10M6.5 3c-1.5 3-1.5 15 0 18M17.5 3c1.5 3 1.5 15 0 18M5.5 9h13M5.5 15h13"/>""",
-        "camera" to """<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2.5h5L16 6"/>""",
-        "close" to """<path d="M6 6l12 12M18 6L6 18"/>""",
-        "cash" to """<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v.01M17.5 14.5v.01"/>""",
-        "receipt" to """<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>""",
-        "mail" to """<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>""",
-        "printer" to """<path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7"/>""",
-        "bank" to """<path d="M3 9.5 12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>""",
-        "download" to """<path d="M12 4v12M7.5 11.5 12 16l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>""",
-        "more" to """<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>""",
-    )
+    private const val MARK = """<rect x="3" y="3" width="18" height="18" rx="4.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8M6 14.8l12-5.6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>"""
 
-    fun svg(name: String, size: String = ""): String =
-        """<svg class="ic${if (size.isEmpty()) "" else " ic-$size"}" viewBox="0 0 24 24" aria-hidden="true">${paths.getValue(name)}</svg>"""
+    fun svg(name: String, size: String = ""): String {
+        val body = if (name == "mark") MARK else "<path d=\"${MaterialIcons.paths.getValue(name)}\"/>"
+        return """<svg class="ic${if (size.isEmpty()) "" else " ic-$size"}" viewBox="0 0 24 24" aria-hidden="true">$body</svg>"""
+    }
 }
 
 /**
@@ -125,6 +96,12 @@ private val PHONE_TABS = listOf(Area.OVERVIEW, Area.MEMBERS, Area.REPORTS)
 
 // ------------------------------------------------------------------ Gerüst
 
+/** Das Stylesheet samt Kürzel aus seinem Inhalt: Nach einem Update holt jeder Browser das neue Blatt, statt eine Stunde lang das alte zu zeigen. */
+object Stylesheet {
+    val css: String = checkNotNull(Stylesheet::class.java.getResource("/web/app.css")) { "web/app.css fehlt im Klassenpfad" }.readText()
+    val version: String = java.security.MessageDigest.getInstance("SHA-256").digest(css.toByteArray()).take(6).joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
+}
+
 fun HTML.document(pageTitle: String, content: FlowContent.() -> Unit) {
     lang = "de"
     head {
@@ -132,7 +109,7 @@ fun HTML.document(pageTitle: String, content: FlowContent.() -> Unit) {
         meta(name = "viewport", content = "width=device-width, initial-scale=1, viewport-fit=cover")
         meta(name = "robots", content = "noindex")
         title("$pageTitle · VereinsDeckel")
-        link(rel = "stylesheet", href = "$BASE/assets/app.css")
+        link(rel = "stylesheet", href = "$BASE/assets/app.css?v=${Stylesheet.version}")
         link(rel = "stylesheet", href = "$BASE/assets/verein.css")
         link(rel = "icon", href = "$BASE/assets/icon.svg", type = "image/svg+xml")
     }
@@ -218,6 +195,36 @@ fun HTML.shell(
 
 // --------------------------------------------------------------- Bausteine
 
+/**
+ * Ein Dialog über der Seite, ohne Skript: der Auslöser ist ein Knopf mit `popovertarget`, der
+ * Dialog ein Element mit `popover` — der Browser legt es zentriert in die oberste Ebene, dunkelt
+ * dahinter ab, schließt mit Esc, mit dem Kreuz oder mit einem Klick daneben. Wo ein Browser das
+ * nicht kennt, steht der Inhalt unter dem Knopf, wie früher. [key] muss auf der Seite eindeutig
+ * sein; daraus wird die id.
+ */
+fun FlowContent.dialog(key: String, trigger: String, label: String, title: String = label, triggerIcon: String? = null, body: FlowContent.() -> Unit) {
+    val id = "dlg-" + key.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+    button(type = ButtonType.button, classes = trigger) {
+        attributes["popovertarget"] = id
+        triggerIcon?.let { icon(it, "m") }
+        +label
+    }
+    div("dialog") {
+        attributes["id"] = id
+        attributes["popover"] = ""
+        div("dialog-head") {
+            if (title.isNotBlank()) h2("title-m") { +title } else span { }
+            button(type = ButtonType.button, classes = "icon-btn") {
+                attributes["popovertarget"] = id
+                attributes["popovertargetaction"] = "hide"
+                attributes["aria-label"] = "Schließen"
+                icon("close")
+            }
+        }
+        div("dialog-body") { body() }
+    }
+}
+
 fun FlowContent.panel(extra: String = "", block: FlowContent.() -> Unit) = section("panel $extra".trim()) { block() }
 
 fun FlowContent.panelHead(title: String, right: FlowContent.() -> Unit = {}) = div("panel-head") {
@@ -235,9 +242,11 @@ fun FlowContent.more(text: String, href: String) = a(href = href, classes = "lin
     icon("chevron", "s")
 }
 
-fun FlowContent.twoLine(top: String, bottom: String) = span("two") {
+/** Zwei Zeilen, Titel und Unterzeile; [phoneOnly] steht am Telefon als dritte Zeile darunter — etwa ein Abzeichen, dessen Spalte dort nicht mehr Platz hat. */
+fun FlowContent.twoLine(top: String, bottom: String, phoneOnly: (FlowContent.() -> Unit)? = null) = span("two") {
     span("title-s") { +top }
     span("cap") { +bottom }
+    phoneOnly?.let { span("only-sm") { it() } }
 }
 
 fun FlowContent.figure(label: String, block: FlowContent.() -> Unit) = div("figure") {

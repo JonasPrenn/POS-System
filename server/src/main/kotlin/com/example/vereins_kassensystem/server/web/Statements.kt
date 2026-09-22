@@ -172,6 +172,8 @@ class Statements(private val db: Database, private val writes: Writes, private v
 
     fun statements(runId: UUID): List<Statement> = db.read { c -> c.query("SELECT * FROM statements WHERE run_id = ? ORDER BY amount DESC, member_name", runId) { it.statement() } }
 
+    fun nicknameOf(memberId: UUID): String = db.read { c -> c.queryOne("SELECT nickname FROM members WHERE id = ?", memberId) { it.getString("nickname") } ?: "" }
+
     fun statement(id: UUID): Statement? = db.read { c -> c.queryOne("SELECT * FROM statements WHERE id = ?", id) { it.statement() } }
 
     fun openStatements(): List<Statement> = db.read { c -> c.query("SELECT * FROM statements WHERE status = 'OPEN' AND amount > 0 ORDER BY due_date, member_name") { it.statement() } }

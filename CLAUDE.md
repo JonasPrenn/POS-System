@@ -17,7 +17,7 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
 | Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufgestellt ist er noch nirgends |
 | Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 14 (11 = UUID-Schlüssel, 12 = Couleurname, 13 = Kasse, 14 = Sperre) mit hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
-| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet, `ui/components/CashSection.kt`), das Sortiment (`web/Products.kt`) und die Bücher (`web/Books.kt`: Einnahmen-Ausgaben-Rechnung und Vermögensübersicht, hergeleitet, nichts fortgeschrieben). Schreibt in synchronisierte Tabellen nur Mitglieder mit Sperre, Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung), Wareneingänge (`web/Purchases.kt`) und das Sortiment samt Kategorien (`web/Products.kt`), immer über `Database.write`. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
+| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet, `ui/components/CashSection.kt`), das Sortiment (`web/Products.kt`) und die Bücher (`web/Books.kt`: Einnahmen-Ausgaben-Rechnung und Vermögensübersicht, hergeleitet, nichts fortgeschrieben). Schreibt in synchronisierte Tabellen nur Mitglieder (anlegen, ändern, sperren, löschen), Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung), Wareneingänge (`web/Purchases.kt`) und das Sortiment samt Kategorien (`web/Products.kt`), immer über `Database.write`. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
 `docs/PORTIERUNG.md`; Kartenzahlung gibt es auf iOS erst, wenn das SumUp-iOS-SDK per
@@ -80,6 +80,8 @@ beantwortet.
 **Icons liegen im Repo.** `ui/icons/VdIcons.kt`, erzeugt von `docs/tools/gen_icons.py`.
 Nicht von Hand ändern — beim nächsten Lauf wäre es weg. Grund für das Selbermachen:
 `material-icons-extended` gibt es für Compose Multiplatform nur bis 1.7.3.
+Die Verwaltung nimmt denselben Satz: `server/.../web/MaterialIcons.kt`, erzeugt von
+`docs/tools/gen_web_icons.py` aus `docs/tools/web-icons/`.
 
 **Compose kommt von JetBrains-Koordinaten.** `org.jetbrains.compose.*:1.12.0` und
 `org.jetbrains.compose.material3:material3:1.9.0` stehen fest im Katalog. Google
@@ -128,6 +130,8 @@ SVG mit Attributen (`bar()`, `weekChart()`), die Vereinsfarbe ein eigenes Blatt
 (`/verwaltung/assets/verein.css`). Die Token in `app.css` sind die aus `ui/theme` — wer dort
 eine Farbe ändert, zieht sie hier nach. Und: Die Verwaltung rechnet das Lager mit derselben
 `Inventory` aus `:core` wie die App, nicht mit eigenem SQL.
+Dialoge sind HTML-Popover (`dialog()` in `Html.kt`): `popovertarget` öffnet und schließt ohne
+Skript, `body:has(.dialog:popover-open)` stellt die Seite dahinter still.
 
 **Plattformgrenzen sind fachlich geschnitten.** `PaymentProcessor` heißt so, weil die App
 eine Karte belasten will, nicht weil SumUp ein SDK hat. Schlüsselbund und SumUp-iOS-SDK

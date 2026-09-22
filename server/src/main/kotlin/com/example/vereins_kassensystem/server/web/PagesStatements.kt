@@ -63,7 +63,7 @@ private fun statementText(verein: VereinSettings.Values, s: Statement, run: Stat
 /** Baut den Auszug, mit allem, was er braucht — für PDF und E-Mail dieselbe Quelle. */
 private fun Web.documentOf(ctx: PageContext, s: Statement): StatementDocument {
     val run = statements.run(s.runId) ?: throw AccountProblem("Der Lauf zu dieser Abrechnung fehlt.")
-    return StatementDocument(s, run, statements.lines(s, run), statements.profile(s.memberId), ctx.verein, config.zone)
+    return StatementDocument(s, run, statements.lines(s, run), statements.profile(s.memberId), ctx.verein, config.zone, statements.nicknameOf(s.memberId))
 }
 
 private fun Web.sendStatement(ctx: PageContext, s: Statement, reminder: Boolean): String? {
@@ -272,14 +272,11 @@ private fun HTML.statementsPage(
                     }
                     div("panel-note cap") { +"Zeitraum ${ctx.dayShort(run.from)} bis ${ctx.dayShort(run.to)} · Zahlungsziel ${ctx.dayShort(run.dueDate)} · abgerechnet, wer unter ${euro(run.threshold)} lag${if (run.extraAmount > 0) " · dazu ${run.extraLabel} ${euro(run.extraAmount)}" else ""} · angelegt von ${run.createdBy}" }
                     table("t") {
-                        thead { tr { th { +"Mitglied" }; th(classes = "num") { +"Betrag" }; th(classes = "hide-sm") { +"Versand" }; th { +"Status" }; th { span("sr") { +"Aktionen" } } } }
+                        thead { tr { th { +"Mitglied" }; th(classes = "num") { +"Betrag" }; th(classes = "hide-sm") { +"Versand" }; th(classes = "hide-sm") { +"Status" }; th { span("sr") { +"Aktionen" } } } }
                         tbody {
                             for (s in list) tr {
                                 val profile = profiles[s.memberId]
-                                td("fill") { twoLine(s.memberName, s.number) }
-                                td("num") { span("money-s") { +euro(s.amount) } }
-                                td("c-muted cap hide-sm") { +(when { s.sentAt == null -> if (profile?.canEmail == true) "E-Mail möglich" else "Druck"; s.sentVia == "EMAIL" -> "E-Mail ${ctx.day(s.sentAt)}"; else -> "gedruckt ${ctx.day(s.sentAt)}" }) }
-                                td {
+                                val status: FlowContent.() -> Unit = {
                                     when {
                                         s.status == StatementStatus.CANCELLED -> chip("storniert", "neutral")
                                         s.status == StatementStatus.PAID -> chip("bezahlt ${s.paidAt?.let { ctx.dayShort(it) }.orEmpty()}", "ok", "check")
@@ -289,12 +286,18 @@ private fun HTML.statementsPage(
                                         else -> chip("offen", "neutral")
                                     }
                                 }
+                                td("fill") { twoLine(s.memberName, s.number, status) }
+                                td("num") { span("money-s") { +euro(s.amount) } }
+                                td("c-muted cap hide-sm") { +(when { s.sentAt == null -> if (profile?.canEmail == true) "E-Mail möglich" else "Druck"; s.sentVia == "EMAIL" -> "E-Mail ${ctx.day(s.sentAt)}"; else -> "gedruckt ${ctx.day(s.sentAt)}" }) }
+                                td("hide-sm") { status() }
                                 td("num nowrap") {
                                     div("row") {
-                                        a(href = "$BASE/abrechnung/${s.id}.pdf", classes = "btn btn-quiet") { +"PDF" }
-                                        if (writes && s.status == StatementStatus.OPEN) details {
-                                            summary("btn") { +"…" }
-                                            div("confirm stack-tight") {
+                                        val more = writes && s.status == StatementStatus.OPEN
+                                        // Am Telefon trägt der Dialog den PDF-Knopf, damit der Name in der Zeile Platz behält.
+                                        a(href = "$BASE/abrechnung/${s.id}.pdf", classes = if (more) "btn btn-quiet hide-sm" else "btn btn-quiet") { +"PDF" }
+                                        if (more) dialog("$BASE/abrechnung/${s.id}/mehr", "btn", "Mehr", "Abrechnung ${s.number}") {
+                                            div("stack-tight") {
+                                                a(href = "$BASE/abrechnung/${s.id}.pdf", classes = "btn btn-wide only-sm") { icon("printer", "m"); +"PDF öffnen" }
                                                 if (profile?.canEmail == true) postForm(ctx, "$BASE/abrechnung/${s.id}/senden") { hiddenInput(name = "erinnerung") { value = if (s.sentAt != null && s.overdue(ctx.today)) "1" else "0" }; button(type = ButtonType.submit, classes = "btn btn-wide") { icon("mail", "m"); +(if (s.sentAt != null && s.overdue(ctx.today)) "Erinnerung mailen" else "Per E-Mail senden") } }
                                                 if (s.amount > 0) postForm(ctx, "$BASE/abrechnung/${s.id}/bezahlt", "stack-tight") {
                                                     label("field") { span { +"Zahlung eingegangen, Betrag" }; input(InputType.text, name = "betrag") { value = Money.formatPlain(s.amount); attributes["inputmode"] = "decimal" } }
@@ -327,9 +330,8 @@ private fun HTML.statementsPage(
                                 td("fill") { twoLine("${b.counterparty.ifBlank { "Unbekannt" }} · ${ctx.dayShort(b.bookingDate)}", b.reference.ifBlank { "ohne Verwendungszweck" }) }
                                 td("num") { span("money-s c-secondary") { +euroSigned(b.amount) } }
                                 if (writes) td("num") {
-                                    details {
-                                        summary("btn") { +"Zuordnen" }
-                                        postForm(ctx, "$BASE/abrechnung/bank/${b.id}", "stack-tight confirm") {
+                                    dialog("$BASE/abrechnung/bank/${b.id}", "btn", "Zuordnen", "Bankumsatz zuordnen") {
+                                        postForm(ctx, "$BASE/abrechnung/bank/${b.id}", "stack-tight") {
                                             label("field") {
                                                 span { +"Zu welcher Abrechnung" }
                                                 select { name = "abrechnung"; for (s in open) option { value = s.id.toString(); +"${s.memberName} · ${s.number} · ${euro(s.amount)}" } }
@@ -403,9 +405,8 @@ internal fun FlowContent.profileSection(ctx: PageContext, m: MemberLine, profile
         span("label-m") { +"Abrechnungen" }
         table("t t-tight t-flush") { tbody { for (s in history) tr { td("fill") { twoLine(s.number, listOfNotNull(if (s.status == StatementStatus.PAID) "bezahlt" else if (s.status == StatementStatus.CANCELLED) "storniert" else "offen bis ${ctx.dayShort(s.dueDate)}").joinToString()) }; td("num") { a(href = "$BASE/abrechnung/${s.id}.pdf", classes = "link") { +euro(s.amount) } } } } }
     }
-    if (writes) details {
-        summary("btn") { +"Profil ändern" }
-        postForm(ctx, "$BASE/mitglieder/${m.id}/profil", "stack-tight confirm confirm-left") {
+    if (writes) dialog("$BASE/mitglieder/${m.id}/profil", "btn", "Profil ändern") {
+        postForm(ctx, "$BASE/mitglieder/${m.id}/profil", "stack-tight") {
             label("field") { span { +"Mitgliedsnummer" }; input(InputType.text, name = "nummer") { value = profile.number; maxLength = "20" } }
             label("field") { span { +"E-Mail" }; input(InputType.email, name = "email") { value = profile.email; maxLength = "120" } }
             label("check") { input(InputType.checkBox, name = "einwilligung") { value = "1"; checked = profile.consentEmail }; span { +"Darf Abrechnungen per E-Mail bekommen" } }

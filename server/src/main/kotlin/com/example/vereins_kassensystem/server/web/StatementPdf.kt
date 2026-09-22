@@ -17,7 +17,11 @@ import javax.imageio.ImageIO
 class StatementDocument(
     val statement: Statement, val run: StatementRun, val lines: List<StatementLine>, val profile: Profile,
     val verein: VereinSettings.Values, val zone: java.time.ZoneId,
-)
+    /** Der Couleurname von heute — auf dem Auszug steht der Bundesbruder so, wie man ihn anspricht. */
+    val nickname: String = "",
+) {
+    val displayName: String get() = if (nickname.isBlank()) statement.memberName else "${statement.memberName} v. $nickname"
+}
 
 /**
  * Der Kontoauszug als PDF: eine A4-Seite je Abrechnung, aus HTML gesetzt. Kein Steuerausweis —
@@ -63,7 +67,7 @@ object StatementPdf {
         sb.append("<div class=\"head\"><div><div class=\"club\">").append(esc(d.verein.name.ifBlank { "VereinsDeckel" })).append("</div>")
         d.verein.address.lines().filter { it.isNotBlank() }.forEach { sb.append("<div class=\"soft\">").append(esc(it)).append("</div>") }
         sb.append("</div><div class=\"meta\"><div>Nr. <b>").append(esc(s.number)).append("</b></div><div>").append(fmt(d.run.to)).append("</div></div></div>")
-        sb.append("<div class=\"addr\"><div>").append(esc(s.memberName)).append("</div>")
+        sb.append("<div class=\"addr\"><div>").append(esc(d.displayName)).append("</div>")
         d.profile.address.lines().filter { it.isNotBlank() }.forEach { sb.append("<div class=\"soft\">").append(esc(it)).append("</div>") }
         if (d.profile.number.isNotBlank()) sb.append("<div class=\"soft\">Mitglied ").append(esc(d.profile.number)).append("</div>")
         sb.append("</div>")

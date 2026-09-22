@@ -111,9 +111,8 @@ private fun HTML.productsPage(ctx: PageContext, products: List<ProductLine>, sho
     val writes = ctx.user.role.writesProducts
     val categories = products.map { it.category }.filter { it.isNotBlank() }.distinct()
     shell(ctx, Area.PRODUCTS, "Sortiment", "${count(products.size, "Produkt", "Produkte")} in ${count(categories.size, "Kategorie", "Kategorien")} · was die Kacheln der Tablets zeigen", actions = {
-        if (writes) details {
-            summary("btn btn-primary") { icon("plus", "m"); +"Produkt anlegen" }
-            postForm(ctx, "$BASE/sortiment", "stack-tight confirm") { productFields(null, categories); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Anlegen" } }
+        if (writes) dialog("$BASE/sortiment/neu", "btn btn-primary", "Produkt anlegen", triggerIcon = "plus") {
+            postForm(ctx, "$BASE/sortiment", "stack-tight") { productFields(null, categories); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Anlegen" } }
         }
     }) {
         flash(notice, problem)
@@ -158,13 +157,11 @@ private fun FlowContent.productDetail(ctx: PageContext, p: ProductLine, categori
                 span("money-l") { +(if (p.hasVariants) "ab ${euro(p.variants.minOf { it.price })}" else euro(p.price)) }
             }
             if (writes) div("row wrap") {
-                details {
-                    summary("btn") { +"Ändern" }
-                    postForm(ctx, "$BASE/sortiment/${p.id}", "stack-tight confirm confirm-left") { productFields(p, categories); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+                dialog("$BASE/sortiment/${p.id}/aendern", "btn", "Ändern", "Produkt ändern") {
+                    postForm(ctx, "$BASE/sortiment/${p.id}", "stack-tight") { productFields(p, categories); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
                 }
-                details {
-                    summary("btn btn-quiet") { +"Aus dem Sortiment nehmen" }
-                    postForm(ctx, "$BASE/sortiment/${p.id}/entfernen", "stack-tight confirm confirm-left") {
+                dialog("$BASE/sortiment/${p.id}/entfernen", "btn btn-quiet", "Aus dem Sortiment nehmen") {
+                    postForm(ctx, "$BASE/sortiment/${p.id}/entfernen", "stack-tight") {
                         p("cap") { +"Die Kachel verschwindet von den Tablets. Was gebucht ist, bleibt mit Namen und Preis stehen." }
                         button(type = ButtonType.submit, classes = "btn btn-danger") { +"Ja, aus dem Sortiment nehmen" }
                     }
@@ -184,9 +181,8 @@ private fun FlowContent.productDetail(ctx: PageContext, p: ProductLine, categori
                     td("c-muted hide-sm") { +(v.servingSize?.let(::plain) ?: "wie Produkt") }
                     if (writes) td("num") {
                         div("row wrap") {
-                            details {
-                                summary("btn btn-quiet") { +"Ändern" }
-                                postForm(ctx, "$BASE/sortiment/${p.id}/variante/${v.id}", "stack-tight confirm") {
+                            dialog("$BASE/sortiment/${p.id}/variante/${v.id}", "btn btn-quiet", "Ändern", "Variante ändern") {
+                                postForm(ctx, "$BASE/sortiment/${p.id}/variante/${v.id}", "stack-tight") {
                                     label("field") { span { +"Name" }; input(InputType.text, name = "name") { value = v.name; required = true; maxLength = "80" } }
                                     priceField(v.price)
                                     sizeField(v.servingSize, "leer: wie das Produkt")
@@ -200,9 +196,8 @@ private fun FlowContent.productDetail(ctx: PageContext, p: ProductLine, categori
             }
         }
         if (writes) div("panel-foot") {
-            details {
-                summary("btn") { icon("plus", "m"); +"Variante anlegen" }
-                postForm(ctx, "$BASE/sortiment/${p.id}/variante", "stack-tight confirm confirm-left") {
+            dialog("$BASE/sortiment/${p.id}/variante/neu", "btn", "Variante anlegen", triggerIcon = "plus") {
+                postForm(ctx, "$BASE/sortiment/${p.id}/variante", "stack-tight") {
                     label("field") { span { +"Name (etwa 0,3 l oder Groß)" }; input(InputType.text, name = "name") { required = true; maxLength = "80" } }
                     priceField(null)
                     sizeField(null, "leer: wie das Produkt")
@@ -226,9 +221,8 @@ private fun FlowContent.productDetail(ctx: PageContext, p: ProductLine, categori
         }
         if (writes) div("panel-foot") {
             if (stockItems.isEmpty()) p("cap") { +"Noch kein Lagerartikel — Artikel entstehen am Tablet unter Lagerbestand." }
-            else details {
-                summary("btn") { icon("plus", "m"); +"Artikel zuordnen" }
-                postForm(ctx, "$BASE/sortiment/${p.id}/rezeptur", "stack-tight confirm confirm-left") {
+            else dialog("$BASE/sortiment/${p.id}/rezeptur/neu", "btn", "Artikel zuordnen", "Lagerartikel zuordnen", triggerIcon = "plus") {
+                postForm(ctx, "$BASE/sortiment/${p.id}/rezeptur", "stack-tight") {
                     label("field") { span { +"Lagerartikel" }; select { name = "artikel"; for (s in stockItems) option { value = s.id.toString(); +"${s.name} (${s.unit})" } } }
                     label("field") { span { +"Menge je Einheit (etwa 0,5 für einen halben Liter)" }; input(InputType.text, name = "menge") { required = true; placeholder = "0,5"; attributes["inputmode"] = "decimal" } }
                     button(type = ButtonType.submit, classes = "btn btn-primary") { +"Zuordnen" }
@@ -265,9 +259,8 @@ private fun HTML.categoriesPage(ctx: PageContext, categories: List<Products.Cate
     val writes = ctx.user.role.writesMembers
     shell(ctx, Area.MEMBERS, "Kategorien und Limits", "Fuchs, Bursch, Alter Herr, Gast — und wie weit jeder Deckel ins Minus darf", actions = {
         a(href = "$BASE/mitglieder", classes = "btn btn-quiet") { icon("back", "m"); +"Mitglieder" }
-        if (writes) details {
-            summary("btn btn-primary") { icon("plus", "m"); +"Kategorie anlegen" }
-            postForm(ctx, "$BASE/mitglieder/kategorien", "stack-tight confirm") { categoryFields(null); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Anlegen" } }
+        if (writes) dialog("$BASE/mitglieder/kategorien/neu", "btn btn-primary", "Kategorie anlegen", triggerIcon = "plus") {
+            postForm(ctx, "$BASE/mitglieder/kategorien", "stack-tight") { categoryFields(null); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Anlegen" } }
         }
     }) {
         flash(notice, problem)
@@ -282,9 +275,8 @@ private fun HTML.categoriesPage(ctx: PageContext, categories: List<Products.Cate
                         td("num tnum c-muted hide-sm") { +c.members.toString() }
                         if (writes) td("num") {
                             div("row wrap") {
-                                details {
-                                    summary("btn btn-quiet") { +"Ändern" }
-                                    postForm(ctx, "$BASE/mitglieder/kategorien/${c.id}", "stack-tight confirm") { categoryFields(c); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+                                dialog("$BASE/mitglieder/kategorien/${c.id}", "btn btn-quiet", "Ändern", "Kategorie ändern") {
+                                    postForm(ctx, "$BASE/mitglieder/kategorien/${c.id}", "stack-tight") { categoryFields(c); button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
                                 }
                                 if (c.members == 0) postForm(ctx, "$BASE/mitglieder/kategorien/${c.id}") {
                                     hiddenInput(name = "entfernen") { value = "1" }

@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.data.entity.CashMovementKind
 import com.example.vereins_kassensystem.data.entity.Member
+import com.example.vereins_kassensystem.data.entity.displayName
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.repository.AppRepository
 import com.example.vereins_kassensystem.data.sync.RowCodec
@@ -30,6 +31,10 @@ class CashOnIosTest {
             repository.insertProduct(beer)
             val maria = Member(name = "Maria Bauer")
             repository.insertMember(maria)
+            // Ein Couleurname, nachträglich vergeben, bleibt beim Ändern erhalten — das ging vorher verloren.
+            repository.updateMember(maria.copy(nickname = "Minerva"))
+            assertEquals("Minerva", assertNotNull(repository.getMember(maria.id)).nickname)
+            assertEquals("Maria Bauer v. Minerva", assertNotNull(repository.getMember(maria.id)).displayName)
 
             assertNull(repository.openCashSession.first(), "vor dem Öffnen keine Schicht")
             val session = repository.openCashSession(150.0, "Matthias", "Theke links")
