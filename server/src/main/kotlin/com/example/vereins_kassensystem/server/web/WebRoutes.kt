@@ -44,6 +44,7 @@ class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val 
     val writes = Writes(db)
     val purchases = Purchases(db, config.zone)
     val statements = Statements(db, writes, config.zone)
+    val products = Products(db)
     val cash = Cash(db, config.zone)
 }
 
@@ -74,6 +75,7 @@ fun Route.webRoutes(web: Web) {
         warePages(web)
         statementPages(web)
         cashPages(web)
+        productPages(web)
         systemPages(web)
     }
 }

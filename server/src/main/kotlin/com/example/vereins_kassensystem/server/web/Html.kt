@@ -50,6 +50,7 @@ object Icons {
         "grid" to """<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>""",
         "users" to """<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M17.5 14.3c2.4.6 4 2.6 4 5.7"/>""",
         "book" to """<path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/>""",
+        "tag" to """<path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="8.5" r="1.5"/>""",
         "box" to """<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>""",
         "filein" to """<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/>""",
         "tablet" to """<rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M11 18h2"/>""",
@@ -103,6 +104,7 @@ val NAV: List<Pair<String?, List<NavEntry>>> = listOf(
     ),
     "Ware" to listOf(
         NavEntry(Area.STOCK, "Lager", "box", "$BASE/lager"),
+        NavEntry(Area.PRODUCTS, "Sortiment", "tag", "$BASE/sortiment"),
         NavEntry(Area.PURCHASES, "Einkauf", "filein", "$BASE/einkauf"),
     ),
     "System" to listOf(

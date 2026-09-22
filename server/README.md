@@ -72,7 +72,12 @@ Schlüssel ihres Formulars, ein Doppelklick bucht einmal. Ebenso der **Einkauf**
 Belege mit Datei (PDF oder Foto), Lieferant, Nummer, Fälligkeit, Zahlung; Lagerpositionen
 werden `stock_entries` mit `delivery_id` — dieselbe Zeile, die ein Tablet beim Wareneingang
 schreibt, also kommen sie dort an. Zeilen ohne Lagerartikel (Pfand, Energie) bekommen ein
-Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6).
+Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6). Und das **Sortiment**
+(`web/Products.kt`): Produkte mit Preis, Kategorie und Ausschankgröße, Varianten, Rezepturen
+(welcher Lagerartikel je Einheit), aus dem Sortiment nehmen — dazu die Mitgliederkategorien
+mit ihren Limits. Es sind dieselben Zeilen in denselben synchronisierten Tabellen, die die App
+führt; ein Preis, der hier und am Tablet geändert wird, folgt der Regel „letzter
+Schreibvorgang gewinnt“ wie zwischen zwei Tablets.
 
 **Abrechnung** (`web/Statements.kt`, Konzept 4.2): Ein Lauf zum Stichtag erzeugt je Mitglied
 unter der Schwelle einen Kontoauszug mit Zahlungsaufforderung — Nummer `VD-JJJJMM-NNNN` als
@@ -111,9 +116,9 @@ persönlich weiter. Der letzte Administrator kann sich nicht selbst herabstufen 
 | Rolle | Sieht |
 |---|---|
 | Administrator | alles, dazu Benutzer |
-| Kassier | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Einkauf, Geräte, Protokoll, Einstellungen |
-| Senior und Chargen | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Einkauf — lesend |
-| Budenwart | Lager, Einkauf — keine Deckel (Art. 9 DSGVO, 2.5 im Konzept) |
+| Kassier | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Sortiment, Einkauf, Geräte, Protokoll, Einstellungen |
+| Senior und Chargen | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Sortiment, Einkauf — lesend |
+| Budenwart | Lager, Sortiment, Einkauf — keine Deckel (Art. 9 DSGVO, 2.5 im Konzept) |
 | Rechnungsprüfer | Abrechnung, Kasse, Berichte, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
 
 **Wie sie gebaut ist:** Passwörter mit Argon2id wie die Gerätetoken. Im Cookie steht ein
@@ -169,7 +174,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
-| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
 | `src/main/resources/db/migration/V7__kasse.sql` | `cash_sessions` und `cash_movements`, synchronisiert — die Schichten und Barbewegungen der Tablets |
 | `src/main/resources/db/migration/V6__abrechnung.sql` | Profile, Abrechnungsläufe, Abrechnungen mit Nummernkreis, importierte Bankumsätze |
 | `src/main/resources/db/migration/V5__einkauf.sql` | Lieferanten, Kontenrahmen, Belegdaten (`purchase_documents`, 1:1 zu `deliveries`), Belegzeilen mit Konto |

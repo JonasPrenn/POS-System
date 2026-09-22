@@ -405,6 +405,7 @@ private fun HTML.membersPage(
     }
 
     shell(ctx, Area.MEMBERS, "Mitglieder", "${count(all.size, "Mitglied", "Mitglieder")} · $tabs im Minus · ${all.count { it.overLimit }} über dem Limit", actions = {
+        a(href = "$BASE/mitglieder/kategorien", classes = "btn btn-quiet") { +"Kategorien und Limits" }
         if (ctx.user.role.writesMembers) details {
             summary("btn btn-primary") { icon("plus", "m"); +"Mitglied anlegen" }
             postForm(ctx, "$BASE/mitglieder", "stack-tight confirm") {

@@ -59,6 +59,10 @@ private val ACTIONS = mapOf(
     "profile.update" to "Profil geändert", "statement.run" to "Abrechnungslauf erstellt", "statement.sent" to "Abrechnung versandt",
     "statement.reminded" to "Erinnerung", "statement.cancelled" to "Abrechnung storniert", "statement.paid" to "Zahlung eingegangen",
     "bank.import" to "Kontoauszug eingelesen", "bank.ignored" to "Bankumsatz ohne Zuordnung",
+    "product.create" to "Produkt angelegt", "product.update" to "Produkt geändert", "product.retire" to "Produkt aus dem Sortiment genommen",
+    "variant.create" to "Variante angelegt", "variant.update" to "Variante geändert", "variant.remove" to "Variante entfernt",
+    "component.set" to "Rezeptur geändert", "component.remove" to "Rezepturzeile entfernt",
+    "category.create" to "Kategorie angelegt", "category.update" to "Kategorie geändert", "category.remove" to "Kategorie entfernt",
     "purchase.stock" to "Wareneingang gebucht", "purchase.line" to "Belegzeile zugeordnet", "purchase.line.remove" to "Belegzeile entfernt", "supplier.update" to "Lieferant geändert",
 )
 

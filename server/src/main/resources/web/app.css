@@ -185,6 +185,7 @@ main { display: flex; flex-direction: column; gap: 24px; flex-grow: 1; min-width
 .t tbody tr.pick:hover, .t tbody tr[aria-selected="true"] { background: var(--surface-high); }
 .t tbody tr.pick a.cover::after { content: ""; position: absolute; inset: 0; }
 .t tr.sum td { border-top: 2px solid var(--on-surface); border-bottom: 0; font-weight: 600; }
+.t tr.group td { height: 36px; padding-top: 16px; padding-bottom: 4px; color: var(--muted); text-transform: uppercase; }
 .t tr.area td { height: auto; padding-top: 14px; padding-bottom: 6px; background: var(--panel-sub); }
 .t-tight td { height: 40px; }
 .t.t-flush th:first-child, .t.t-flush td:first-child { padding-left: 0; }
