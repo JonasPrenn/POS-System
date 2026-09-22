@@ -1,11 +1,13 @@
-# Aufstellung nach Kapitel 7.1 der Spezifikation: PostgreSQL, der Dienst, Caddy davor
-# mit Zertifikat von Let's Encrypt. Reicht fuer einen Verein, auch auf einem Raspberry Pi 5.
+# Aufstellung nach Kapitel 7.1 der Spezifikation: PostgreSQL, der Dienst, Caddy davor mit
+# Zertifikat von Let's Encrypt.
+# Reicht fuer einen Verein, auch auf einem Raspberry Pi 5. Der Server braucht nur Docker und
+# git; gebaut wird im Container (../Dockerfile).
 #
-#   cp .env.example .env            # DOMAIN, DB_PASSWORD, PAIRING_ADMIN_TOKEN setzen
-#   (cd .. && ../gradlew :server:installDist)
-#   docker compose up -d --build
+#   ./install.sh        # fragt Hostnamen ab, erzeugt Geheimnisse, baut und startet alles
 #
-# Danach: siehe ../README.md fuer Kopplungscode und erste Anfragen.
+# Danach: siehe ../README.md („Aufstellen“) fuer die Ersteinrichtung der Verwaltung.
+name: vereinsdeckel
+
 services:
   db:
     image: postgres:16
@@ -24,9 +26,14 @@ services:
 
   api:
     build:
-      context: ..
-      dockerfile: Dockerfile
-    image: vereinsdeckel/api:1.0
+      # Die Wurzel des Repos: Gradle im Container baut :server aus :core und :server.
+      context: ../..
+      dockerfile: server/Dockerfile
+      args:
+        # Welcher Stand laeuft — install.sh, update.sh und der Updater setzen beide.
+        GIT_SHA: ${GIT_SHA:-unbekannt}
+        GIT_DATE: ${GIT_DATE:-}
+    image: vereinsdeckel/api:local
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://vereinsdeckel@db:5432/vereinsdeckel

@@ -22,9 +22,9 @@ a till attached, built for a volunteer on a shift rather than a trained cashier.
 |---|---|
 | Android | works, builds from `:androidApp` |
 | iOS | builds and runs in the iPad simulator from `iosApp/`; card payments need the SumUp iOS SDK still — see `docs/PORTIERUNG.md` |
-| Multi-device server | built and tested in `server/` (PostgreSQL, sync protocol, device pairing, receipt photos) — see `server/README.md`. Not deployed anywhere yet |
-| Web administration | phase 1 is built into the server under `/verwaltung`: sign-in with roles, overview, members with balances and statements, reports, stock, purchases, device pairing, audit log — read-only, server-rendered, no scripts, with a phone layout. Concept and further phases: `docs/WEB-VERWALTUNG.md` |
-| Multi-device in the app | done: UUID keys, balance and stock derived from append-only rows, offline-first sync, device pairing. Played through with two devices (Android emulator, iPad simulator) against the server in Docker. **The schema upgrade (10 → 11) has not run on a real tablet — take a backup first** |
+| Multi-device server | built and tested in `server/` (PostgreSQL, sync protocol, device pairing, receipt photos). Installs on any Linux box with Docker and git via `server/deploy/install.sh`, updates itself from this repo on request — see `server/README.md` |
+| Web administration | built into the server under `/verwaltung`: sign-in with roles, members (with CSV import/export, profiles, blocking), statements with PDF, e-mail and bank import, cash book, stock, purchases with invoice reading and a mail inbox, deposits, books (income statement, assets, auditor bundle), devices, users, audit log, settings for the tablets, updates. Server-rendered, no scripts, with a phone layout. Concept: `docs/WEB-VERWALTUNG.md` |
+| Multi-device in the app | done: UUID keys, balance and stock derived from append-only rows, offline-first sync, device pairing, shifts with or without a cash drawer, settings pushed from the server. Played through with two devices (Android emulator, iPad simulator) against the server in Docker. **The schema upgrade (10 → 15) has not run on a real tablet — take a backup first** |
 
 Both platforms build from the same shared module. `docs/PORTIERUNG.md` lists exactly what
 has been verified and what has not.
@@ -83,17 +83,21 @@ which is where the device token lives.
 
 ### Server
 
-Java 17 or newer and a PostgreSQL 15+. The tests need neither Docker nor a local
-PostgreSQL — they start an embedded one.
+To run it: a Linux box with Docker and git, nothing else — the service is built inside
+Docker. Clone the repository there and run `server/deploy/install.sh`; it asks for the
+hostname, generates the secrets and starts database, service, proxy and the updater.
+Updates are then a click in the web administration (Einstellungen → Updates).
+
+To develop: Java 17 or newer. The tests need neither Docker nor a local PostgreSQL — they
+start an embedded one.
 
 ```bash
 ./gradlew :server:test
-./gradlew :server:installDist   # then: cd server/deploy && docker compose up -d --build
+cd server/deploy && DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
+  docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
 ```
 
-`./gradlew :server:installDist` also works on a machine without the Android SDK — Gradle
-only realises the Android tasks when something asks for them (verified with a fresh daemon
-and no `local.properties`). Everything else is in `server/README.md`.
+Everything else is in `server/README.md`.
 
 ## Documentation
 
