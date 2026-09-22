@@ -89,6 +89,11 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
 
     fun document(id: UUID): Document? = db.read { c -> find(c, id) }
 
+    /** Die Belege eines Zeitraums nach Belegdatum, für die Prüfermappe. */
+    fun documentsBetween(from: LocalDate, to: LocalDate): List<Document> = db.read { c ->
+        c.query("SELECT * FROM ($LIST) x WHERE x.sort_date >= ? AND x.sort_date < ? ORDER BY x.sort_date, x.sort_at", zone.id, zone.id, java.sql.Date.valueOf(from), java.sql.Date.valueOf(to)) { it.document() }
+    }
+
     private fun find(c: Connection, id: UUID): Document? =
         c.queryOne("$LIST AND (p.id = ? OR d.id = ?)", zone.id, zone.id, id, id) { it.document() }
 

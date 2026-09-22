@@ -114,7 +114,10 @@ bezahlter Beleg zum Zahltag — Belegzeilen auf ihr Konto, Lagerzeilen als Getr�
 Dazu die Vermögensübersicht zum Stichtag (Kassabestand aus der letzten Zählung je Gerät,
 Bankstand wie vom Kassier eingetragen, Lagerwert, Forderungen, Guthaben, offene Belege) und
 zwei CSV-Dateien für den Steuerberater: die Rechnung je Konto mit Vorjahr und das Journal.
-Nicht darin: Veranstaltungen als Kostenstelle, das BMD-Format, die Prüfermappe als PDF.
+Für die Rechnungsprüfer die **Prüfermappe** (`AuditBundlePdf.kt`): ein PDF mit Rechnung,
+Vermögensübersicht, dem Kassabuch des Jahres, der Belegliste und den Abrechnungsläufen — die
+Belegdateien selbst bleiben unter Einkauf. Nicht darin: Veranstaltungen als Kostenstelle, das
+BMD-Format.
 
 Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
 Rest liegt unter „Mehr".

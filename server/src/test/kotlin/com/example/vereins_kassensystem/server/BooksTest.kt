@@ -5,6 +5,7 @@ import com.example.vereins_kassensystem.server.db.execute
 import com.example.vereins_kassensystem.server.web.Accounts
 import com.example.vereins_kassensystem.server.web.Role
 import com.example.vereins_kassensystem.server.web.euro
+import io.ktor.client.call.body
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
@@ -85,6 +86,16 @@ class BooksTest {
         assertContains(ear, "\"Überschuss\";\"\";\"\";\"-70,60\"")
         val journal = kassier.get("/verwaltung/buecher/journal.csv").bodyAsText()
         assertContains(journal, "Tageslosung bar"); assertContains(journal, "Reinigung Zapfanlage"); assertContains(journal, "\"-70,00\";\"Brandl RE-1\"")
+
+        // Die Prüfermappe: ein PDF mit Rechnung, Vermögen, Kassabuch, Belegliste und Abrechnungen.
+        val bundle = kassier.get("/verwaltung/buecher/mappe.pdf")
+        assertEquals(HttpStatusCode.OK, bundle.status)
+        val bytes = bundle.body<ByteArray>()
+        assertEquals("%PDF", bytes.copyOfRange(0, 4).toString(Charsets.US_ASCII))
+        val text = org.apache.pdfbox.Loader.loadPDF(bytes).use { org.apache.pdfbox.text.PDFTextStripper().getText(it) }
+        assertContains(text, "Prüfermappe ${today.year}"); assertContains(text, "Budenerlöse"); assertContains(text, "Kassabuch")
+        assertContains(text, "Schicht geschlossen"); assertContains(text, "RE-1"); assertContains(text, "RE-2")
+        assertContains(kassier.get("/verwaltung/protokoll").bodyAsText(), "Prüfermappe erzeugt")
 
         // Der Rechnungsprüfer liest die Bücher, trägt aber nichts ein.
         val pruefer = createClient { install(HttpCookies); followRedirects = false }

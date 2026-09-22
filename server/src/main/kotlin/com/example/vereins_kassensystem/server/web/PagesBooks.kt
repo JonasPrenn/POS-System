@@ -5,6 +5,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.encodeURLParameter
 import io.ktor.server.response.header
 import io.ktor.server.response.respondRedirect
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -82,6 +83,27 @@ internal fun Route.bookPages(web: Web) {
             call.respondText(sb.toString(), ContentType.Text.CSV.withParameter("charset", "utf-8"))
         }
     }
+    get("/buecher/mappe.pdf") {
+        call.guarded(web, Area.BOOKS) { ctx ->
+            val choice = yearChoice(ctx, web, call.request.queryParameters["jahr"])
+            val start = ctx.verein.fiscalStartMonth
+            val year = web.books.fiscalYear(choice.year, start)
+            val books = web.books.year(year, web.books.fiscalYear(choice.year - 1, start))
+            val asOf = if (year.contains(ctx.today)) ctx.today else year.to.minusDays(1)
+            val stockValue = web.reads.stock().mapNotNull { it.value }.takeIf { it.isNotEmpty() }?.sum()
+            val assets = web.books.assets(asOf, ctx.today, web.books.bankBalance(choice.year), stockValue)
+            val pdf = AuditBundlePdf.render(AuditBundlePdf.Input(
+                club = ctx.verein.name, year = books, assets = assets,
+                cashBook = web.cash.book(year.from, year.to.minusDays(1)),
+                documents = web.purchases.documentsBetween(year.from, year.to),
+                runs = web.statements.runs().filter { it.to >= year.from && it.to < year.to },
+                createdBy = ctx.user.displayName, createdAt = ctx.today, day = { ctx.day(it) }, time = { ctx.time(it) },
+            ))
+            web.audit.record(ctx.user, "books.bundle", choice.year.toString())
+            call.response.header("Content-Disposition", "inline; filename=\"pruefermappe-${choice.year}.pdf\"")
+            call.respondBytes(pdf, ContentType.Application.Pdf)
+        }
+    }
     post("/buecher/bank") {
         call.guardedPost(web, Area.BOOKS) { ctx, form ->
             if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Den Bankstand trägt der Kassier ein.")
@@ -108,6 +130,7 @@ private fun HTML.booksPage(ctx: PageContext, choice: YearChoice, books: YearBook
         }
         a(href = "$BASE/buecher/ear.csv?jahr=${choice.year}", classes = "btn btn-quiet") { icon("download", "m"); +"E/A als CSV" }
         a(href = "$BASE/buecher/journal.csv?jahr=${choice.year}", classes = "btn btn-quiet") { icon("download", "m"); +"Journal als CSV" }
+        a(href = "$BASE/buecher/mappe.pdf?jahr=${choice.year}", classes = "btn btn-primary") { icon("printer", "m"); +"Prüfermappe (PDF)" }
     }) {
         flash(notice, problem)
         div("cols cols-side") {
@@ -171,7 +194,7 @@ private fun HTML.booksPage(ctx: PageContext, choice: YearChoice, books: YearBook
                             li { +"Ausgabe ist ein bezahlter Beleg zum Zahltag. Belegzeilen tragen ihr Konto; Lagerzeilen zählen als Getränkeeinkauf. Speisen und Sonstiges als eigene Belegzeile erfassen." }
                             li { +"Ein Wareneingang vom Tablet ohne Beleg in der Verwaltung gilt mit seinem Betrag als bar bezahlt am Tag des Eingangs." }
                             li { +"Entnahmen aus der Lade sind keine Ausgaben — der Beleg dazu ist es. Trinkgeld steht als eigene Einnahme." }
-                            li { +"Keine doppelte Buchführung, keine Abschreibung, kein Lohn. Das Journal als CSV ist das, was der Steuerberater bekommt." }
+                            li { +"Keine doppelte Buchführung, keine Abschreibung, kein Lohn. Das Journal als CSV ist das, was der Steuerberater bekommt; die Prüfermappe als PDF das, was die Rechnungsprüfer bekommen: Rechnung, Vermögen, Kassabuch, Belegliste, Abrechnungen." }
                         }
                     }
                 }
