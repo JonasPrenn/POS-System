@@ -36,6 +36,11 @@ class ServerConfig(
     val trustProxy: Boolean = false,
     /** Nur zum Ausprobieren ohne HTTPS: Sitzungscookies ohne `Secure`. Im Betrieb nie setzen. */
     val insecureCookies: Boolean = false,
+    /** Das Verzeichnis, über das Dienst und Updater reden (web/Updates.kt); null ohne Updater. */
+    val updatesDir: Path? = null,
+    /** Der Commit, aus dem gebaut wurde — gesetzt beim Bauen des Images. */
+    val version: String = "unbekannt",
+    val versionDate: String = "",
 ) {
     data class DatabaseUrl(val jdbcUrl: String, val user: String, val password: String)
 
@@ -60,6 +65,9 @@ class ServerConfig(
                 zone = env["VEREIN_ZONE"]?.let(ZoneId::of) ?: ZoneId.of("Europe/Vienna"),
                 trustProxy = env["TRUST_PROXY"] == "true",
                 insecureCookies = env["WEB_INSECURE_COOKIES"] == "true",
+                updatesDir = env["UPDATES_DIR"]?.takeIf { it.isNotBlank() }?.let(Path::of),
+                version = env["VEREINSDECKEL_VERSION"]?.takeIf { it.isNotBlank() } ?: "unbekannt",
+                versionDate = env["VEREINSDECKEL_VERSION_DATE"].orEmpty(),
             )
         }
 

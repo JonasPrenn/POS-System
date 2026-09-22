@@ -28,25 +28,63 @@ Migrationen laufen beim Start. Ohne PostgreSQL bricht der Start ab — das ist A
 
 ## Aufstellen
 
-`deploy/compose.yaml` ist die Aufstellung aus Kapitel 7.1: `db`, `api`, `proxy` (Caddy
-mit Let's Encrypt). Das Image enthält kein Gradle, sondern das Ergebnis von
-`installDist`. `./gradlew :server:installDist` läuft auch auf einem Rechner ohne
-Android-SDK — Gradle fasst die Android-Module erst an, wenn eine ihrer Aufgaben gebraucht
-wird (geprüft mit frischem Daemon und ohne `local.properties`).
+Auf dem Server braucht es **Docker** (mit dem Compose-Plugin) und **git**, sonst nichts — kein
+Java, kein Gradle: Der Dienst wird im Container gebaut (`Dockerfile`, zwei Stufen). Ein
+Raspberry Pi 5 oder ein kleiner Linux-Server reicht. Der Hostname muss per DNS auf den Server
+zeigen, die Ports 80 und 443 müssen erreichbar sein; Caddy holt das Zertifikat selbst.
 
 ```bash
-cd server/deploy
-cp .env.example .env            # DOMAIN, DB_PASSWORD, PAIRING_ADMIN_TOKEN eintragen
-(cd .. && ../gradlew :server:installDist)
-docker compose up -d --build
+# 1. Zugang zum Repo: ein Deploy-Key (nur lesend), solange das Repo privat ist
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub          # in GitHub → Repo → Settings → Deploy keys eintragen
+
+# 2. Klonen und aufstellen
+git clone git@github.com:JonasPrenn/POS-System.git /opt/vereinsdeckel
+cd /opt/vereinsdeckel/server/deploy
+./install.sh                        # fragt den Hostnamen ab, erzeugt Passwörter, baut, startet
 ```
+
+`install.sh` legt `.env` an (Datenbankpasswort und Verwaltungsschlüssel erzeugt, `REPO_DIR`
+und Zweig eingetragen), baut die Images und startet `db`, `api`, `proxy` und `updater`.
+Beim ersten Mal dauert das Bauen einige Minuten (Gradle lädt im Container); der Cache
+bleibt für das nächste Mal. Danach:
+
+- `https://<Hostname>/verwaltung` öffnen und mit dem Verwaltungsschlüssel aus `.env`
+  (`PAIRING_ADMIN_TOKEN`, `install.sh` zeigt ihn) den ersten Administrator anlegen.
+- Unter Einstellungen Name, Farbe, Bankverbindung, E-Mail eintragen; unter Geräte einen
+  Kopplungscode erzeugen und am Tablet eintragen.
+
+Noch einmal `./install.sh` baut und startet neu, ohne die `.env` anzufassen. Die Daten liegen
+in den Docker-Volumes `pgdata` (Datenbank), `media` (Belegfotos), `updates`; eine Sicherung
+ist `docker compose exec db pg_dump -U vereinsdeckel vereinsdeckel > sicherung.sql` plus das
+Volume `media`.
+
+### Updates
+
+Was im Git-Repo neu ist, kommt ohne Anmeldung am Server auf den Dienst: In der Verwaltung
+unter **Einstellungen → Updates** (nur Administrator) steht, welcher Stand läuft und welcher
+im Repo ist; „Jetzt suchen“ fragt nach, „Jetzt installieren“ spielt ein. Einstellbar ist,
+ob der Updater von selbst sucht und installiert (`AUTO`), nur sucht (`CHECK`) oder nichts
+von selbst tut (`MANUAL`), und in welchem Abstand.
+
+Das tut der Dienst `updater` (`deploy/updater/`): ein kleiner Container mit git und der
+Docker-CLI, der das Repo auf dem Server (`REPO_DIR`), den Docker-Socket und denselben
+SSH-Schlüssel sieht, mit dem geklont wurde. Er redet mit dem Dienst nur über das Volume
+`updates` (`web/Updates.kt`: `settings.json`, `request`, `status.json`) — der Dienst selbst
+sieht weder git noch Docker. Installieren heißt: Zweig holen, Image bauen, `api` neu
+starten; schlägt das Bauen fehl, läuft der alte Stand weiter, und der Grund steht in der
+Verwaltung. Von Hand geht dasselbe mit `./update.sh`. Welcher Stand läuft, trägt das Image
+als `VEREINSDECKEL_VERSION` (Commit-Kennung, gesetzt von `install.sh`, `update.sh` und dem
+Updater).
 
 ### Zum Ausprobieren auf dem eigenen Rechner
 
-`compose.dev.yaml` legt den Port der API frei und lässt den Proxy weg — ohne Hostnamen
-gibt es kein Zertifikat, und die App lässt `http://` nur für Entwickleradressen zu:
+`compose.dev.yaml` legt den Port der API frei und lässt Proxy und Updater weg — ohne
+Hostnamen gibt es kein Zertifikat, und die App lässt `http://` nur für Entwickleradressen
+und Adressen im eigenen Netz zu:
 
 ```bash
+cd server/deploy
 DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
   docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
 ```
@@ -56,7 +94,6 @@ für die Ersteinrichtung ist der `PAIRING_ADMIN_TOKEN` aus dem Aufruf oben.
 
 Vom iPad-Simulator aus ist das `http://127.0.0.1:8080`, vom Android-Emulator aus
 `http://10.0.2.2:8080`. So ist der Zwei-Geräte-Test in `docs/PORTIERUNG.md` gelaufen.
-
 ## Die Verwaltung
 
 Unter `/verwaltung` liegt die Web-Oberfläche (`docs/WEB-VERWALTUNG.md`), derselbe Dienst,
@@ -256,7 +293,9 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
-| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `deploy/` | `compose.yaml` (db, api, proxy, updater), `install.sh` (Erstaufstellung), `update.sh` (von Hand), `updater/` (der Updater), `Caddyfile`, `.env.example` |
+| `Dockerfile` | Zwei Stufen: Gradle baut :server im Container, das Laufzeit-Image trägt nur das Ergebnis und die Commit-Kennung |
+| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt`, `MemberCsv.kt`, `Updates.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
 | `src/main/resources/db/migration/V13__bardienst.sql` | `cash_sessions.cashless`, synchronisiert — der Bardienst ohne Barkasse |
 | `src/main/resources/db/migration/V12__geraeteeinstellungen.sql` | `device_settings`, synchronisiert, nur vom Server geschrieben — Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung für alle Tablets |
 | `src/main/resources/db/migration/V11__posteingang.sql` | Posteingang, freigegebene Absender, gebuchte Zeilen je Beleg |

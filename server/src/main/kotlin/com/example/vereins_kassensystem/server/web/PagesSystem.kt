@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.server.web
 
+import kotlinx.html.pre
 import com.example.vereins_kassensystem.server.devices.DeviceRecord
 import io.ktor.http.encodeURLParameter
 import io.ktor.server.response.respondRedirect
@@ -53,7 +54,7 @@ private val ACTIONS = mapOf(
     "device.code" to "Kopplungscode erzeugt", "device.register" to "Gerät gekoppelt", "device.revoke" to "Gerät gesperrt",
     "user.create" to "Benutzer angelegt", "user.update" to "Benutzer geändert", "user.password" to "Passwort gesetzt",
     "settings.save" to "Einstellungen geändert",
-    "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert", "member.delete" to "Mitglied gelöscht", "member.import" to "Mitglieder importiert", "member.block" to "Deckel gesperrt", "member.unblock" to "Sperre aufgehoben",
+    "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert", "member.delete" to "Mitglied gelöscht", "member.import" to "Mitglieder importiert", "update.check" to "Updates gesucht", "update.install" to "Update installiert", "member.block" to "Deckel gesperrt", "member.unblock" to "Sperre aufgehoben",
     "tab.topup" to "Deckel aufgeladen", "tab.correction" to "Deckel korrigiert",
     "purchase.create" to "Beleg erfasst", "purchase.update" to "Belegdaten geändert", "purchase.paid" to "Beleg bezahlt",
     "profile.update" to "Profil geändert", "statement.run" to "Abrechnungslauf erstellt", "statement.sent" to "Abrechnung versandt",
@@ -145,7 +146,7 @@ internal fun Route.systemPages(web: Web) {
     }
 
     get("/einstellungen") {
-        call.guarded(web, Area.SETTINGS) { ctx -> call.html { settingsPage(ctx, call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"]) } }
+        call.guarded(web, Area.SETTINGS) { ctx -> call.html { settingsPage(ctx, web, call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"]) } }
     }
     post("/einstellungen") {
         call.guardedPost(web, Area.SETTINGS) { ctx, form ->
@@ -153,6 +154,18 @@ internal fun Route.systemPages(web: Web) {
                 when (form["teil"]) {
                     "bank" -> { web.settings.saveBank(form["inhaber"].orEmpty(), form["iban"].orEmpty(), form["bic"].orEmpty(), form["text"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Bankverbindung und Text der Abrechnung") }
                     "smtp" -> { web.settings.saveSmtp(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 587, form["benutzer"].orEmpty(), form["passwort"], form["absender"].orEmpty(), form["starttls"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Versand") }
+                    "update" -> {
+                        if (ctx.user.role != Role.ADMIN) return@guardedPost call.forbidden(ctx, "Updates sind Sache des Administrators.")
+                        when (form["aktion"]) {
+                            "pruefen" -> { web.updates.request("check"); web.audit.record(ctx.user, "update.check", detail = "Suche angestoßen") }
+                            "installieren" -> { web.updates.request("install"); web.audit.record(ctx.user, "update.install", detail = "Installation angestoßen: ${web.updates.status().latest ?: "?"}") }
+                            else -> {
+                                val mode = Updates.Mode.entries.firstOrNull { it.name == form["modus"] } ?: Updates.Mode.CHECK
+                                web.updates.saveSettings(mode, form["abstand"]?.toIntOrNull() ?: 60)
+                                web.audit.record(ctx.user, "settings.save", detail = "Updates: ${mode.label}, alle ${form["abstand"] ?: "60"} Minuten")
+                            }
+                        }
+                    }
                     "tablets" -> { web.settings.saveTablets(form["sumup"], form["sumup_entfernen"] == "1", form["sicherung"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "Tablets: SumUp-Schlüssel und Sicherung") }
                     "imap" -> { web.settings.saveImap(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 993, form["benutzer"].orEmpty(), form["passwort"], form["ordner"].orEmpty(), form["aktiv"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Empfang") }
                     else -> { web.settings.save(form["name"].orEmpty(), form["farbe"].orEmpty(), form["monat"]?.toIntOrNull() ?: 1, form["anschrift"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Name, Vereinsfarbe, Rechnungsjahr, Anschrift") }
@@ -322,9 +335,60 @@ private fun HTML.usersPage(ctx: PageContext, users: List<WebUser>, notice: Strin
 
 // ------------------------------------------------------------ Einstellungen
 
+/**
+ * Updates aus dem Git-Repo (Betrieb): was läuft, was im Repo ist, und was der Updater davon
+ * halten soll. Nur für den Administrator — es startet den Dienst neu.
+ */
+private fun FlowContent.updatesPanel(ctx: PageContext, web: Web) = panel {
+    val updates = web.updates
+    val status = updates.status()
+    val settings = updates.settings()
+    val available = updates.updateAvailable(status)
+    div("panel-body stack-tight") {
+        div("row-between") {
+            h2("title-m") { +"Updates" }
+            when {
+                !updates.available -> chip("kein Updater", "neutral")
+                status.state == "installing" -> chip("wird installiert", "warn")
+                status.state == "failed" -> chip("fehlgeschlagen", "error", "alert")
+                available -> chip("Update verfügbar", "deckel")
+                status.latest != null -> chip("aktuell", "ok", "check")
+                else -> chip("noch nicht gesucht", "neutral")
+            }
+        }
+        if (!updates.available) p("muted") { +"Kein Updater aufgestellt. Läuft der Dienst über server/deploy/compose.yaml mit dem Dienst „updater“, steht hier, was im Git-Repo neu ist — und ein Klick spielt es ein." }
+        else {
+        p("muted") {
+            +"Läuft: Stand ${updates.runningVersion}${updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()}. "
+            +(status.latest?.let { "Im Repo (${status.branch ?: "main"}): Stand $it${status.latestDate?.let { d -> " vom ${d.take(10)}" }.orEmpty()}${status.latestMessage?.takeIf { m -> m.isNotBlank() }?.let { m -> " — „$m“" }.orEmpty()}${if (available && status.behindCount > 0) ", ${count(status.behindCount, "Commit", "Commits")} voraus" else ""}. " } ?: "Noch nicht im Repo gesucht. ")
+            +status.message
+        }
+        if (status.state == "failed" && status.log.isNotBlank()) pre("cap") { +status.log.takeLast(1200) }
+        div("row wrap") {
+            postForm(ctx, "$BASE/einstellungen") { hiddenInput(name = "teil") { value = "update" }; hiddenInput(name = "aktion") { value = "pruefen" }; button(type = ButtonType.submit, classes = "btn") { icon("search", "m"); +"Jetzt suchen" } }
+            if (available && status.state != "installing") postForm(ctx, "$BASE/einstellungen") { hiddenInput(name = "teil") { value = "update" }; hiddenInput(name = "aktion") { value = "installieren" }; button(type = ButtonType.submit, classes = "btn btn-primary") { icon("upload", "m"); +"Jetzt installieren" } }
+        }
+        if (available) p("cap") { +"Installieren holt den Stand, baut den Dienst neu und startet ihn — ein paar Minuten, in denen die Verwaltung nicht antwortet. Die Tablets merken nur eine Pause im Abgleich; Datenbank und Belegfotos bleiben." }
+        }
+    }
+    if (updates.available) postForm(ctx, "$BASE/einstellungen", "panel-body stack-tight") {
+        hiddenInput(name = "teil") { value = "update" }
+        span("label-m") { +"Von selbst" }
+        for (mode in Updates.Mode.entries) label("check") {
+            input(InputType.radio, name = "modus") { value = mode.name; checked = mode == settings.modeOrDefault }
+            span { +mode.label; +" — "; span("cap") { +mode.hint } }
+        }
+        label("field") {
+            span { +"Abstand der Suche" }
+            select { name = "abstand"; for ((minutes, text) in listOf(15 to "alle 15 Minuten", 60 to "stündlich", 360 to "alle 6 Stunden", 1440 to "täglich", 10080 to "wöchentlich")) option { value = "$minutes"; if (minutes == settings.intervalMinutes) selected = true; +text } }
+        }
+        div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+    }
+}
+
 private val MONTHS = listOf("Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember")
 
-private fun HTML.settingsPage(ctx: PageContext, notice: String?, problem: String?) =
+private fun HTML.settingsPage(ctx: PageContext, web: Web, notice: String?, problem: String?) =
     shell(ctx, Area.SETTINGS, "Einstellungen", "Name, Farbe und Rechnungsjahr der Verbindung — und was die Tablets von hier bekommen") {
         flash(notice, problem)
         panel {
@@ -409,10 +473,11 @@ private fun HTML.settingsPage(ctx: PageContext, notice: String?, problem: String
                 div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
             }
         }
+        if (ctx.user.role == Role.ADMIN) updatesPanel(ctx, web)
         panel {
             div("panel-body") {
                 h2("title-m") { +"Server" }
-                p("muted") { +"Zeitzone ${ctx.zone.id} · Serverzeit ${ctx.now.atOffset(ZoneOffset.UTC).toLocalTime().withNano(0)} UTC. Sicherung und Zertifikat sind Sache des Betriebs; die Anleitung steht in server/README.md." }
+                p("muted") { +"Stand ${web.updates.runningVersion}${web.updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()} · Zeitzone ${ctx.zone.id} · Serverzeit ${ctx.now.atOffset(ZoneOffset.UTC).toLocalTime().withNano(0)} UTC. Sicherung und Zertifikat sind Sache des Betriebs; die Anleitung steht in server/README.md." }
             }
         }
     }

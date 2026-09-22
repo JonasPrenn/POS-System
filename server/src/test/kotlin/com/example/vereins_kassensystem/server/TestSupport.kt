@@ -68,7 +68,7 @@ val SCHEMA_VERSION: String by lazy {
 class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer, val mailbox: FakeMailbox)
 
 /** Startet den Dienst wie in Main.kt, nur ohne Netz, und räumt danach auf. */
-fun serverTest(insecureCookies: Boolean = false, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
+fun serverTest(insecureCookies: Boolean = false, updatesDir: java.nio.file.Path? = null, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
     val db = TestPostgres.freshDatabase()
     val config = ServerConfig(
         jdbcUrl = "", dbUser = "", dbPassword = "",
@@ -77,6 +77,8 @@ fun serverTest(insecureCookies: Boolean = false, block: suspend ApplicationTestB
         pairingCodeTtl = 10.minutes,
         // Der Testclient spricht http; ein Secure-Cookie käme bei ihm nie wieder an.
         insecureCookies = insecureCookies,
+        updatesDir = updatesDir,
+        version = "1234567abcde", versionDate = "2026-09-22T10:00:00+02:00",
     )
     val outbox = OutboxMailer()
     val mailbox = FakeMailbox()

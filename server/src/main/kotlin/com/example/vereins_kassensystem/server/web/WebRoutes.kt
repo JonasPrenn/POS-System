@@ -48,6 +48,7 @@ class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val 
     val books = Books(db, config.zone)
     val intake = MailIntake(db, receipts, purchases, settings, mailbox, config.zone)
     val cash = Cash(db, config.zone)
+    val updates = Updates(config.updatesDir, config.version, config.versionDate)
 
     init {
         // Was die Verwaltung schon weiß, steht beim Start auch für die Tablets bereit.
