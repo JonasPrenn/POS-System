@@ -84,6 +84,12 @@ private suspend fun ApplicationCall.guardedUpload(web: Web, area: Area, block: s
     block(ctx, Upload(fields, fileName, contentType, bytes))
 }
 
+/** Was nach dem Lesen einer Datei schon im Formular steht, mit der Datei, die bereits liegt. */
+private class Prefill(val fileKey: String, val supplier: String, val number: String, val date: String, val dueDate: String, val gross: String, val vat: String)
+
+/** Kein Fehler: Der Beleg ist noch nicht komplett, das Formular kommt vorbelegt zurück. */
+private class Prefilled(val query: String) : RuntimeException()
+
 private fun dateOrNull(text: String?): LocalDate? = text?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
 internal fun Route.purchasePages(web: Web) {
@@ -93,12 +99,20 @@ internal fun Route.purchasePages(web: Web) {
             val selected = uuidOrNull(call.request.queryParameters["b"])?.let { id -> all.firstOrNull { it.id == id } ?: web.purchases.document(id) }
             val shown = selected ?: all.firstOrNull()
             val fresh = call.request.queryParameters["neu"] == "1"
+            val stockLines = shown?.let { web.purchases.stockLines(it.deliveryId) }.orEmpty()
+            val expenseLines = shown?.takeIf { it.hasDocument }?.let { web.purchases.expenseLines(it.id) }.orEmpty()
+            val choices = web.purchases.stockChoices()
+            // Die Positionen aus der Datei: solange der Beleg keine hat, oder auf Wunsch noch einmal.
+            val reading = shown?.takeIf { it.hasDocument && it.fileKey?.endsWith(".pdf") == true && (call.request.queryParameters["lesen"] == "1" || (stockLines.isEmpty() && expenseLines.isEmpty())) }
+                ?.let { doc -> web.receipts.find(doc.fileKey!!)?.let { stored -> InvoiceReader.read(java.nio.file.Files.readAllBytes(stored.path), web.purchases.suppliers().map { it.name }, ctx.today) } }
+            val suggestions = reading?.let { web.purchases.suggest(it, shown!!, choices, web.purchases.containerSizes()) }
+            val prefill = call.request.queryParameters.let { q -> if (fresh && q["datei"] != null) Prefill(q["datei"]!!, q["lieferant"].orEmpty(), q["nummer"].orEmpty(), q["datum"].orEmpty(), q["faellig"].orEmpty(), q["brutto"].orEmpty(), q["ust"].orEmpty()) else null }
             call.html {
                 purchasesPage(
                     ctx, all, shown, selected != null || fresh, fresh, web.purchases.openDocuments(),
-                    shown?.let { web.purchases.stockLines(it.deliveryId) }.orEmpty(), shown?.takeIf { it.hasDocument }?.let { web.purchases.expenseLines(it.id) }.orEmpty(),
-                    web.purchases.suppliers(), web.purchases.expenseAccounts(), web.purchases.stockChoices(),
-                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"]
+                    stockLines, expenseLines,
+                    web.purchases.suppliers(), web.purchases.expenseAccounts(), choices,
+                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"], reading, suggestions, prefill
                 )
             }
         }
@@ -118,26 +132,74 @@ internal fun Route.purchasePages(web: Web) {
         call.guardedUpload(web, Area.PURCHASES) { ctx, up ->
             if (!ctx.user.role.writesPurchases) return@guardedUpload call.forbidden(ctx, "Belege erfassen Kassier und Budenwart.")
             val id = uuidOrNull(up.fields["id"])
+            var read: InvoiceReader.Extract? = null
             val outcome = try {
-                val fileKey = up.bytes?.let { bytes ->
-                    val extension = web.receipts.extensionFor(up.contentType) ?: throw AccountProblem("Als Datei gehen PDF, JPG, PNG, WEBP und HEIC.")
-                    web.receipts.store(bytes, extension)
+                val extension = up.bytes?.let { web.receipts.extensionFor(up.contentType) ?: throw AccountProblem("Als Datei gehen PDF, JPG, PNG, WEBP und HEIC.") }
+                // Ein neuer Beleg mit PDF: erst lesen, dann speichern — was der Kassier eingetragen hat, gilt; Leeres füllt die Datei.
+                if (id == null && extension == "pdf") read = InvoiceReader.read(up.bytes!!, web.purchases.suppliers().map { it.name }, ctx.today)
+                val fileKey = up.bytes?.let { web.receipts.store(it, extension!!) }
+                    ?: up.fields["datei"]?.takeIf { it.isNotBlank() && web.receipts.find(it) != null && !web.purchases.fileKeyExists(it) }
+                fun field(name: String, fromFile: String?): String = up.fields[name].orEmpty().ifBlank { fromFile.orEmpty() }
+                val supplier = field("lieferant", read?.supplier); val date = dateOrNull(field("datum", read?.date?.toString()))
+                if (read != null && (supplier.isBlank() || date == null)) {
+                    // Nicht genug gelesen: zurück ins Formular, mit dem, was da ist, und der Datei schon gespeichert.
+                    val q = listOf("datei" to fileKey.orEmpty(), "lieferant" to supplier, "nummer" to field("nummer", read.number), "datum" to (date?.toString() ?: ""), "faellig" to field("faellig", read.dueDate?.toString()), "brutto" to field("brutto", read.gross?.let(Money::formatPlain)), "ust" to field("ust", read.vat?.let(Money::formatPlain)))
+                        .joinToString("&") { (k, v) -> "$k=" + v.encodeURLParameter() }
+                    throw Prefilled("neu=1&$q&hinweis=" + (if (read.hasText) "Aus der Datei gelesen, aber ${if (supplier.isBlank()) "der Lieferant" else "das Datum"} fehlt — bitte ergänzen." else "Die Datei hat keine Textebene (Scan?). Bitte die Belegdaten eintragen.").encodeURLParameter())
                 }
                 val head = Purchases.Head(
-                    supplier = up.fields["lieferant"].orEmpty(), number = up.fields["nummer"].orEmpty(),
-                    date = dateOrNull(up.fields["datum"]) ?: throw AccountProblem("Das Belegdatum fehlt."),
-                    dueDate = dateOrNull(up.fields["faellig"]),
-                    gross = up.fields["brutto"]?.takeIf { it.isNotBlank() }?.let { Money.parse(it) ?: throw AccountProblem("Den Bruttobetrag bitte als Zahl.") },
-                    vat = up.fields["ust"]?.takeIf { it.isNotBlank() }?.let { Money.parse(it) ?: throw AccountProblem("Die Umsatzsteuer bitte als Zahl.") } ?: 0.0,
+                    supplier = supplier, number = field("nummer", read?.number),
+                    date = date ?: throw AccountProblem("Das Belegdatum fehlt."),
+                    dueDate = dateOrNull(field("faellig", read?.dueDate?.toString())),
+                    gross = field("brutto", read?.gross?.let(Money::formatPlain)).takeIf { it.isNotBlank() }?.let { Money.parse(it) ?: throw AccountProblem("Den Bruttobetrag bitte als Zahl.") },
+                    vat = field("ust", read?.vat?.let(Money::formatPlain)).takeIf { it.isNotBlank() }?.let { Money.parse(it) ?: throw AccountProblem("Die Umsatzsteuer bitte als Zahl.") } ?: 0.0,
                     payment = Payment.entries.firstOrNull { it.name == up.fields["zahlung"] } ?: Payment.OPEN,
                     paidAt = dateOrNull(up.fields["bezahlt"]), note = up.fields["notiz"].orEmpty(),
                 )
                 val saved = web.purchases.saveHead(ctx.user, id, head, fileKey)
-                "b=$saved&hinweis=" + "Beleg gespeichert.".encodeURLParameter()
+                val note = when {
+                    read == null -> "Beleg gespeichert."
+                    !read.hasText -> "Beleg gespeichert. Die Datei hat keine Textebene (Scan?) — Positionen bitte von Hand."
+                    read.lines.isEmpty() -> "Beleg gespeichert, Kopfdaten aus der Datei. Positionen hat der Leser keine erkannt — bitte von Hand."
+                    else -> "Beleg gespeichert, aus der Datei gelesen: ${count(read.lines.size, "Position", "Positionen")} erkannt — unten prüfen und übernehmen."
+                }
+                "b=$saved&lesen=1&hinweis=" + note.encodeURLParameter()
+            } catch (e: Prefilled) {
+                e.query
             } catch (e: AccountProblem) {
                 (if (id != null) "b=$id&" else "neu=1&") + "fehler=" + e.message.orEmpty().encodeURLParameter()
             }
             call.respondRedirect("$BASE/einkauf?$outcome")
+        }
+    }
+    post("/einkauf/{id}/positionen") {
+        call.guardedPost(web, Area.PURCHASES) { ctx, form ->
+            if (!ctx.user.role.writesPurchases) return@guardedPost call.forbidden(ctx, "Positionen ordnen Kassier und Budenwart zu.")
+            val id = uuidOrNull(call.parameters["id"]) ?: return@guardedPost call.respondRedirect("$BASE/einkauf")
+            val outcome = try {
+                val n = form["n"]?.toIntOrNull()?.coerceIn(0, 200) ?: 0
+                val chosen = (0 until n).mapNotNull { i ->
+                    val choice = form["wahl_$i"].orEmpty()
+                    if (choice.isBlank()) return@mapNotNull null
+                    val description = form["text_$i"].orEmpty().trim().take(120).ifEmpty { throw AccountProblem("Eine Zeile ohne Text.") }
+                    val amount = Money.parse(form["betrag_$i"].orEmpty()) ?: throw AccountProblem("Den Betrag von „$description“ bitte als Zahl.")
+                    val quantity = form["menge_$i"]?.takeIf { it.isNotBlank() }?.let { it.replace(',', '.').toDoubleOrNull() ?: throw AccountProblem("Die Menge von „$description“ bitte als Zahl.") }
+                    val parts = choice.split(':')
+                    Purchases.ChosenLine(
+                        key = form["key_$i"].orEmpty().ifBlank { InvoiceReader.articleKey(description) }, description = description,
+                        invoiceQuantity = form["orig_$i"]?.replace(',', '.')?.toDoubleOrNull(),
+                        itemId = if (parts[0] == "item") uuidOrNull(parts.getOrNull(1)) else null,
+                        containerTypeId = if (parts[0] == "item") uuidOrNull(parts.getOrNull(2)) else null,
+                        accountId = if (parts[0] == "acct") uuidOrNull(parts.getOrNull(1)) else null,
+                        quantity = quantity, amount = amount,
+                    )
+                }
+                val booked = web.purchases.applyLines(ctx.user, id, chosen)
+                "hinweis=" + (if (booked == 0) "Nichts übernommen — jede Zeile stand auf „nicht übernehmen“." else "${count(booked, "Position", "Positionen")} übernommen. Beim nächsten Beleg dieses Lieferanten liegen sie von selbst richtig.").encodeURLParameter()
+            } catch (e: AccountProblem) {
+                "lesen=1&fehler=" + e.message.orEmpty().encodeURLParameter()
+            }
+            call.respondRedirect("$BASE/einkauf?b=$id&$outcome")
         }
     }
     post("/einkauf/{id}/bezahlt") {
@@ -194,7 +256,7 @@ internal fun Route.purchasePages(web: Web) {
 private fun HTML.purchasesPage(
     ctx: PageContext, all: List<Document>, shown: Document?, chosen: Boolean, fresh: Boolean, open: List<Document>,
     stockLines: List<StockLine2>, expenseLines: List<ExpenseLine>, suppliers: List<Supplier>, accounts: List<Account>, choices: List<StockChoice>,
-    notice: String?, problem: String?,
+    notice: String?, problem: String?, reading: InvoiceReader.Extract? = null, suggestions: List<Purchases.Suggestion>? = null, prefill: Prefill? = null,
 ) {
     val writes = ctx.user.role.writesPurchases
     val thisMonth = all.filter { java.time.YearMonth.from(it.date) == java.time.YearMonth.from(ctx.today) }
@@ -272,9 +334,12 @@ private fun HTML.purchasesPage(
             div("split-detail stack") {
                 a(href = "$BASE/einkauf", classes = "back") { icon("back", "m"); +"Alle Belege" }
                 when {
-                    fresh -> documentForm(ctx, null, suppliers)
+                    fresh -> documentForm(ctx, null, suppliers, prefill)
                     shown == null -> panel { p("empty") { +"Noch kein Beleg." } }
-                    else -> documentDetail(ctx, shown, stockLines, expenseLines, suppliers, accounts, choices, writes)
+                    else -> {
+                        documentDetail(ctx, shown, stockLines, expenseLines, suppliers, accounts, choices, writes)
+                        if (reading != null && suggestions != null) readingPanel(ctx, shown, reading, suggestions, accounts, choices, writes)
+                    }
                 }
             }
         }
@@ -293,23 +358,24 @@ internal fun PageContext.dayShort(date: LocalDate): String =
     if (date.year == today.year) "%02d.%02d.".format(date.dayOfMonth, date.monthValue) else "%02d.%02d.%d".format(date.dayOfMonth, date.monthValue, date.year)
 
 /** Kopfdaten eines Belegs — leer für einen neuen, sonst vorbelegt. Mit Datei, deshalb multipart. */
-private fun FlowContent.documentForm(ctx: PageContext, d: Document?, suppliers: List<Supplier>) = panel {
+private fun FlowContent.documentForm(ctx: PageContext, d: Document?, suppliers: List<Supplier>, prefill: Prefill? = null) = panel {
     form(action = "$BASE/einkauf/beleg", method = FormMethod.post, encType = FormEncType.multipartFormData, classes = "panel-body") {
         csrf(ctx)
         d?.let { hiddenInput(name = "id") { value = it.id.toString() } }
+        prefill?.let { hiddenInput(name = "datei") { value = it.fileKey } }
         h2("title-m") { +(if (d == null) "Beleg erfassen" else if (d.hasDocument) "Belegdaten ändern" else "Belegdaten ergänzen") }
         if (d != null && !d.hasDocument) p("muted") { +"Der Wareneingang kam vom Tablet. Nummer, Fälligkeit und Zahlung kennt nur die Verwaltung." }
         div("form-grid") {
             label("field") {
                 span { +"Lieferant" }
-                input(InputType.text, name = "lieferant") { value = d?.supplier.orEmpty(); required = true; maxLength = "80"; list = "lieferanten" }
+                input(InputType.text, name = "lieferant") { value = prefill?.supplier ?: d?.supplier.orEmpty(); required = true; maxLength = "80"; list = "lieferanten" }
                 dataList { attributes["id"] = "lieferanten"; for (s in suppliers) option { value = s.name } }
             }
-            label("field") { span { +"Belegnummer" }; input(InputType.text, name = "nummer") { value = d?.number.orEmpty(); maxLength = "60" } }
-            label("field") { span { +"Belegdatum" }; input(InputType.date, name = "datum") { value = (d?.date ?: ctx.today).toString(); required = true } }
-            label("field") { span { +"Fällig am (leer: sofort oder bar)" }; input(InputType.date, name = "faellig") { value = d?.dueDate?.toString().orEmpty() } }
-            label("field") { span { +"Brutto in Euro" }; input(InputType.text, name = "brutto") { value = d?.gross?.let(Money::formatPlain).orEmpty(); placeholder = "684,00"; attributes["inputmode"] = "decimal" } }
-            label("field") { span { +"Enthaltene USt (nur zur Information)" }; input(InputType.text, name = "ust") { value = d?.vat?.takeIf { it != 0.0 }?.let(Money::formatPlain).orEmpty(); attributes["inputmode"] = "decimal" } }
+            label("field") { span { +"Belegnummer" }; input(InputType.text, name = "nummer") { value = prefill?.number ?: d?.number.orEmpty(); maxLength = "60" } }
+            label("field") { span { +"Belegdatum" }; input(InputType.date, name = "datum") { value = prefill?.date?.ifBlank { null } ?: (d?.date ?: ctx.today).toString(); required = true } }
+            label("field") { span { +"Fällig am (leer: sofort oder bar)" }; input(InputType.date, name = "faellig") { value = prefill?.dueDate ?: d?.dueDate?.toString().orEmpty() } }
+            label("field") { span { +"Brutto in Euro" }; input(InputType.text, name = "brutto") { value = prefill?.gross ?: d?.gross?.let(Money::formatPlain).orEmpty(); placeholder = "684,00"; attributes["inputmode"] = "decimal" } }
+            label("field") { span { +"Enthaltene USt (nur zur Information)" }; input(InputType.text, name = "ust") { value = prefill?.vat ?: d?.vat?.takeIf { it != 0.0 }?.let(Money::formatPlain).orEmpty(); attributes["inputmode"] = "decimal" } }
             label("field") {
                 span { +"Zahlung" }
                 select { name = "zahlung"; for (p in Payment.entries) option { value = p.name; if (p == (d?.payment ?: Payment.OPEN)) selected = true; +p.label } }
@@ -318,7 +384,7 @@ private fun FlowContent.documentForm(ctx: PageContext, d: Document?, suppliers: 
         }
         label("field") { span { +"Notiz" }; input(InputType.text, name = "notiz") { value = d?.note.orEmpty(); maxLength = "500" } }
         label("field") {
-            span { +(if (d?.fileKey != null) "Datei ersetzen (PDF oder Foto, bis 20 MB)" else "Datei (PDF oder Foto, bis 20 MB)") }
+            span { +(if (d?.fileKey != null) "Datei ersetzen (PDF oder Foto, bis 20 MB)" else if (prefill != null) "Datei liegt schon — nur zum Ersetzen" else "Datei (PDF oder Foto, bis 20 MB) — aus einem PDF mit Textebene liest die Verwaltung Lieferant, Nummer, Datum, Betrag und Positionen") }
             input(InputType.file, name = "datei") { accept = "application/pdf,image/jpeg,image/png,image/webp,image/heic" }
         }
         div("row wrap") {
@@ -434,6 +500,56 @@ private fun FlowContent.documentDetail(
             d.gross?.let { gross ->
                 val rest = Money.cents(gross - assigned)
                 p("cap") { +(if (kotlin.math.abs(rest) < 0.005) "Alles zugeordnet: Positionen und Zeilen ergeben den Bruttobetrag." else "Zugeordnet ${euro(assigned)} von ${euro(gross)} · ${if (rest > 0) "offen ${euro(rest)}" else "${euro(-rest)} zu viel"}") }
+            }
+        }
+    }
+}
+
+/** Was der Leser in der Datei gefunden hat: je Zeile ein Vorschlag, den der Kassier bestätigt, ändert oder auslässt. */
+private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: InvoiceReader.Extract, suggestions: List<Purchases.Suggestion>, accounts: List<Account>, choices: List<StockChoice>, writes: Boolean) = panel {
+    div("panel-body") {
+        div("row-between") {
+            h3("title-s") { +"Aus der Rechnung gelesen" }
+            span("cap") { +(if (reading.hasText) "${count(reading.lines.size, "Position", "Positionen")} erkannt" else "keine Textebene") }
+        }
+        when {
+            !reading.hasText -> p("cap") { +"Die Datei hat keine Textebene — ein Scan oder Foto. Positionen bitte oben von Hand erfassen." }
+            reading.lines.isEmpty() -> p("cap") { +"Kopfdaten gelesen, aber keine Positionen erkannt: Der Leser sucht Zeilen, die mit einer Menge beginnen und mit einem Betrag enden. Positionen bitte von Hand." }
+            !writes -> table("t t-tight t-flush") { tbody { for (sg in suggestions) tr { td("fill") { +sg.line.description }; td("num") { span("money-s") { +euro(sg.line.total) } } } } }
+            else -> postForm(ctx, "$BASE/einkauf/${d.id}/positionen", "stack-tight") {
+                hiddenInput(name = "n") { value = suggestions.size.toString() }
+                p("cap") { +"Je Zeile: Lagerartikel (mit Gebinde) oder ein Konto für Zeilen ohne Lager — oder auslassen. Menge ist die Lagermenge: bei einer Kiste zu 20 Flaschen also 20 je Kiste; die Verwaltung merkt sich das Verhältnis für den nächsten Beleg." }
+                suggestions.forEachIndexed { i, sg ->
+                    val selected = sg.mapping?.let { m -> if (m.itemId != null) "item:${m.itemId}${m.containerTypeId?.let { ":$it" } ?: ""}" else m.accountId?.let { "acct:$it" } } ?: ""
+                    div("sub stack-tight") {
+                        hiddenInput(name = "key_$i") { value = sg.key }
+                        hiddenInput(name = "orig_$i") { value = sg.line.quantity?.let(Money::formatPlain).orEmpty() }
+                        label("field") {
+                            span { +listOfNotNull("Zeile ${i + 1}", sg.line.quantity?.let { "${Money.formatPlain(it).removeSuffix(",00")} laut Rechnung" }, sg.line.unitPrice?.let { "à ${euro(it)}" }, if (sg.learned) "gemerkt vom letzten Beleg" else null).joinToString(" · ") }
+                            input(InputType.text, name = "text_$i") { value = sg.line.description; maxLength = "120" }
+                        }
+                        div("form-grid") {
+                            label("field") {
+                                span { +"Wird zu" }
+                                select {
+                                    name = "wahl_$i"
+                                    option { value = ""; if (selected.isEmpty()) this.selected = true; +"— nicht übernehmen —" }
+                                    for (c in choices) {
+                                        if (c.containerTypes.isEmpty()) option { value = "item:${c.id}"; if (selected == "item:${c.id}") this.selected = true; +"${c.name} (${c.unit})" }
+                                        for ((typeId, label) in c.containerTypes) option { value = "item:${c.id}:$typeId"; if (selected == "item:${c.id}:$typeId") this.selected = true; +"${c.name}: $label" }
+                                    }
+                                    for (a in accounts) option { value = "acct:${a.id}"; if (selected == "acct:${a.id}") this.selected = true; +"Konto: ${a.name}" }
+                                }
+                            }
+                            label("field") { span { +"Lagermenge" }; input(InputType.text, name = "menge_$i") { value = sg.quantity?.let { Money.formatPlain(it).removeSuffix(",00") }.orEmpty(); attributes["inputmode"] = "decimal" } }
+                            label("field") { span { +"Betrag in Euro" }; input(InputType.text, name = "betrag_$i") { value = Money.formatPlain(sg.line.total); attributes["inputmode"] = "decimal" } }
+                        }
+                    }
+                }
+                div("row wrap") {
+                    button(type = ButtonType.submit, classes = "btn btn-brass") { icon("check", "m"); +"Positionen übernehmen" }
+                    span("cap") { +"Gelesen: ${listOfNotNull(reading.supplier?.let { "Lieferant „$it“" }, reading.number?.let { "Nr. $it" }, reading.gross?.let { "brutto ${euro(it)}" }).joinToString(", ").ifEmpty { "nur die Zeilen" }}" }
+                }
             }
         }
     }

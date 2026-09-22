@@ -73,7 +73,15 @@ Schlüssel ihres Formulars, ein Doppelklick bucht einmal. Ebenso der **Einkauf**
 Belege mit Datei (PDF oder Foto), Lieferant, Nummer, Fälligkeit, Zahlung; Lagerpositionen
 werden `stock_entries` mit `delivery_id` — dieselbe Zeile, die ein Tablet beim Wareneingang
 schreibt, also kommen sie dort an. Zeilen ohne Lagerartikel (Pfand, Energie) bekommen ein
-Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6). Und das **Sortiment**
+Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6). Ein hochgeladenes PDF mit
+Textebene **liest die Verwaltung** (`InvoiceReader.kt`, PDFBox, Muster statt Modell): Lieferant,
+Nummer, Datum, Fälligkeit, Brutto, Umsatzsteuer und die Positionen — Zeilen, die mit einer Menge
+beginnen und mit einem Betrag enden. Leere Felder füllt die Datei, Eingetragenes gilt. Je
+Position schlägt sie den Lagerartikel vor, dessen Name in der Zeile steckt (bei Fassware das
+Gebinde, dessen Größe dasteht), oder das, was der Kassier beim letzten Beleg dieses Lieferanten
+bestätigt hat (`supplier_articles`, mit dem Verhältnis Lagermenge zu Rechnungsmenge, etwa 20
+Flaschen je Kiste). Bestätigt wird jede Zeile vor dem Buchen. Ein Scan ohne Textebene ergibt
+nichts, und die Seite sagt es. Und das **Sortiment**
 (`web/Products.kt`): Produkte mit Preis, Kategorie und Ausschankgröße, Varianten, Rezepturen
 (welcher Lagerartikel je Einheit), aus dem Sortiment nehmen — dazu die Mitgliederkategorien
 mit ihren Limits. Es sind dieselben Zeilen in denselben synchronisierten Tabellen, die die App
@@ -193,6 +201,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `src/main/resources/db/migration/V9__rechnung_lesen.sql` | `supplier_articles` — was eine Rechnungszeile eines Lieferanten im Lager ist, einmal bestätigt |
 | `src/main/resources/db/migration/V8__sperre.sql` | `members.blocked_reason`, synchronisiert |
 | `src/main/resources/db/migration/V7__kasse.sql` | `cash_sessions` und `cash_movements`, synchronisiert — die Schichten und Barbewegungen der Tablets |
 | `src/main/resources/db/migration/V6__abrechnung.sql` | Profile, Abrechnungsläufe, Abrechnungen mit Nummernkreis, importierte Bankumsätze |

@@ -247,6 +247,79 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
         }
     }
 
+    // ------------------------------------------------- Rechnung lesen und zuordnen
+
+    /** Wohin eine Rechnungszeile geht: ein Lagerartikel (mit Gebinde), ein Konto, oder nichts. */
+    class ArticleMapping(val itemId: UUID?, val containerTypeId: UUID?, val accountId: UUID?, val factor: Double)
+
+    class Suggestion(val line: InvoiceReader.Line, val key: String, val mapping: ArticleMapping?, val learned: Boolean) {
+        /** Die vorgeschlagene Lagermenge: Rechnungsmenge mal gelerntem Faktor. */
+        val quantity: Double? get() = line.quantity?.let { q -> Money.cents(q * (mapping?.factor ?: 1.0)) }
+    }
+
+    /** Eine vom Kassier bestätigte Zeile: was sie ist, wie viel, was sie kostet. */
+    class ChosenLine(val key: String, val description: String, val invoiceQuantity: Double?, val itemId: UUID?, val containerTypeId: UUID?, val accountId: UUID?, val quantity: Double?, val amount: Double)
+
+    fun supplierKey(doc: Document): String = doc.supplierId?.toString() ?: doc.supplier.trim().lowercase()
+
+    fun mappings(supplierKey: String): Map<String, ArticleMapping> = db.read { c ->
+        c.query("SELECT article_key, stock_item_id, container_type_id, account_id, factor FROM supplier_articles WHERE supplier_key = ?", supplierKey) {
+            it.getString("article_key") to ArticleMapping(it.getObject("stock_item_id", UUID::class.java), it.getObject("container_type_id", UUID::class.java), it.getObject("account_id", UUID::class.java), it.getDouble("factor"))
+        }.toMap()
+    }
+
+    /**
+     * Vorschläge je gelesener Zeile: erst das Gedächtnis dieses Lieferanten, sonst der Lagerartikel,
+     * dessen Name in der Zeile steckt („Mohrenbräu Helles 50 l Fass“ enthält „Helles“) — bei
+     * Fassware das Gebinde, dessen Größe in der Zeile steht, sonst das größte.
+     */
+    fun suggest(extract: InvoiceReader.Extract, doc: Document, choices: List<StockChoice>, sizes: Map<UUID, Double>): List<Suggestion> {
+        val learned = mappings(supplierKey(doc))
+        return extract.lines.map { line ->
+            val key = InvoiceReader.articleKey(line.description)
+            learned[key]?.let { return@map Suggestion(line, key, it, learned = true) }
+            val words = key.split(' ').filter { it.length >= 3 }.toSet()
+            val best = choices.map { choice ->
+                val tokens = InvoiceReader.articleKey(choice.name).split(' ').filter { it.length >= 3 }
+                val hits = tokens.count { it in words }
+                choice to (if (tokens.isEmpty()) 0.0 else hits.toDouble() / tokens.size)
+            }.filter { it.second >= 0.5 }.maxByOrNull { it.second }?.first
+            val container = best?.containerTypes?.let { types ->
+                val numbers = Regex("\\d+").findAll(key).map { it.value.toInt() }.toSet()
+                types.firstOrNull { (id, _) -> sizes[id]?.toInt() in numbers } ?: types.maxByOrNull { (id, _) -> sizes[id] ?: 0.0 }
+            }
+            Suggestion(line, key, best?.let { ArticleMapping(it.id, container?.first, null, 1.0) }, learned = false)
+        }
+    }
+
+    /** Die bestätigten Zeilen buchen — Lagerartikel als Wareneingang, Konto als Belegzeile — und je Zeile merken, was sie war. */
+    fun applyLines(by: WebUser, documentId: UUID, chosen: List<ChosenLine>): Int {
+        val doc = document(documentId) ?: throw AccountProblem("Diesen Beleg gibt es nicht.")
+        var booked = 0
+        for (line in chosen) {
+            when {
+                line.itemId != null -> { addStockLine(by, documentId, line.itemId, line.containerTypeId, line.quantity ?: throw AccountProblem("Für „${line.description}“ fehlt die Menge."), line.amount); booked++ }
+                line.accountId != null -> { addExpenseLine(by, documentId, line.description, line.amount, line.accountId); booked++ }
+                else -> continue
+            }
+            val factor = if (line.itemId != null && line.invoiceQuantity != null && line.invoiceQuantity > 0 && line.quantity != null) line.quantity / line.invoiceQuantity else 1.0
+            db.transaction { c ->
+                c.execute(
+                    """
+                    INSERT INTO supplier_articles (id, supplier_key, article_key, stock_item_id, container_type_id, account_id, factor) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (supplier_key, article_key) DO UPDATE SET stock_item_id = EXCLUDED.stock_item_id, container_type_id = EXCLUDED.container_type_id, account_id = EXCLUDED.account_id, factor = EXCLUDED.factor, updated_at = now()
+                    """.trimIndent(),
+                    UUID.fromString(Ids.new()), supplierKey(doc), line.key, line.itemId, line.containerTypeId, line.accountId, BigDecimal.valueOf(factor)
+                )
+            }
+        }
+        return booked
+    }
+
+    fun containerSizes(): Map<UUID, Double> = db.read { c ->
+        c.query("SELECT id, nominal_size FROM container_types WHERE NOT deleted") { it.getObject("id", UUID::class.java) to it.getDouble("nominal_size") }.toMap()
+    }
+
     private fun ensureSupplier(c: Connection, name: String): UUID =
         c.queryOne("SELECT id FROM suppliers WHERE lower(name) = lower(?)", name) { it.getObject("id", UUID::class.java) }
             ?: UUID.fromString(Ids.new()).also { c.execute("INSERT INTO suppliers (id, name) VALUES (?, ?)", it, name) }
