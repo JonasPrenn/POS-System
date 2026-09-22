@@ -133,6 +133,19 @@ eine Farbe ändert, zieht sie hier nach. Und: Die Verwaltung rechnet das Lager m
 Dialoge sind HTML-Popover (`dialog()` in `Html.kt`): `popovertarget` öffnet und schließt ohne
 Skript, `body:has(.dialog:popover-open)` stellt die Seite dahinter still.
 
+**Ein Update beschädigt nichts.** Entscheidung des Besitzers vom 22. September 2026, und sie
+gilt für jede künftige Änderung: Was auf einem Tablet oder am Server liegt, muss ein Update
+überstehen. Konkret: Migrationen fügen hinzu (neue Tabellen, Spalten mit Vorgabe) und schreiben
+Bestehendes nur mit Übertrag um (wie 10 → 11 mit Übertragsbuchungen), nie durch Löschen und
+Neuanlegen; Room-Schema und Flyway-Version wandern nur nach oben, und jede Migration hat einen
+Test, der alte Daten durch sie hindurchführt. Das Drahtformat bleibt abwärtskompatibel — neue
+Felder mit Vorgabe, unbekannte Zeilen und Felder werden übergangen, ein älteres Tablet darf
+mit einem neueren Server weiterarbeiten. Der Updater baut erst und startet dann; scheitert das
+Bauen, läuft der alte Stand weiter, und Datenbank und Belegfotos liegen in Volumes, die kein
+Update anfasst. Vor einer Migration am Tablet steht die Sicherung — die App fragt danach, ehe
+sie ein Schema anhebt, ist noch zu bauen; bis dahin gilt „vorher sichern“. Wer an Schema,
+Drahtformat oder Updater arbeitet, prüft zuerst diesen Absatz.
+
 **Die Version steht genau einmal.** In `VERSION`: `x.y.z-beta` in der Entwicklung, `x.y.z`
 nach der Freigabe durch den Besitzer — geändert nur über `docs/tools/version.sh`
 (`beta x.y.z`, `release` mit Commit und Tag `vx.y.z`, `next`). Daraus erzeugt `:core` das
