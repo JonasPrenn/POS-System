@@ -67,7 +67,7 @@ class InvoiceReadingTest {
 
     @Test
     fun `the reader finds head and lines in the text of a supplier invoice`() {
-        val read = InvoiceReader.parse(invoiceText("RE-2026-1187", "12.09.2026"), listOf("Getränke Brandl GmbH"), LocalDate.of(2026, 9, 22))
+        val read = InvoiceReader.parse(invoiceText("RE-2026-1187", "12.09.2026"), listOf("Getränke Brandl GmbH"), today = LocalDate.of(2026, 9, 22))
         assertEquals("Getränke Brandl GmbH", read.supplier)
         assertEquals("RE-2026-1187", read.number)
         assertEquals(LocalDate.of(2026, 9, 12), read.date)
@@ -83,6 +83,94 @@ class InvoiceReadingTest {
         // Ein Scan ohne Textebene ergibt nichts, und sagt es.
         assertEquals(false, InvoiceReader.parse("", emptyList()).hasText)
         assertNull(InvoiceReader.read("%PDF-1.4 kein echtes PDF".toByteArray(), emptyList()).supplier)
+    }
+
+    /** Das Layout einer Brauereirechnung, wie PDFBox es liefert: Artikelnummer voran, Menge vor den Beträgen, netto, Umbrüche, Lieferaufstellung. Kunde anonymisiert. */
+    private val breweryText = """
+        Musterverein Kundenkennzeichen: 110211
+        zH Max Muster Rechnungsdatum: 10.12.2025
+        Musterstraße 1 Rechnungsnummer: 25879
+        6800 Feldkirch Kommissionsnummer: 3101
+        RECHNUNG KOMMISSION Vereinsfest
+        5.+6.12. 25879
+        Liefertermine (Lieferdatum / Auftragsnummer / Handscheinnummer / Kundenbestellnummer)
+        (04.12.2025/128751/X/X), (09.12.2025/128752/X/X)
+        Artikel Bezeichnung Menge gratis Preis Rabatt RabVK Bierst. VK EP Gesamt
+        10020 gold spezial Fass (20 Liter) 6 56,20 -20% 44,96 4,80 49,76 298,56
+        10030 gold spezial Fass (30 Liter) 4 83,90 -20% 67,12 7,20 74,32 297,28
+        50850 VOÜS soda PEM Container (20 4 19,00 -30% 13,30 13,30 53,20
+        Liter)
+        51012 VOÜS cola Kiste (12 Flaschen à 5 28,00 -20% 22,40 22,40 112,00
+        1 Liter)
+        51016 VOÜS tafelwasser prickelnd Kiste 5 12,80 -30% 8,96 8,96 44,80
+        (12 Flaschen à 1 Liter)
+        60500 kohlensäure (grau) Stück (1 1 5,30 5,30 5,30 5,30
+        Kilogramm)
+        70403 Zustellzone 1 2 64,17 64,17 64,17 128,34
+        70502 leih - Kühlgerät 1-Hahn TK 1 33,30 33,30 33,30 33,30
+        70530 leih - Glaskorb event 30x0,3 l 4 5,60 5,60 5,60 22,40
+        70535 leih - glaskorb Festkrug 15x0,50 l 5 2,80 2,80 2,80 14,00
+        70819 Vlies EW (400cm x 80cm) Stück 0 2 0,00 0,00 0 0,00
+        (1 Stücke)
+        801.3 kg G E S A M T A N Z A H L : 39 Warenwert ohne Abg. 951,58
+        Biersteuer 57,60
+        Warenwert inkl. Abgabe 1.009,18
+        Gebinde Gel. Ret. Diff. Nettopreis Nettobetrag
+        Fass 20 l (90004) 6 5 1 30,0000 30,00
+        Fass 30 l (90005) 4 3 1 30,0000 30,00
+        Kiste mit Flaschen 12x1,0 l (VOÜS) (90103) 10 2 8 5,4000 43,20
+        Container 20 l (VOÜS) (90232) 4 1 3 30,0000 90,00
+        Gebindewert 193,20
+        Summen Netto Satz USt. Brutto
+        Ware 1.009,18 20,00% 201,84 1.211,02
+        Rechnung: 25879 vom 10.12.2025, Kundenkennzeichen: 110211, Seite 1 von 3
+        ECHTE BIERKULTUR, DIE VERBINDET.
+        Brauerei Frastanz eGen, Bahnhofstr. 22, A-6820 Frastanz, T +43 5522 51 701 - 0, bier@frastanzer.at
+        UID Nr. ATU 36502600, Firmenbuch FN 62771k, Firmenbuchgericht Feldkirch
+        Raiffeisenbank im Walgau, AT30 3745 8000 0111 0063, RVVGAT2B458
+        Gebindesaldo (Pfandberechnung) 193,20 20,00% 38,64 231,84
+        ENDBETRAG (alle Beträge in €) 1.202,38 240,48 1.442,86
+        (Überweisung)
+        Artikelklasse (inkl. Abgaben) exkl. USt USt.-Satz
+        001 Bier 595,84 20,00
+        002 Alkoholfrei 210,00 20,00
+        006 Leihinventar 69,70 20,00
+        Zahlungsbedingungen
+        Zahlbar ohne Abzüge bis zum 15.12.2025
+        Lieferaufstellung
+        Artikel Bezeichnung Menge gratis Preis Rabatt RabVK Bierst. VK EP Gesamt
+        Geliefert an: 161260 Musterverein, Musterstraße 1, 6800 Feldkirch
+        10020 gold spezial Fass (20 Liter) 6 56,20 -20% 44,96 4,80 49,76 298,56
+        10030 gold spezial Fass (30 Liter) 6 83,90 -20% 67,12 7,20 74,32 445,92
+        90004 Fass 20 l (90004) 6 30,00 30,00 30,00 180,00
+        10030 gold spezial Fass (30 Liter) -2 83,90 -20% 67,12 7,20 74,32 -148,64
+        90005 Fass 30 l (90005) -2 30,00 30,00 30,00 -60,00
+    """.trimIndent()
+
+    @Test
+    fun `a brewery invoice with article numbers net prices wrapped lines and a deposit balance is read completely`() {
+        val read = InvoiceReader.parse(breweryText, emptyList(), ownName = "Musterverein Feldkirch", today = LocalDate.of(2026, 9, 22))
+        assertEquals("Brauerei Frastanz eGen", read.supplier, "die Brauerei steht in der Fußzeile, der Verein oben ist der Empfänger")
+        assertEquals("25879", read.number)
+        assertEquals(LocalDate.of(2025, 12, 10), read.date)
+        assertEquals(LocalDate.of(2025, 12, 15), read.dueDate, "„Zahlbar ohne Abzüge bis zum“")
+        assertEquals(1442.86, assertNotNull(read.gross), 0.001, "der letzte Betrag der ENDBETRAG-Zeile, nicht der erste")
+        assertEquals(240.48, assertNotNull(read.vat), 0.001)
+        assertEquals(20.0, read.vatRate)
+        assertTrue(read.linesAreNet)
+        // Nur der erste Block: die Lieferaufstellung wiederholt alles, die Artikelklassen sind keine Positionen, der Nuller fällt weg.
+        assertEquals(11, read.lines.size)
+        assertEquals(listOf("10020", "10030", "50850", "51012", "51016", "60500", "70403", "70502", "70530", "70535", null), read.lines.map { it.article })
+        assertEquals("VOÜS soda PEM Container (20 Liter)", read.lines[2].description, "der Umbruch ist wieder zusammengesetzt")
+        assertEquals("VOÜS tafelwasser prickelnd Kiste (12 Flaschen à 1 Liter)", read.lines[4].description)
+        assertEquals("leih - glaskorb Festkrug 15x0,50 l", read.lines[9].description, "„0,50“ hinter dem x ist kein Betrag")
+        assertEquals(listOf(6.0, 4.0, 4.0, 5.0, 5.0, 1.0, 2.0, 1.0, 4.0, 5.0, null), read.lines.map { it.quantity })
+        assertEquals(298.56, assertNotNull(read.lines[0].net), 0.001); assertEquals(358.27, read.lines[0].total, 0.001)
+        assertEquals("Gebindesaldo (Pfandberechnung)", read.lines.last().description); assertEquals(231.84, read.lines.last().total, 0.001)
+        assertEquals(1442.86, read.lines.sumOf { it.total }, 0.02, "brutto hochgerechnet ergeben die Zeilen den Endbetrag")
+        assertEquals("10020 gold spezial fass 20 liter", read.lines[0].key, "die Artikelnummer ist der Schlüssel fürs Gedächtnis")
+        // Ein bekannter Lieferant gewinnt, auch anders geschrieben.
+        assertEquals("Brauerei Frastanz", InvoiceReader.parse(breweryText, listOf("Brauerei Frastanz"), "Musterverein").supplier)
     }
 
     @Test
@@ -146,11 +234,13 @@ class InvoiceReadingTest {
         assertContains(again, "value=\"acct:$pfand\" selected")
         assertTrue(Regex("""name="menge_1" value="100"""").containsMatchIn(again), "5 Kisten × 20 = 100 Flaschen, gemerkt")
 
-        // Ein Foto liest niemand: Der Beleg wird gespeichert, die Seite sagt es.
+        // Ein Foto liest niemand: Der Beleg wird gespeichert, die Seite sagt es — auch bei einer Datei, die größer ist als ein Formularfeld (früher ein 500).
+        val photoBytes = ByteArray(300 * 1024).also { it[0] = 0x89.toByte(); it[1] = 0x50; it[2] = 0x4E; it[3] = 0x47 }
         val photo = kassier.submitFormWithBinaryData("/verwaltung/einkauf/beleg", formData {
             append("_csrf", csrf); append("lieferant", "Metzgerei Huber"); append("nummer", "77"); append("datum", "2026-09-20"); append("faellig", ""); append("brutto", "40"); append("ust", ""); append("zahlung", "CASH"); append("notiz", "")
-            append("datei", byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47), Headers.build { append(HttpHeaders.ContentType, "image/png"); append(HttpHeaders.ContentDisposition, "filename=\"bon.png\"") })
+            append("datei", photoBytes, Headers.build { append(HttpHeaders.ContentType, "image/png"); append(HttpHeaders.ContentDisposition, "filename=\"bon.png\"") })
         })
+        assertEquals(HttpStatusCode.Found, photo.status, "300 KB Foto: kein 500")
         assertContains(location(photo), "Beleg%20gespeichert.")
     }
 }

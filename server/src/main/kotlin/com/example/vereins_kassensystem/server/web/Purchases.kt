@@ -276,7 +276,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
     fun suggest(extract: InvoiceReader.Extract, doc: Document, choices: List<StockChoice>, sizes: Map<UUID, Double>): List<Suggestion> {
         val learned = mappings(supplierKey(doc))
         return extract.lines.map { line ->
-            val key = InvoiceReader.articleKey(line.description)
+            val key = line.key
             learned[key]?.let { return@map Suggestion(line, key, it, learned = true) }
             val words = key.split(' ').filter { it.length >= 3 }.toSet()
             val best = choices.map { choice ->

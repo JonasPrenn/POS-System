@@ -65,7 +65,8 @@ private suspend fun ApplicationCall.guardedUpload(web: Web, area: Area, block: s
     var contentType: ContentType? = null
     var bytes: ByteArray? = null
     var tooBig = false
-    receiveMultipart(formFieldLimit = 64 * 1024).forEachPart { part ->
+    // Die Grenze gilt bei Ktor auch fürs Suchen der nächsten Teilgrenze, also für die Datei — deshalb so groß wie die Datei sein darf, nicht so groß wie ein Feld.
+    receiveMultipart(formFieldLimit = web.receipts.maxBytes.toLong() + 64 * 1024).forEachPart { part ->
         when (part) {
             is PartData.FormItem -> fields[part.name.orEmpty()] = part.value
             is PartData.FileItem -> if (part.originalFileName.orEmpty().isNotEmpty()) {
@@ -104,7 +105,7 @@ internal fun Route.purchasePages(web: Web) {
             val choices = web.purchases.stockChoices()
             // Die Positionen aus der Datei: solange der Beleg keine hat, oder auf Wunsch noch einmal.
             val reading = shown?.takeIf { it.hasDocument && it.fileKey?.endsWith(".pdf") == true && (call.request.queryParameters["lesen"] == "1" || (stockLines.isEmpty() && expenseLines.isEmpty())) }
-                ?.let { doc -> web.receipts.find(doc.fileKey!!)?.let { stored -> InvoiceReader.read(java.nio.file.Files.readAllBytes(stored.path), web.purchases.suppliers().map { it.name }, ctx.today) } }
+                ?.let { doc -> web.receipts.find(doc.fileKey!!)?.let { stored -> InvoiceReader.read(java.nio.file.Files.readAllBytes(stored.path), web.purchases.suppliers().map { it.name }, ctx.verein.name, ctx.today) } }
             val suggestions = reading?.let { web.purchases.suggest(it, shown!!, choices, web.purchases.containerSizes()) }
             val prefill = call.request.queryParameters.let { q -> if (fresh && q["datei"] != null) Prefill(q["datei"]!!, q["lieferant"].orEmpty(), q["nummer"].orEmpty(), q["datum"].orEmpty(), q["faellig"].orEmpty(), q["brutto"].orEmpty(), q["ust"].orEmpty()) else null }
             call.html {
@@ -136,7 +137,7 @@ internal fun Route.purchasePages(web: Web) {
             val outcome = try {
                 val extension = up.bytes?.let { web.receipts.extensionFor(up.contentType) ?: throw AccountProblem("Als Datei gehen PDF, JPG, PNG, WEBP und HEIC.") }
                 // Ein neuer Beleg mit PDF: erst lesen, dann speichern — was der Kassier eingetragen hat, gilt; Leeres füllt die Datei.
-                if (id == null && extension == "pdf") read = InvoiceReader.read(up.bytes!!, web.purchases.suppliers().map { it.name }, ctx.today)
+                if (id == null && extension == "pdf") read = InvoiceReader.read(up.bytes!!, web.purchases.suppliers().map { it.name }, ctx.verein.name, ctx.today)
                 val fileKey = up.bytes?.let { web.receipts.store(it, extension!!) }
                     ?: up.fields["datei"]?.takeIf { it.isNotBlank() && web.receipts.find(it) != null && !web.purchases.fileKeyExists(it) }
                 fun field(name: String, fromFile: String?): String = up.fields[name].orEmpty().ifBlank { fromFile.orEmpty() }
@@ -518,14 +519,14 @@ private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: Inv
             !writes -> table("t t-tight t-flush") { tbody { for (sg in suggestions) tr { td("fill") { +sg.line.description }; td("num") { span("money-s") { +euro(sg.line.total) } } } } }
             else -> postForm(ctx, "$BASE/einkauf/${d.id}/positionen", "stack-tight") {
                 hiddenInput(name = "n") { value = suggestions.size.toString() }
-                p("cap") { +"Je Zeile: Lagerartikel (mit Gebinde) oder ein Konto für Zeilen ohne Lager — oder auslassen. Menge ist die Lagermenge: bei einer Kiste zu 20 Flaschen also 20 je Kiste; die Verwaltung merkt sich das Verhältnis für den nächsten Beleg." }
+                p("cap") { +"Je Zeile: Lagerartikel (mit Gebinde) oder ein Konto für Zeilen ohne Lager — oder auslassen. Menge ist die Lagermenge: bei einer Kiste zu 20 Flaschen also 20 je Kiste; die Verwaltung merkt sich das Verhältnis für den nächsten Beleg.${if (reading.linesAreNet) " Die Rechnung weist die Zeilen netto aus; die Beträge hier sind brutto hochgerechnet." else ""}" }
                 suggestions.forEachIndexed { i, sg ->
                     val selected = sg.mapping?.let { m -> if (m.itemId != null) "item:${m.itemId}${m.containerTypeId?.let { ":$it" } ?: ""}" else m.accountId?.let { "acct:$it" } } ?: ""
                     div("sub stack-tight") {
                         hiddenInput(name = "key_$i") { value = sg.key }
                         hiddenInput(name = "orig_$i") { value = sg.line.quantity?.let(Money::formatPlain).orEmpty() }
                         label("field") {
-                            span { +listOfNotNull("Zeile ${i + 1}", sg.line.quantity?.let { "${Money.formatPlain(it).removeSuffix(",00")} laut Rechnung" }, sg.line.unitPrice?.let { "à ${euro(it)}" }, if (sg.learned) "gemerkt vom letzten Beleg" else null).joinToString(" · ") }
+                            span { +listOfNotNull("Zeile ${i + 1}", sg.line.article?.let { "Art. $it" }, sg.line.quantity?.let { "${Money.formatPlain(it).removeSuffix(",00")} laut Rechnung" }, sg.line.unitPrice?.let { "à ${euro(it)}" }, sg.line.net?.let { "netto ${euro(it)}${reading.vatRate?.let { r -> " + ${Money.formatPlain(r).removeSuffix(",00")} % USt" } ?: ""}" }, if (sg.learned) "gemerkt vom letzten Beleg" else null).joinToString(" · ") }
                             input(InputType.text, name = "text_$i") { value = sg.line.description; maxLength = "120" }
                         }
                         div("form-grid") {

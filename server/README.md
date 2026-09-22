@@ -75,8 +75,12 @@ werden `stock_entries` mit `delivery_id` — dieselbe Zeile, die ein Tablet beim
 schreibt, also kommen sie dort an. Zeilen ohne Lagerartikel (Pfand, Energie) bekommen ein
 Konto aus dem vorbelegten Kontenrahmen (`accounts`, Konzept 4.6). Ein hochgeladenes PDF mit
 Textebene **liest die Verwaltung** (`InvoiceReader.kt`, PDFBox, Muster statt Modell): Lieferant,
-Nummer, Datum, Fälligkeit, Brutto, Umsatzsteuer und die Positionen — Zeilen, die mit einer Menge
-beginnen und mit einem Betrag enden. Leere Felder füllt die Datei, Eingetragenes gilt. Je
+Nummer, Datum, Fälligkeit, Brutto, Umsatzsteuer und die Positionen — die einfache Zeile („2 Fass
+Helles 50 l 142,00 284,00“) wie die einer Brauereirechnung mit Artikelnummer voran und der
+Menge vor den Beträgen („10020 gold spezial Fass (20 Liter) 6 56,20 -20% … 298,56“), netto
+ausgewiesen und brutto hochgerechnet, mit umbrochenen Bezeichnungen und dem Gebindesaldo als
+eigener Zeile; die Lieferaufstellung dahinter zählt nicht doppelt. Gebaut an einer echten
+Rechnung der Brauerei Frastanz. Leere Felder füllt die Datei, Eingetragenes gilt. Je
 Position schlägt sie den Lagerartikel vor, dessen Name in der Zeile steckt (bei Fassware das
 Gebinde, dessen Größe dasteht), oder das, was der Kassier beim letzten Beleg dieses Lieferanten
 bestätigt hat (`supplier_articles`, mit dem Verhältnis Lagermenge zu Rechnungsmenge, etwa 20
