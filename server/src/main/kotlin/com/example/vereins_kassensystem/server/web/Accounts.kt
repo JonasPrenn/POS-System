@@ -17,7 +17,7 @@ import java.util.Base64
 import java.util.UUID
 
 /** Die Bereiche der Verwaltung; an ihnen hängen die Rechte, nicht an einzelnen Seiten. */
-enum class Area { OVERVIEW, MEMBERS, STATEMENTS, CASH, REPORTS, STOCK, PRODUCTS, PURCHASES, DEVICES, USERS, AUDIT, SETTINGS }
+enum class Area { OVERVIEW, MEMBERS, STATEMENTS, CASH, REPORTS, BOOKS, STOCK, PRODUCTS, PURCHASES, DEVICES, USERS, AUDIT, SETTINGS }
 
 /**
  * Wer die Web-Oberfläche benutzt (docs/WEB-VERWALTUNG.md, 2.4). Chargen wechseln jedes
@@ -30,11 +30,11 @@ enum class Role(val label: String, val hint: String, vararg areas: Area) {
     ADMIN("Administrator", "Alles, einschließlich Benutzer, Geräte und Einstellungen", *Area.entries.toTypedArray()),
     // Bankverbindung und E-Mail-Versand stehen in den Einstellungen; beides ist Sache des Kassiers.
     KASSIER("Kassier", "Alles zu Geld und Mitgliedern, koppelt und sperrt Geräte, Einstellungen",
-        Area.OVERVIEW, Area.MEMBERS, Area.STATEMENTS, Area.CASH, Area.REPORTS, Area.STOCK, Area.PRODUCTS, Area.PURCHASES, Area.DEVICES, Area.AUDIT, Area.SETTINGS),
-    VORSTAND("Senior und Chargen", "Liest mit: Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Sortiment, Einkauf",
-        Area.OVERVIEW, Area.MEMBERS, Area.STATEMENTS, Area.CASH, Area.REPORTS, Area.STOCK, Area.PRODUCTS, Area.PURCHASES),
+        Area.OVERVIEW, Area.MEMBERS, Area.STATEMENTS, Area.CASH, Area.REPORTS, Area.BOOKS, Area.STOCK, Area.PRODUCTS, Area.PURCHASES, Area.DEVICES, Area.AUDIT, Area.SETTINGS),
+    VORSTAND("Senior und Chargen", "Liest mit: Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Bücher, Lager, Sortiment, Einkauf",
+        Area.OVERVIEW, Area.MEMBERS, Area.STATEMENTS, Area.CASH, Area.REPORTS, Area.BOOKS, Area.STOCK, Area.PRODUCTS, Area.PURCHASES),
     BUDENWART("Budenwart", "Lager, Sortiment und Einkauf — keine Deckel", Area.STOCK, Area.PRODUCTS, Area.PURCHASES),
-    PRUEFER("Rechnungsprüfer", "Lesend und auf Zeit: Abrechnung, Kasse, Berichte, Einkauf, Protokoll", Area.STATEMENTS, Area.CASH, Area.REPORTS, Area.PURCHASES, Area.AUDIT);
+    PRUEFER("Rechnungsprüfer", "Lesend und auf Zeit: Abrechnung, Kasse, Berichte, Bücher, Einkauf, Protokoll", Area.STATEMENTS, Area.CASH, Area.REPORTS, Area.BOOKS, Area.PURCHASES, Area.AUDIT);
 
     val areas: Set<Area> = areas.toSet()
 

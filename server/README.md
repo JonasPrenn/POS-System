@@ -106,6 +106,16 @@ Dazu der Tagesbericht nach Gerät und Zahlart, die laufenden Schichten und das B
 dem Kontoauszug-Import; das Kassenbuch gibt es als CSV. Ändern lässt sich hier nichts —
 ein Fehler bekommt am Tablet eine Gegenbuchung.
 
+**Bücher** (`web/Books.kt`, Konzept 4.6): die Einnahmen-Ausgaben-Rechnung je Rechnungsjahr
+nach dem Zufluss-Abfluss-Prinzip, hergeleitet aus Buchungen und Belegen. Einnahme ist, was bar,
+mit Karte oder per Überweisung eingegangen ist (Budenerlöse, Aufladungen und Zahlungen,
+Trinkgeld); ein Verkauf auf den Deckel ist eine Forderung, keine Einnahme. Ausgabe ist ein
+bezahlter Beleg zum Zahltag — Belegzeilen auf ihr Konto, Lagerzeilen als Getränkeeinkauf.
+Dazu die Vermögensübersicht zum Stichtag (Kassabestand aus der letzten Zählung je Gerät,
+Bankstand wie vom Kassier eingetragen, Lagerwert, Forderungen, Guthaben, offene Belege) und
+zwei CSV-Dateien für den Steuerberater: die Rechnung je Konto mit Vorjahr und das Journal.
+Nicht darin: Veranstaltungen als Kostenstelle, das BMD-Format, die Prüfermappe als PDF.
+
 Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
 Rest liegt unter „Mehr".
 
@@ -117,10 +127,10 @@ persönlich weiter. Der letzte Administrator kann sich nicht selbst herabstufen 
 | Rolle | Sieht |
 |---|---|
 | Administrator | alles, dazu Benutzer |
-| Kassier | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Sortiment, Einkauf, Geräte, Protokoll, Einstellungen |
-| Senior und Chargen | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Sortiment, Einkauf — lesend |
+| Kassier | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Bücher, Lager, Sortiment, Einkauf, Geräte, Protokoll, Einstellungen |
+| Senior und Chargen | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Bücher, Lager, Sortiment, Einkauf — lesend |
 | Budenwart | Lager, Sortiment, Einkauf — keine Deckel (Art. 9 DSGVO, 2.5 im Konzept) |
-| Rechnungsprüfer | Abrechnung, Kasse, Berichte, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
+| Rechnungsprüfer | Abrechnung, Kasse, Berichte, Bücher, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
 
 **Wie sie gebaut ist:** Passwörter mit Argon2id wie die Gerätetoken. Im Cookie steht ein
 Zufallswert (`HttpOnly`, `Secure`, `SameSite=Lax`, nur unter `/verwaltung`), in der Datenbank
@@ -139,8 +149,7 @@ Adresse begrenzt.
 Die Berichte zeigen, was sich aus den Buchungen der Theke sicher sagen lässt: Umsatz nach
 Zahlart je Monat, Aufladungen, Wareneingang, Forderungen und Guthaben, dazu die Schwellen
 des § 131b BAO fürs Kalenderjahr. Die Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht
-braucht dazu die Konten der Belege (Phase 2), das Kassenbuch und das Bankbuch (Phase 3) —
-alle drei sind da; die Rechnung selbst mit Vermögensübersicht und Export ist Phase 4.
+steht unter „Bücher“ (Phase 4), mit Vermögensübersicht und CSV-Export.
 
 ## Die ersten Anfragen
 
@@ -175,7 +184,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
-| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
 | `src/main/resources/db/migration/V8__sperre.sql` | `members.blocked_reason`, synchronisiert |
 | `src/main/resources/db/migration/V7__kasse.sql` | `cash_sessions` und `cash_movements`, synchronisiert — die Schichten und Barbewegungen der Tablets |
 | `src/main/resources/db/migration/V6__abrechnung.sql` | Profile, Abrechnungsläufe, Abrechnungen mit Nummernkreis, importierte Bankumsätze |
