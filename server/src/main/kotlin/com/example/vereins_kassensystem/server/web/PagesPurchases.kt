@@ -107,13 +107,15 @@ internal fun Route.purchasePages(web: Web) {
             val reading = shown?.takeIf { it.hasDocument && it.fileKey?.endsWith(".pdf") == true && (call.request.queryParameters["lesen"] == "1" || (stockLines.isEmpty() && expenseLines.isEmpty())) }
                 ?.let { doc -> web.receipts.find(doc.fileKey!!)?.let { stored -> InvoiceReader.read(java.nio.file.Files.readAllBytes(stored.path), web.purchases.suppliers().map { it.name }, ctx.verein.name, ctx.today) } }
             val suggestions = reading?.let { web.purchases.suggest(it, shown!!, choices, web.purchases.containerSizes()) }
+            val intake = web.intake.rows(30)
             val prefill = call.request.queryParameters.let { q -> if (fresh && q["datei"] != null) Prefill(q["datei"]!!, q["lieferant"].orEmpty(), q["nummer"].orEmpty(), q["datum"].orEmpty(), q["faellig"].orEmpty(), q["brutto"].orEmpty(), q["ust"].orEmpty()) else null }
             call.html {
                 purchasesPage(
                     ctx, all, shown, selected != null || fresh, fresh, web.purchases.openDocuments(),
                     stockLines, expenseLines,
                     web.purchases.suppliers(), web.purchases.expenseAccounts(), choices,
-                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"], reading, suggestions, prefill, web.purchases.depositKinds(), shown?.takeIf { it.hasDocument }?.let { web.purchases.depositMovements(it.id) }.orEmpty()
+                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"], reading, suggestions, prefill, web.purchases.depositKinds(), shown?.takeIf { it.hasDocument }?.let { web.purchases.depositMovements(it.id) }.orEmpty(),
+                    intake, call.request.queryParameters["post"] == "1" || intake.any { it.status == "NEW" }, web.intake.trustedSenders()
                 )
             }
         }
@@ -170,6 +172,28 @@ internal fun Route.purchasePages(web: Web) {
             } catch (e: AccountProblem) {
                 (if (id != null) "b=$id&" else "neu=1&") + "fehler=" + e.message.orEmpty().encodeURLParameter()
             }
+            call.respondRedirect("$BASE/einkauf?$outcome")
+        }
+    }
+    post("/einkauf/post/abrufen") {
+        call.guardedPost(web, Area.PURCHASES) { ctx, _ ->
+            if (!ctx.user.role.writesPurchases) return@guardedPost call.forbidden(ctx, "Den Posteingang holen Kassier und Budenwart ab.")
+            val result = web.intake.poll()
+            val outcome = result.error?.let { "fehler=" + it.encodeURLParameter() } ?: ("hinweis=" + "Abgerufen: ${count(result.fetched, "neue Mail", "neue Mails")}, ${count(result.recorded, "aufgenommen", "aufgenommen")}.".encodeURLParameter())
+            call.respondRedirect("$BASE/einkauf?post=1&$outcome")
+        }
+    }
+    post("/einkauf/post/{id}") {
+        call.guardedPost(web, Area.PURCHASES) { ctx, form ->
+            if (!ctx.user.role.writesPurchases) return@guardedPost call.forbidden(ctx, "Den Posteingang bearbeiten Kassier und Budenwart.")
+            val id = uuidOrNull(call.parameters["id"]) ?: return@guardedPost call.respondRedirect("$BASE/einkauf?post=1")
+            val outcome = try {
+                when (form["aktion"]) {
+                    "ablehnen" -> { web.intake.reject(ctx.user, id); "post=1&hinweis=" + "Abgelehnt. Die Datei bleibt beim Eintrag, es entsteht kein Beleg.".encodeURLParameter() }
+                    "sperren" -> { web.intake.untrust(ctx.user, form["absender"].orEmpty()); "post=1&hinweis=" + "Absender gesperrt: Seine Mails warten künftig im Posteingang.".encodeURLParameter() }
+                    else -> { val doc = web.intake.accept(ctx.user, id, trust = form["freigeben"] == "1"); "b=$doc&lesen=1&hinweis=" + "Beleg aus der Mail angelegt — ${web.intake.row(id)?.note.orEmpty()}".encodeURLParameter() }
+                }
+            } catch (e: AccountProblem) { "post=1&fehler=" + e.message.orEmpty().encodeURLParameter() }
             call.respondRedirect("$BASE/einkauf?$outcome")
         }
     }
@@ -262,6 +286,7 @@ private fun HTML.purchasesPage(
     stockLines: List<StockLine2>, expenseLines: List<ExpenseLine>, suppliers: List<Supplier>, accounts: List<Account>, choices: List<StockChoice>,
     notice: String?, problem: String?, reading: InvoiceReader.Extract? = null, suggestions: List<Purchases.Suggestion>? = null, prefill: Prefill? = null,
     depositKinds: List<Purchases.DepositKind> = emptyList(), deposits: List<Purchases.DepositMovement> = emptyList(),
+    intake: List<IntakeRow> = emptyList(), showIntake: Boolean = false, senders: List<Pair<String, String>> = emptyList(),
 ) {
     val writes = ctx.user.role.writesPurchases
     val thisMonth = all.filter { java.time.YearMonth.from(it.date) == java.time.YearMonth.from(ctx.today) }
@@ -291,6 +316,7 @@ private fun HTML.purchasesPage(
         }
         div("cols cols-side split${if (chosen) " has-sel" else ""}") {
             div("split-list stack") {
+                if (showIntake || intake.isNotEmpty()) intakePanel(ctx, intake, senders, writes)
                 panel {
                     panelHead("Belege")
                     if (all.isEmpty()) p("empty") { +"Noch kein Beleg. Wareneingänge vom Tablet erscheinen hier von selbst; alles andere über „Beleg erfassen“." }
@@ -517,6 +543,60 @@ private fun FlowContent.documentDetail(
     }
 }
 
+/** Der Posteingang: Mails mit PDF, die ein Beleg werden wollen — bekannte Absender sind es schon, unbekannte warten. */
+private fun FlowContent.intakePanel(ctx: PageContext, rows: List<IntakeRow>, senders: List<Pair<String, String>>, writes: Boolean) = panel {
+    val open = rows.filter { it.status == "NEW" }
+    panelHead("Posteingang") {
+        div("row wrap") {
+            if (open.isNotEmpty()) chip("${count(open.size, "Mail wartet", "Mails warten")}", "warn")
+            if (writes) postForm(ctx, "$BASE/einkauf/post/abrufen") { button(type = ButtonType.submit, classes = "btn btn-quiet") { icon("mail", "m"); +"Jetzt abrufen" } }
+        }
+    }
+    div("panel-note cap") { +"${if (ctx.verein.imap.enabled) "Das Postfach wird alle 10 Minuten abgerufen" else "Der Abruf ist unter Einstellungen nicht eingeschaltet"}${ctx.verein.mailLastPoll?.let { " · zuletzt ${ctx.friendly(it)}" } ?: ""}${ctx.verein.mailLastError?.let { " · $it" } ?: ""}. Von freigegebenen Absendern (${senders.size}) wird jede Mail mit PDF gleich ein Beleg; die anderen warten hier." }
+    if (rows.isEmpty()) p("empty") { +"Noch keine Mail eingegangen." }
+    else table("t") {
+        thead { tr { th { +"Mail" }; th(classes = "hide-sm") { +"Eingang" }; th { +"Stand" }; if (writes) th { +"" } } }
+        tbody {
+            for (r in rows) tr {
+                td("fill") { twoLine(r.subject.ifBlank { "(ohne Betreff)" }, listOfNotNull(r.sender, r.fileName.takeIf { it.isNotBlank() }).joinToString(" · ")) }
+                td("c-muted nowrap hide-sm") { +ctx.friendly(r.receivedAt) }
+                td {
+                    when (r.status) {
+                        "NEW" -> chip("wartet", "warn")
+                        "DONE" -> r.documentId?.let { a(href = "$BASE/einkauf?b=$it&lesen=1", classes = "link") { chip("Beleg", "ok", "check") } } ?: chip("Beleg", "ok")
+                        "REJECTED" -> chip("abgelehnt")
+                        "FAILED" -> chip("nicht angelegt", "error", "alert")
+                        else -> chip("kein PDF")
+                    }
+                    if (r.note.isNotBlank()) span("cap") { +" ${r.note}" }
+                }
+                if (writes) td("num") {
+                    if (r.status == "NEW") div("row wrap") {
+                        r.fileKey?.let { a(href = "$BASE/einkauf/datei/$it", classes = "btn btn-quiet") { +"PDF" } }
+                        postForm(ctx, "$BASE/einkauf/post/${r.id}", "row wrap") {
+                            hiddenInput(name = "aktion") { value = "uebernehmen" }
+                            label("check") { input(InputType.checkBox, name = "freigeben") { value = "1"; checked = true }; span { +"Absender freigeben" } }
+                            button(type = ButtonType.submit, classes = "btn btn-brass") { +"Übernehmen" }
+                        }
+                        postForm(ctx, "$BASE/einkauf/post/${r.id}") { hiddenInput(name = "aktion") { value = "ablehnen" }; button(type = ButtonType.submit, classes = "btn btn-quiet") { +"Ablehnen" } }
+                    }
+                }
+            }
+        }
+    }
+    if (writes && senders.isNotEmpty()) div("panel-foot") {
+        details {
+            summary("btn btn-quiet") { +"Freigegebene Absender (${senders.size})" }
+            div("stack-tight") {
+                for ((address, supplier) in senders) div("row-between") {
+                    twoLine(address, supplier.ifBlank { "Lieferant aus der Datei" })
+                    postForm(ctx, "$BASE/einkauf/post/${java.util.UUID(0, 0)}") { hiddenInput(name = "aktion") { value = "sperren" }; hiddenInput(name = "absender") { value = address }; button(type = ButtonType.submit, classes = "btn btn-quiet") { +"Sperren" } }
+                }
+            }
+        }
+    }
+}
+
 /** Was der Leser in der Datei gefunden hat: je Zeile ein Vorschlag, den der Kassier bestätigt, ändert oder auslässt. */
 private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: InvoiceReader.Extract, suggestions: List<Purchases.Suggestion>, accounts: List<Account>, choices: List<StockChoice>, depositKinds: List<Purchases.DepositKind>, writes: Boolean) = panel {
     div("panel-body") {
@@ -529,9 +609,11 @@ private fun FlowContent.readingPanel(ctx: PageContext, d: Document, reading: Inv
             reading.lines.isEmpty() -> p("cap") { +"Kopfdaten gelesen, aber keine Positionen erkannt: Der Leser sucht Zeilen, die mit einer Menge beginnen und mit einem Betrag enden. Positionen bitte von Hand." }
             !writes -> table("t t-tight t-flush") { tbody { for (sg in suggestions) tr { td("fill") { +sg.line.description }; td("num") { span("money-s") { +euro(sg.line.total) } } } } }
             else -> postForm(ctx, "$BASE/einkauf/${d.id}/positionen", "stack-tight") {
-                hiddenInput(name = "n") { value = suggestions.size.toString() }
+                val pending = suggestions.filter { !it.done }
+                if (pending.size < suggestions.size) p("cap") { +"${count(suggestions.size - pending.size, "Zeile ist", "Zeilen sind")} schon übernommen und stehen hier nicht mehr." }
+                hiddenInput(name = "n") { value = pending.size.toString() }
                 p("cap") { +"Je Zeile: Lagerartikel (mit Gebinde) oder ein Konto für Zeilen ohne Lager — oder auslassen. Menge ist die Lagermenge: bei einer Kiste zu 20 Flaschen also 20 je Kiste; die Verwaltung merkt sich das Verhältnis für den nächsten Beleg.${if (reading.linesAreNet) " Die Rechnung weist die Zeilen netto aus; die Beträge hier sind brutto hochgerechnet." else ""}" }
-                suggestions.forEachIndexed { i, sg ->
+                pending.forEachIndexed { i, sg ->
                     val isDeposit = sg.line.kind == InvoiceReader.Kind.DEPOSIT
                     val selected = sg.mapping?.let { m -> if (m.itemId != null) "item:${m.itemId}${m.containerTypeId?.let { ":$it" } ?: ""}" else if (m.depositKindId != null) "pfand:${m.depositKindId}" else m.accountId?.let { "acct:$it" } } ?: (if (isDeposit) "pfand:neu" else "")
                     div("sub stack-tight") {

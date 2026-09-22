@@ -36,7 +36,7 @@ import java.time.LocalDate
 import java.util.UUID
 
 /** Was die Seiten brauchen, an einer Stelle. */
-class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val receipts: ReceiptStore, val mailer: Mailer = SmtpMailer) {
+class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val receipts: ReceiptStore, val mailer: Mailer = SmtpMailer, val mailbox: Mailbox = ImapMailbox) {
     val accounts = Accounts(db) { LocalDate.now(config.zone) }
     val audit = AuditLog(db)
     val settings = VereinSettings(db)
@@ -46,6 +46,7 @@ class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val 
     val statements = Statements(db, writes, config.zone)
     val products = Products(db)
     val books = Books(db, config.zone)
+    val intake = MailIntake(db, receipts, purchases, settings, mailbox, config.zone)
     val cash = Cash(db, config.zone)
 }
 

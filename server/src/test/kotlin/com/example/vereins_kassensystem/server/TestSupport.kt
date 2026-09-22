@@ -9,6 +9,7 @@ import com.example.vereins_kassensystem.sync.RegisterRequest
 import com.example.vereins_kassensystem.sync.RegisterResponse
 import com.example.vereins_kassensystem.sync.WireJson
 import com.example.vereins_kassensystem.server.http.module
+import com.example.vereins_kassensystem.server.web.FakeMailbox
 import com.example.vereins_kassensystem.server.web.OutboxMailer
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -64,7 +65,7 @@ val SCHEMA_VERSION: String by lazy {
     java.io.File(dir.toURI()).list()!!.mapNotNull { Regex("V(\\d+)__").find(it)?.groupValues?.get(1)?.toInt() }.max().toString()
 }
 
-class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer)
+class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer, val mailbox: FakeMailbox)
 
 /** Startet den Dienst wie in Main.kt, nur ohne Netz, und räumt danach auf. */
 fun serverTest(insecureCookies: Boolean = false, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
@@ -78,12 +79,14 @@ fun serverTest(insecureCookies: Boolean = false, block: suspend ApplicationTestB
         insecureCookies = insecureCookies,
     )
     val outbox = OutboxMailer()
-    application { module(config, db, outbox) }
+    val mailbox = FakeMailbox()
+    // Ohne den Zehn-Minuten-Abruf: Der Test ruft den Posteingang selbst ab.
+    application { module(config, db, outbox, mailbox, pollMailbox = false) }
     val client = createClient {
         install(ContentNegotiation) { json(WireJson) }
     }
     try {
-        block(TestContext(db, client, outbox))
+        block(TestContext(db, client, outbox, mailbox))
     } finally {
         db.close()
     }

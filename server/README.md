@@ -159,7 +159,21 @@ Adresse begrenzt.
 |---|---|
 | `VEREIN_ZONE` | Zeitzone für „heute" und die Monatsgrenzen, Vorgabe `Europe/Vienna` |
 | `TRUST_PROXY` | `true`, wenn der Dienst nur über Caddy erreichbar ist — dann gilt `X-Forwarded-For` als Adresse des Anrufers. In `compose.yaml` gesetzt, in `compose.dev.yaml` nicht |
+| (Einstellungen) | IMAP-Server, Port, Benutzer, Passwort, Ordner und „alle 10 Minuten abrufen“ stehen in der Tabelle `settings`, nicht in der Umgebung |
 | `WEB_INSECURE_COOKIES` | `true` nur zum Ausprobieren ohne HTTPS (`compose.dev.yaml`); im Betrieb nie |
+
+**Rechnungen per E-Mail** (`Mailbox.kt`, `MailIntake.kt`, V11): Dasselbe Postfach, das die
+Abrechnungen verschickt, ist die Rechnungsadresse bei Brauerei und Händler. Ist unter
+Einstellungen der IMAP-Zugang eingetragen (Benutzer und Passwort leer: die vom Versand), holt
+der Dienst alle zehn Minuten die ungelesenen Mails (und auf Knopfdruck unter Einkauf →
+Posteingang); jede mit PDF wird festgehalten. Von einem Absender, den der Kassier einmal
+freigegeben hat, wird sie gleich ein Beleg: Kopf aus der Datei, die gemerkten Positionen und
+bekannten Pfandgebinde sofort gebucht, alles andere wartet als Vorschlag am Beleg. Ein
+unbekannter Absender wartet im Posteingang — übernehmen (und freigeben) oder ablehnen. Nichts
+wird zweimal eingelesen (Message-ID), ein Beleg mit derselben Nummer bleibt als „nicht
+angelegt“ stehen, ein Verbindungsfehler steht in den Einstellungen. Die Mails bleiben im
+Postfach, nur die Lesemarke wird gesetzt. Was der Posteingang selbst bucht, steht im Protokoll
+unter „Posteingang (automatisch)“.
 
 Unter dem Lager steht **Pfand und Leergut** (`deposit_kinds`, `deposit_movements`, V10): je
 Gebindeart — Fass 20 l, Fass 30 l, Kiste 12 × 1 l, Container — unabhängig vom Inhalt, was beim
@@ -213,6 +227,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `src/main/resources/db/migration/V11__posteingang.sql` | Posteingang, freigegebene Absender, gebuchte Zeilen je Beleg |
 | `src/main/resources/db/migration/V10__pfand.sql` | Pfandgebinde und Bewegungen, Konto „Pfand und Leergut“ |
 | `src/main/resources/db/migration/V9__rechnung_lesen.sql` | `supplier_articles` — was eine Rechnungszeile eines Lieferanten im Lager ist, einmal bestätigt |
 | `src/main/resources/db/migration/V8__sperre.sql` | `members.blocked_reason`, synchronisiert |

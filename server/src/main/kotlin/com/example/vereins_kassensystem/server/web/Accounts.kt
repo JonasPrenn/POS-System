@@ -60,6 +60,12 @@ class WebUser(
 ) {
     fun usable(today: LocalDate): Boolean = active && (validUntil == null || !today.isAfter(validUntil))
 
+    companion object {
+        /** Der Posteingang handelt ohne Menschen: ein Akteur fürs Protokoll, der kein Benutzer ist. */
+        val SYSTEM_ID: UUID = UUID(0L, 0L)
+        val SYSTEM = WebUser(SYSTEM_ID, "posteingang", "Posteingang (automatisch)", Role.KASSIER, true, null, null)
+    }
+
     val initials: String
         get() = displayName.split(' ').filter { it.isNotBlank() && it.first().isLetter() && !it.endsWith('.') }
             .let { parts -> listOfNotNull(parts.firstOrNull(), parts.drop(1).lastOrNull()) }
@@ -211,7 +217,8 @@ class AuditLog(private val db: Database) {
 
     companion object {
         fun record(c: Connection, userId: UUID?, actor: String, action: String, subject: String = "", detail: String = "") {
-            c.execute("INSERT INTO audit_log (user_id, actor, action, subject, detail) VALUES (?, ?, ?, ?, ?)", userId, actor, action, subject, detail)
+            // Der Systemakteur hat keine Benutzerzeile; im Protokoll steht nur sein Name.
+            c.execute("INSERT INTO audit_log (user_id, actor, action, subject, detail) VALUES (?, ?, ?, ?, ?)", userId?.takeIf { it != WebUser.SYSTEM_ID }, actor, action, subject, detail)
         }
     }
 }
@@ -232,6 +239,7 @@ class VereinSettings(private val db: Database) {
     class Values(
         val name: String, val accent: String, val fiscalStartMonth: Int, val address: String,
         val bank: BankAccount, val smtp: Smtp, val statementText: String,
+        val imap: Imap = Imap("", 993, "", "", "INBOX", false), val mailLastPoll: Instant? = null, val mailLastError: String? = null,
     )
 
     fun load(): Values = db.transaction { c ->
@@ -244,6 +252,8 @@ class VereinSettings(private val db: Database) {
             bank = BankAccount(all[BANK_HOLDER].orEmpty().ifBlank { all[NAME].orEmpty() }, all[IBAN].orEmpty(), all[BIC].orEmpty()),
             smtp = Smtp(all[SMTP_HOST].orEmpty(), all[SMTP_PORT]?.toIntOrNull() ?: 587, all[SMTP_USER].orEmpty(), all[SMTP_PASSWORD].orEmpty(), all[SMTP_FROM].orEmpty(), all[SMTP_TLS] != "0"),
             statementText = all[STATEMENT_TEXT].orEmpty(),
+            imap = Imap(all[IMAP_HOST].orEmpty(), all[IMAP_PORT]?.toIntOrNull() ?: 993, all[IMAP_USER].orEmpty(), all[IMAP_PASSWORD].orEmpty(), all[IMAP_FOLDER].orEmpty().ifBlank { "INBOX" }, all[IMAP_ENABLED] == "1"),
+            mailLastPoll = all[MAIL_LAST_POLL]?.let { runCatching { Instant.parse(it) }.getOrNull() }, mailLastError = all[MAIL_LAST_ERROR]?.takeIf { it.isNotBlank() },
         )
     }
 
@@ -267,6 +277,15 @@ class VereinSettings(private val db: Database) {
         if (!password.isNullOrEmpty()) put(SMTP_PASSWORD to password)
     }
 
+    fun saveImap(host: String, port: Int, user: String, password: String?, folder: String, enabled: Boolean) {
+        if (enabled && host.isBlank()) throw AccountProblem("Zum Abrufen braucht es einen IMAP-Server.")
+        put(IMAP_HOST to host.trim(), IMAP_PORT to port.toString(), IMAP_USER to user.trim(), IMAP_FOLDER to folder.trim().ifBlank { "INBOX" }, IMAP_ENABLED to if (enabled) "1" else "0")
+        if (!password.isNullOrEmpty()) put(IMAP_PASSWORD to password)
+    }
+
+    /** Wann zuletzt abgerufen wurde und ob es gut ging — für die Seite, nicht fürs Protokoll. */
+    fun notePoll(at: Instant, error: String?) = put(MAIL_LAST_POLL to at.toString(), MAIL_LAST_ERROR to error.orEmpty())
+
     private fun put(vararg pairs: Pair<String, String>) = db.transaction { c ->
         for ((key, value) in pairs) c.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", key, value)
     }
@@ -286,6 +305,14 @@ class VereinSettings(private val db: Database) {
         private const val SMTP_FROM = "smtp_from"
         private const val SMTP_TLS = "smtp_starttls"
         private const val STATEMENT_TEXT = "statement_text"
+        private const val IMAP_HOST = "imap_host"
+        private const val IMAP_PORT = "imap_port"
+        private const val IMAP_USER = "imap_user"
+        private const val IMAP_PASSWORD = "imap_password"
+        private const val IMAP_FOLDER = "imap_folder"
+        private const val IMAP_ENABLED = "imap_enabled"
+        private const val MAIL_LAST_POLL = "mail_last_poll"
+        private const val MAIL_LAST_ERROR = "mail_last_error"
 
         /** ISO 7064 mod 97-10, wie jede Bank sie prüft. */
         fun ibanValid(iban: String): Boolean {

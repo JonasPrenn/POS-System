@@ -252,7 +252,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
     /** Wohin eine Rechnungszeile geht: ein Lagerartikel (mit Gebinde), ein Konto, oder nichts. */
     class ArticleMapping(val itemId: UUID?, val containerTypeId: UUID?, val accountId: UUID?, val factor: Double, val depositKindId: UUID? = null)
 
-    class Suggestion(val line: InvoiceReader.Line, val key: String, val mapping: ArticleMapping?, val learned: Boolean) {
+    class Suggestion(val line: InvoiceReader.Line, val key: String, val mapping: ArticleMapping?, val learned: Boolean, val done: Boolean = false) {
         /** Die vorgeschlagene Lagermenge: Rechnungsmenge mal gelerntem Faktor. */
         val quantity: Double? get() = line.quantity?.let { q -> Money.cents(q * (mapping?.factor ?: 1.0)) }
     }
@@ -280,8 +280,11 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
     fun suggest(extract: InvoiceReader.Extract, doc: Document, choices: List<StockChoice>, sizes: Map<UUID, Double>): List<Suggestion> {
         val learned = mappings(supplierKey(doc))
         val kinds = depositKinds()
+        val done = db.read { c -> c.query("SELECT article_key FROM purchase_line_keys WHERE document_id = ?", doc.id) { it.getString("article_key") }.toSet() }
         return extract.lines.map { line ->
             val key = line.key
+            // Schon gebucht: die Datei ein zweites Mal lesen darf nichts doppelt vorschlagen.
+            if (key in done) return@map Suggestion(line, key, null, learned = false, done = true)
             learned[key]?.let { return@map Suggestion(line, key, it, learned = true) }
             if (line.kind == InvoiceReader.Kind.DEPOSIT) {
                 // Ein Pfandgebinde: das mit derselben Nummer, sonst dasselbe Wort (Fass 20 l) — sonst neu anlegen.
@@ -325,6 +328,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
             }
             val factor = if (line.itemId != null && line.invoiceQuantity != null && line.invoiceQuantity > 0 && line.quantity != null) line.quantity / line.invoiceQuantity else 1.0
             db.transaction { c ->
+                c.execute("INSERT INTO purchase_line_keys (document_id, article_key) VALUES (?, ?) ON CONFLICT DO NOTHING", documentId, line.key)
                 c.execute(
                     """
                     INSERT INTO supplier_articles (id, supplier_key, article_key, stock_item_id, container_type_id, account_id, factor, deposit_kind_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)

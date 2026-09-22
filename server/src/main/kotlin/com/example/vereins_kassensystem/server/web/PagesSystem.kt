@@ -62,6 +62,7 @@ private val ACTIONS = mapOf(
     "product.create" to "Produkt angelegt", "product.update" to "Produkt geändert", "product.retire" to "Produkt aus dem Sortiment genommen",
     "variant.create" to "Variante angelegt", "variant.update" to "Variante geändert", "variant.remove" to "Variante entfernt",
     "component.set" to "Rezeptur geändert", "component.remove" to "Rezepturzeile entfernt",
+    "mail.accept" to "Rechnung aus dem Posteingang übernommen", "mail.reject" to "Mail im Posteingang abgelehnt", "mail.untrust" to "Absender gesperrt",
     "deposit.kind" to "Pfandgebinde angelegt oder geändert", "deposit.move" to "Pfand gebucht",
     "books.bank" to "Bankstand eingetragen", "books.bundle" to "Prüfermappe erzeugt",
     "category.create" to "Kategorie angelegt", "category.update" to "Kategorie geändert", "category.remove" to "Kategorie entfernt",
@@ -152,6 +153,7 @@ internal fun Route.systemPages(web: Web) {
                 when (form["teil"]) {
                     "bank" -> { web.settings.saveBank(form["inhaber"].orEmpty(), form["iban"].orEmpty(), form["bic"].orEmpty(), form["text"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Bankverbindung und Text der Abrechnung") }
                     "smtp" -> { web.settings.saveSmtp(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 587, form["benutzer"].orEmpty(), form["passwort"], form["absender"].orEmpty(), form["starttls"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Versand") }
+                    "imap" -> { web.settings.saveImap(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 993, form["benutzer"].orEmpty(), form["passwort"], form["ordner"].orEmpty(), form["aktiv"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Empfang") }
                     else -> { web.settings.save(form["name"].orEmpty(), form["farbe"].orEmpty(), form["monat"]?.toIntOrNull() ?: 1, form["anschrift"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Name, Vereinsfarbe, Rechnungsjahr, Anschrift") }
                 }
                 "hinweis=" + "Gespeichert.".encodeURLParameter()
@@ -374,6 +376,22 @@ private fun HTML.settingsPage(ctx: PageContext, notice: String?, problem: String
                     label("field") { span { +"Absender" }; input(InputType.email, name = "absender") { value = ctx.verein.smtp.from; placeholder = "kassier@example.at" } }
                 }
                 label("check") { input(InputType.checkBox, name = "starttls") { value = "1"; checked = ctx.verein.smtp.startTls }; span { +"STARTTLS verwenden" } }
+                div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+            }
+        }
+        panel {
+            postForm(ctx, "$BASE/einstellungen", "panel-body") {
+                hiddenInput(name = "teil") { value = "imap" }
+                h2("title-m") { +"E-Mail-Empfang: Rechnungen" }
+                p("muted") { +"Dasselbe Postfach als Rechnungsadresse bei Brauerei und Händler: Jede Mail mit PDF landet im Posteingang unter Einkauf; von freigegebenen Absendern wird sie gleich ein Beleg. Benutzer und Passwort leer: die vom Versand. ${ctx.verein.mailLastPoll?.let { "Zuletzt abgerufen ${ctx.friendly(it)}" + (ctx.verein.mailLastError?.let { e -> " — $e" } ?: ", ohne Fehler") } ?: "Noch nie abgerufen."}" }
+                div("form-grid") {
+                    label("field") { span { +"IMAP-Server" }; input(InputType.text, name = "host") { value = ctx.verein.imap.host; placeholder = "imap.example.at" } }
+                    label("field") { span { +"Port (993 mit SSL)" }; input(InputType.number, name = "port") { value = ctx.verein.imap.port.toString() } }
+                    label("field") { span { +"Benutzer (leer: wie Versand)" }; input(InputType.text, name = "benutzer") { value = ctx.verein.imap.user; attributes["autocomplete"] = "off" } }
+                    label("field") { span { +(if (ctx.verein.imap.password.isNotEmpty()) "Passwort (leer: bleibt)" else "Passwort (leer: wie Versand)") }; input(InputType.password, name = "passwort") { attributes["autocomplete"] = "new-password" } }
+                    label("field") { span { +"Ordner" }; input(InputType.text, name = "ordner") { value = ctx.verein.imap.folder } }
+                }
+                label("check") { input(InputType.checkBox, name = "aktiv") { value = "1"; checked = ctx.verein.imap.enabled }; span { +"Alle 10 Minuten abrufen" } }
                 div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
             }
         }
