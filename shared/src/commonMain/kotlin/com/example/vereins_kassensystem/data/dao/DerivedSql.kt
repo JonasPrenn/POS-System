@@ -25,7 +25,7 @@ internal const val BALANCE_EFFECT =
  * das Limit nicht an der Gleitkommasumme von 4,20 + 4,20 + … scheitert.
  */
 internal const val MEMBER_SELECT =
-    "SELECT m.id AS id, m.name AS name, m.nickname AS nickname, m.categoryId AS categoryId, " +
+    "SELECT m.id AS id, m.name AS name, m.nickname AS nickname, m.categoryId AS categoryId, m.blockedReason AS blockedReason, " +
         "ROUND(COALESCE((SELECT SUM($BALANCE_EFFECT) FROM transactions t " +
         "WHERE t.memberId = m.id AND t.deleted = 0), 0), 2) AS balance, " +
         // Korrekturen zählen nicht: Eine Übernahmebuchung ist kein Besuch an der Theke.

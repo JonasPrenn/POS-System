@@ -56,6 +56,15 @@ class FakeSyncServer {
 
     fun row(entity: String, id: String): JsonObject? = rows["$entity/$id"]?.row
 
+    /** Was die Verwaltung am Server tut: eine Stammdatenzeile ändern, mit neuer Sequenznummer — ohne ein Gerät dahinter. */
+    fun blockMember(id: String, reason: String?) {
+        val stored = rows["members/$id"] ?: error("kein Mitglied $id")
+        clock += 1_000
+        stored.row = JsonObject(stored.row + ("blocked_reason" to (reason?.let { kotlinx.serialization.json.JsonPrimitive(it) } ?: kotlinx.serialization.json.JsonNull)))
+        stored.seq = ++seq
+        stored.updatedAt = RowCodec.iso(clock)
+    }
+
     fun api(): SyncApi = object : SyncApi {
         override suspend fun health() = HealthResponse("ok", RowCodec.iso(clock), "2", "ok").also { reach() }
 

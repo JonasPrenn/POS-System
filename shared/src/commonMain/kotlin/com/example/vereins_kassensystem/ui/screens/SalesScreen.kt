@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.displayName
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.data.entity.matches
 import com.example.vereins_kassensystem.data.entity.ProductVariant
 import com.example.vereins_kassensystem.ui.components.EmptyState
@@ -580,6 +581,15 @@ private fun MemberSection(
                         style = MoneySmall,
                         color = balanceColor(selectedMember.balance, limit)
                     )
+                    // Die Sperre aus der Verwaltung steht hier, bevor jemand „Deckel“ tippt — Bernstein: Aufmerksamkeit, kein Fehler.
+                    if (selectedMember.isBlocked) {
+                        Text(
+                            text = "Deckel gesperrt: ${selectedMember.blockedReason}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = VereinsColors.warning,
+                            maxLines = 2
+                        )
+                    }
                 }
                 IconButton(onClick = onClear) {
                     Icon(
@@ -737,7 +747,7 @@ fun MemberSelectionDialog(
                         items(filtered, key = { it.id }) { member ->
                             ListItem(
                                 headlineContent = { Text(member.displayName) },
-                                supportingContent = { Text(Money.format(member.balance)) },
+                                supportingContent = { Text(if (member.isBlocked) "${Money.format(member.balance)} · Deckel gesperrt" else Money.format(member.balance)) },
                                 leadingContent = { MemberAvatar(member.name, size = 36.dp) },
                                 modifier = Modifier.clickable {
                                     onMemberSelected(member)

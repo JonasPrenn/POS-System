@@ -162,6 +162,20 @@ internal fun Route.mainPages(web: Web) {
             call.respondRedirect("$BASE/mitglieder?m=$id&$outcome")
         }
     }
+    post("/mitglieder/{id}/sperre") {
+        call.guardedPost(web, Area.MEMBERS) { ctx, form ->
+            if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Deckel sperrt der Kassier.")
+            val id = uuidOrNull(call.parameters["id"]) ?: return@guardedPost call.respondRedirect("$BASE/mitglieder")
+            val outcome = try {
+                val reason = form["grund"].orEmpty()
+                web.writes.blockMember(ctx.user, id, reason)
+                "hinweis=" + (if (reason.isBlank()) "Sperre aufgehoben. Die Tablets sehen es beim nächsten Abgleich." else "Deckel gesperrt. Die Theke zeigt den Grund beim nächsten Abgleich.").encodeURLParameter()
+            } catch (e: AccountProblem) {
+                "fehler=" + e.message.orEmpty().encodeURLParameter()
+            }
+            call.respondRedirect("$BASE/mitglieder?m=$id&$outcome")
+        }
+    }
     post("/mitglieder/{id}/buchung") {
         call.guardedPost(web, Area.MEMBERS) { ctx, form ->
             if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Auf Deckel bucht der Kassier.")
@@ -387,6 +401,7 @@ private val MEMBER_FILTERS: List<Triple<String, String, (MemberLine) -> Boolean>
     Triple("minus", "Im Minus") { it.owes },
     Triple("limit", "Über dem Limit") { it.overLimit },
     Triple("guthaben", "Guthaben") { it.balance > 0 },
+    Triple("gesperrt", "Gesperrt") { it.blocked },
 )
 
 private fun HTML.membersPage(
@@ -445,7 +460,7 @@ private fun HTML.membersPage(
                                     span("avatar avatar-s") { +initialsOf(m.name) }
                                     a(href = url(m = m), classes = "cover two") {
                                         span("title-s") { +m.name }
-                                        span("cap") { +listOfNotNull(m.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }, m.category ?: "Ohne Kategorie").joinToString(" · ") }
+                                        span("cap") { +listOfNotNull(m.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }, m.category ?: "Ohne Kategorie", "Deckel gesperrt".takeIf { m.blocked }).joinToString(" · ") }
                                     }
                                 }
                             }
@@ -506,6 +521,19 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
         }
     }
     details {
+        summary("btn") { +(if (m.blocked) "Sperre aufheben" else "Sperren") }
+        postForm(ctx, "$BASE/mitglieder/${m.id}/sperre", "stack-tight confirm") {
+            if (m.blocked) {
+                p("cap") { +"Gesperrt: ${m.blockedReason}" }
+                hiddenInput(name = "grund") { value = "" }
+                button(type = ButtonType.submit, classes = "btn btn-primary") { +"Sperre aufheben" }
+            } else {
+                label("field") { span { +"Grund — steht an der Theke, bevor angeschrieben wird" }; input(InputType.text, name = "grund") { required = true; maxLength = "120"; placeholder = "Abrechnung offen seit August" } }
+                button(type = ButtonType.submit, classes = "btn btn-primary") { +"Deckel sperren" }
+            }
+        }
+    }
+    details {
         summary("btn") { +"Ändern" }
         postForm(ctx, "$BASE/mitglieder/${m.id}", "stack-tight confirm") {
             label("field") { span { +"Name" }; input(InputType.text, name = "name") { value = m.name; required = true; maxLength = "80" } }
@@ -524,7 +552,9 @@ private fun FlowContent.memberDetail(ctx: PageContext, m: MemberLine, statement:
                 h2("title-m") { +m.name }
                 span("muted") { +listOfNotNull(m.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }, m.category ?: "Ohne Kategorie").joinToString(" · ") }
             }
+            if (m.blocked) chip("Deckel gesperrt", "warn", "lock")
         }
+        if (m.blocked) div("note note-warn") { icon("lock", "m"); span { +"Gesperrt: ${m.blockedReason}. Die Theke schreibt nicht an, Bar und Karte gehen." } }
         div("sub stack-tight") {
             div("row-between") {
                 span("label-m") { +"Deckel" }

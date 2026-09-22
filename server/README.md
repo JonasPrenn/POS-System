@@ -63,8 +63,9 @@ Unter `/verwaltung` liegt die Web-Oberfläche (`docs/WEB-VERWALTUNG.md`), dersel
 server-gerendertes HTML. Gebaut ist Phase 1: Anmeldung mit Rollen, Übersicht, Mitglieder mit
 Deckelstand und Kontoauszug, Berichte, Lager, Einkauf (die Wareneingänge mit Belegfoto),
 Geräte koppeln und sperren, Benutzer, Protokoll, Einstellungen. Aus Phase 2 dazu: Kassier und
-Administrator legen Mitglieder an, ändern Name und Kategorie, und buchen Aufladungen (bar,
-Karte, Überweisung) und Korrekturen mit Grund auf den Deckel. Das ist das Einzige, was die
+Administrator legen Mitglieder an, ändern Name und Kategorie, sperren einen Deckel mit Grund
+(die Theke zeigt ihn und schreibt nicht mehr an), und buchen Aufladungen (bar, Karte,
+Überweisung) und Korrekturen mit Grund auf den Deckel. Das ist das Einzige, was die
 Verwaltung in synchronisierte Tabellen schreibt, und es geht über `Database.write`
 (`web/Writes.kt`) — dieselbe Sequenzsperre wie beim Abgleich; die Tablets holen es sich beim
 nächsten Abgleich. Gebucht wird in der Form, in der die App bucht; jede Buchung trägt den
@@ -175,6 +176,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `src/main/resources/db/migration/V8__sperre.sql` | `members.blocked_reason`, synchronisiert |
 | `src/main/resources/db/migration/V7__kasse.sql` | `cash_sessions` und `cash_movements`, synchronisiert — die Schichten und Barbewegungen der Tablets |
 | `src/main/resources/db/migration/V6__abrechnung.sql` | Profile, Abrechnungsläufe, Abrechnungen mit Nummernkreis, importierte Bankumsätze |
 | `src/main/resources/db/migration/V5__einkauf.sql` | Lieferanten, Kontenrahmen, Belegdaten (`purchase_documents`, 1:1 zu `deliveries`), Belegzeilen mit Konto |

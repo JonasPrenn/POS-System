@@ -145,7 +145,7 @@ class SyncEngineTest {
     }
 
     @Test
-    fun `two tills charging the same tab both end up with the sum`() = devices { _, theke, ipad ->
+    fun `two tills charging the same tab both end up with the sum`() = devices { server, theke, ipad ->
         // A3 — der Test, der mit einem fortgeschriebenen Saldo fehlschlägt.
         val beer = Product(name = "Bier", price = 4.0, category = "Getränke")
         val wine = Product(name = "Wein", price = 5.0, category = "Getränke")
@@ -166,6 +166,12 @@ class SyncEngineTest {
 
         assertEquals(11.0, theke.balanceOf("M. Bauer"), 0.0001)
         assertEquals(11.0, ipad.balanceOf("M. Bauer"), 0.0001)
+
+        // Die Sperre aus der Verwaltung: als Stammdatenänderung vom Server, mit Grund, auf beiden Theken sichtbar.
+        server.blockMember(ipad.repository.allMembers.first().single().id, "Abrechnung offen")
+        theke.engine.syncOnce(); ipad.engine.syncOnce()
+        assertEquals("Abrechnung offen", theke.repository.allMembers.first().single().blockedReason)
+        assertTrue(ipad.repository.allMembers.first().single().isBlocked)
 
         // Die Lade zählt nur, was das eigene Gerät bar gebucht hat — auch nachdem der Server
         // die eigenen Zeilen zurückgeschickt hat (das Echo darf die Marke `local` nicht löschen).

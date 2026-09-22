@@ -66,6 +66,18 @@ class Writes(private val db: Database) {
         }
     }
 
+    /** Die Sperre (Konzept 4.1): mit Grund, synchronisiert; die Theke zeigt sie und schreibt nicht mehr an. Leerer Grund hebt sie auf. */
+    fun blockMember(by: WebUser, id: UUID, reason: String) {
+        val clean = reason.trim().replace(Regex("\\s+"), " ").take(120)
+        db.write { c ->
+            val name = c.queryOne("SELECT name FROM members WHERE id = ? AND NOT deleted FOR UPDATE", id) { it.getString("name") }
+                ?: throw AccountProblem("Dieses Mitglied gibt es nicht mehr.")
+            c.execute("UPDATE members SET blocked_reason = ? WHERE id = ?", clean.ifEmpty { null }, id)
+            if (clean.isEmpty()) AuditLog.record(c, by.id, by.displayName, "member.unblock", name)
+            else AuditLog.record(c, by.id, by.displayName, "member.block", name, clean)
+        }
+    }
+
     /**
      * Eine Bewegung auf dem Deckel. [bookingId] kommt aus dem Formular: Wer zweimal auf den
      * Knopf drückt oder die Seite neu lädt, schickt denselben Schlüssel, und gebucht wird

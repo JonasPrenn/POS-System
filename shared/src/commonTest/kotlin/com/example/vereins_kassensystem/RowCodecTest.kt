@@ -52,8 +52,11 @@ class RowCodecTest {
         val category = MemberCategory(name = "Aktive", negativeBalanceLimit = -20.0)
         assertEquals(category.copy(sync = pulled), RowCodec.decodeCategory(RowCodec.encode(category).fromServer(), false))
 
-        val member = MemberRow(name = "Maria Bauer", nickname = "Minerva", categoryId = category.id)
+        val member = MemberRow(name = "Maria Bauer", nickname = "Minerva", categoryId = category.id, blockedReason = "Abrechnung offen")
         assertEquals(member.copy(sync = pulled), RowCodec.decodeMember(RowCodec.encode(member).fromServer(), false))
+        // Keine Sperre reist als null oder als leerer Text — beides heißt: nicht gesperrt.
+        assertNull(RowCodec.decodeMember(RowCodec.encode(member.copy(blockedReason = null)).fromServer(), false).blockedReason)
+        assertNull(RowCodec.decodeMember(JsonObject(RowCodec.encode(member).fromServer() + ("blocked_reason" to kotlinx.serialization.json.JsonPrimitive(""))), false).blockedReason)
         // Ein Server, der den Couleurnamen noch nicht kennt, schickt keinen: dann gibt es keinen.
         assertEquals("", RowCodec.decodeMember(JsonObject(RowCodec.encode(member).fromServer() - "nickname"), false).nickname)
         assertNull(RowCodec.decodeMember(RowCodec.encode(member.copy(categoryId = null)).fromServer(), false).categoryId)

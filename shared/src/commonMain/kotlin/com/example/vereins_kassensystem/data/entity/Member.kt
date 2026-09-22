@@ -22,6 +22,10 @@ import com.example.vereins_kassensystem.platform.Ids
  * [nickname] ist der Couleurname („v. Sokrates“): An der Bude ist er das, wonach man sucht.
  * Leer heißt: keiner.
  *
+ * [blockedReason] ist die Sperre des Deckels (Konzept 4.1): gesetzt vom Kassier in der
+ * Verwaltung, mit Grund, synchronisiert — die Theke sieht sie, bevor sie anschreibt. Null
+ * heißt: nicht gesperrt.
+ *
  * Die Tabellenzeile selbst ist [MemberRow].
  */
 data class Member(
@@ -30,8 +34,11 @@ data class Member(
     val nickname: String = "",
     val balance: Double = 0.0,
     val categoryId: String? = null,
-    val lastUsedTimestamp: Long = 0L
-)
+    val lastUsedTimestamp: Long = 0L,
+    val blockedReason: String? = null
+) {
+    val isBlocked: Boolean get() = !blockedReason.isNullOrBlank()
+}
 
 @Entity(
     tableName = "members",
@@ -42,6 +49,7 @@ data class MemberRow(
     val name: String,
     @ColumnInfo(defaultValue = "") val nickname: String = "",
     val categoryId: String? = null,
+    val blockedReason: String? = null,
     @Embedded val sync: SyncMeta = SyncMeta()
 )
 

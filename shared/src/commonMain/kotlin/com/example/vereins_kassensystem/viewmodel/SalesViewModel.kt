@@ -252,6 +252,11 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return@launch
 
         if (paymentType == Ledger.MEMBER_BALANCE && member != null) {
+            // Die Sperre kommt aus der Verwaltung und gilt vor dem Limit: Sie steht mit Grund da.
+            if (member.isBlocked) {
+                _checkoutError.emit("Deckel gesperrt: ${member.blockedReason}. Bar oder Karte geht.")
+                return@launch
+            }
             val limit = member.categoryId?.let { repository.getCategoryById(it) }?.negativeBalanceLimit ?: 0.0
             // Was der Deckel wirklich trägt: die Positionen nach Rabatt, plus Trinkgeld.
             val charge = currentCart.sumOf { it.lineTotal } + currentTip

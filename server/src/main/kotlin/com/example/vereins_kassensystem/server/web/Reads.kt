@@ -31,7 +31,8 @@ class Checkout(val at: Instant, val device: String?, val who: String?, val what:
 
 class TabTotals(val owedSum: Double, val owedCount: Int, val overLimit: Int, val creditSum: Double, val creditCount: Int)
 
-class MemberLine(val id: UUID, val name: String, val nickname: String, val category: String?, val limit: Double, val balance: Double, val lastAt: Instant?) {
+class MemberLine(val id: UUID, val name: String, val nickname: String, val category: String?, val limit: Double, val balance: Double, val lastAt: Instant?, val blockedReason: String? = null) {
+    val blocked get() = !blockedReason.isNullOrBlank()
     /** „Lukas Hofer v. Sokrates“, wie in der App. */
     val displayName get() = if (nickname.isBlank()) name else "$name v. $nickname"
     val overLimit get() = balance < limit
@@ -112,7 +113,7 @@ class Reads(private val db: Database, val zone: ZoneId) {
 
     private fun members(c: Connection): List<MemberLine> = c.query(
         """
-        SELECT m.id, m.name, m.nickname, k.name AS category, COALESCE(k.negative_balance_limit, 0) AS lim, b.balance,
+        SELECT m.id, m.name, m.nickname, m.blocked_reason, k.name AS category, COALESCE(k.negative_balance_limit, 0) AS lim, b.balance,
                (SELECT MAX(t.occurred_at) FROM transactions t
                  WHERE t.member_id = m.id AND NOT t.deleted AND t.payment_type <> 'CORRECTION') AS last_at
         FROM members m
@@ -123,7 +124,7 @@ class Reads(private val db: Database, val zone: ZoneId) {
     ) {
         MemberLine(
             it.getObject("id", UUID::class.java), it.getString("name"), it.getString("nickname"), it.getString("category"),
-            it.getDouble("lim"), it.getDouble("balance"), it.getTimestamp("last_at")?.toInstant()
+            it.getDouble("lim"), it.getDouble("balance"), it.getTimestamp("last_at")?.toInstant(), it.getString("blocked_reason")
         )
     }
 

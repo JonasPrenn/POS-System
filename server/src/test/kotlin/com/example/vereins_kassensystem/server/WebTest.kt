@@ -283,6 +283,36 @@ class WebTest {
     }
 
     @Test
+    fun `a tab blocked at the desk reaches the tills with its reason and can be lifted again`() = serverTest(insecureCookies = true) { ctx ->
+        val device = ctx.pairDevice("Theke links")
+        val member = newId()
+        ctx.push(device.token, insertOp("members", buildJsonObject { put("id", member); put("name", "David Leitner") }))
+        val since = ctx.client.get("/v1/sync/changes?since=0") { bearerAuth(device.token) }.body<ChangesResponse>().nextSince
+
+        Accounts(ctx.db).create("lukas", "Lukas Hofer", Role.KASSIER, password)
+        val kassier = browser(); kassier.signIn()
+        val page = kassier.page("/verwaltung/mitglieder?m=$member")
+        assertContains(page, "Deckel sperren")
+        kassier.form("/verwaltung/mitglieder/$member/sperre", "_csrf" to csrfOf(page), "grund" to "  Abrechnung offen  seit August ")
+
+        val blocked = kassier.page("/verwaltung/mitglieder?m=$member")
+        assertContains(blocked, "Gesperrt: Abrechnung offen seit August")
+        assertContains(blocked, "Sperre aufheben")
+        assertContains(kassier.page("/verwaltung/mitglieder?f=gesperrt"), "m=$member", message = "der Filter „Gesperrt“ findet ihn")
+
+        // Das Tablet zieht die Sperre als Stammdatenänderung — mit Grund.
+        val pulled = ctx.client.get("/v1/sync/changes?since=$since") { bearerAuth(device.token) }.body<ChangesResponse>()
+        assertEquals("Abrechnung offen seit August", pulled.changes.single { it.entity == "members" }.row["blocked_reason"]!!.jsonPrimitive.content)
+
+        kassier.form("/verwaltung/mitglieder/$member/sperre", "_csrf" to csrfOf(page), "grund" to "")
+        assertFalse(kassier.page("/verwaltung/mitglieder?m=$member").contains("Sperre aufheben"))
+        val lifted = ctx.client.get("/v1/sync/changes?since=${pulled.nextSince}") { bearerAuth(device.token) }.body<ChangesResponse>()
+        assertEquals(null, lifted.changes.single { it.entity == "members" }.row["blocked_reason"]?.let { if (it is kotlinx.serialization.json.JsonNull) null else it.jsonPrimitive.content })
+        val log = kassier.page("/verwaltung/protokoll")
+        assertContains(log, "Deckel gesperrt"); assertContains(log, "Sperre aufgehoben")
+    }
+
+    @Test
     fun `stock is derived on the server the way the tablet derives it`() = serverTest(insecureCookies = true) { ctx ->
         val device = ctx.pairDevice()
         val wurst = newId(); val bier = newId(); val keg = newId(); val now = Instant.now()

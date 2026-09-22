@@ -53,7 +53,7 @@ private val ACTIONS = mapOf(
     "device.code" to "Kopplungscode erzeugt", "device.register" to "Gerät gekoppelt", "device.revoke" to "Gerät gesperrt",
     "user.create" to "Benutzer angelegt", "user.update" to "Benutzer geändert", "user.password" to "Passwort gesetzt",
     "settings.save" to "Einstellungen geändert",
-    "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert",
+    "member.create" to "Mitglied angelegt", "member.update" to "Mitglied geändert", "member.block" to "Deckel gesperrt", "member.unblock" to "Sperre aufgehoben",
     "tab.topup" to "Deckel aufgeladen", "tab.correction" to "Deckel korrigiert",
     "purchase.create" to "Beleg erfasst", "purchase.update" to "Belegdaten geändert", "purchase.paid" to "Beleg bezahlt",
     "profile.update" to "Profil geändert", "statement.run" to "Abrechnungslauf erstellt", "statement.sent" to "Abrechnung versandt",

@@ -77,6 +77,7 @@ object RowCodec {
         put("name", row.name)
         put("nickname", row.nickname)
         put("category_id", row.categoryId)
+        put("blocked_reason", row.blockedReason)
     }
 
     fun encode(row: Product): JsonObject = buildJsonObject {
@@ -216,6 +217,7 @@ object RowCodec {
         // Fehlt bei einem älteren Server; dann gibt es eben keinen.
         nickname = row.textOrNull("nickname") ?: "",
         categoryId = row.textOrNull("category_id"),
+        blockedReason = row.textOrNull("blocked_reason")?.ifBlank { null },
         sync = row.meta(deleted)
     )
 

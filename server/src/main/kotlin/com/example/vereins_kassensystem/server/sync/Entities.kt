@@ -56,6 +56,7 @@ object Entities {
             Column("name", ColumnType.TEXT),
             Column("nickname", ColumnType.TEXT, default = ""),
             Column("category_id", ColumnType.UUID, nullable = true),
+            Column("blocked_reason", ColumnType.TEXT, nullable = true),
             Column("last_used_timestamp", ColumnType.TIMESTAMP, nullable = true),
         )),
         EntityDef("products", EntityKind.MASTER, listOf(

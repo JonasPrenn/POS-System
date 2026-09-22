@@ -7,10 +7,10 @@ am 21. September freigegeben und in vier Commits gebaut worden (7a bis 7d); was 
 entstand und wo es von der Spezifikation abweicht, steht unten in einem eigenen Abschnitt.
 
 **Vor dem ersten Start der neuen App auf dem Vereinstablet: sichern.** Das Update hebt die
-Datenbank von Schema 10 auf 13 (11 baut jede Tabelle um, 12 ergänzt den Couleurnamen, 13 die
-Kassenlade: `cash_sessions`, `cash_movements` und die Marke `local` an Buchungen). Im Emulator
-ist 10 → 11 mit einem echten Datenbestand geprüft, 12 und 13 nur auf frischen Datenbanken der
-Tests und Simulatoren, auf dem Tablet selbst nichts davon.
+Datenbank von Schema 10 auf 14 (11 baut jede Tabelle um, 12 ergänzt den Couleurnamen, 13 die
+Kassenlade: `cash_sessions`, `cash_movements` und die Marke `local` an Buchungen, 14 die Sperre
+des Deckels). Im Emulator ist 10 → 11 mit einem echten Datenbestand geprüft, 12 bis 14 nur auf
+frischen Datenbanken der Tests und Simulatoren, auf dem Tablet selbst nichts davon.
 
 ---
 
