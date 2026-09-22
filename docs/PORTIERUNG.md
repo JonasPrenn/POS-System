@@ -144,10 +144,11 @@ Das prüft, ob es baut. Wer im Simulator **koppeln** will, lässt `CODE_SIGNING_
 weg (oder startet aus Xcode): Ohne Signatur verweigert der Schlüsselbund das Gerätetoken.
 Für den Simulator signiert Xcode ad hoc, ein Team braucht es dafür nicht.
 
-**Server zum Ausprobieren** (Docker): in `server/deploy`
+**Server zum Ausprobieren** (Docker): in `server/deploy`. Gradle läuft nur aus der Wurzel oder
+einem Projektordner, deshalb der Umweg beim ersten Befehl.
 
 ```bash
-../../gradlew :server:installDist
+(cd ../.. && ./gradlew :server:installDist)
 DOMAIN=localhost DB_PASSWORD=dev PAIRING_ADMIN_TOKEN=dev-admin-token-1234 \
   docker compose -f compose.yaml -f compose.dev.yaml up -d --build db api
 curl -X POST -H "Authorization: Bearer dev-admin-token-1234" http://127.0.0.1:8080/v1/admin/pairing-codes
