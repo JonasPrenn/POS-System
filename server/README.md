@@ -149,6 +149,11 @@ Adresse begrenzt.
 | `TRUST_PROXY` | `true`, wenn der Dienst nur über Caddy erreichbar ist — dann gilt `X-Forwarded-For` als Adresse des Anrufers. In `compose.yaml` gesetzt, in `compose.dev.yaml` nicht |
 | `WEB_INSECURE_COOKIES` | `true` nur zum Ausprobieren ohne HTTPS (`compose.dev.yaml`); im Betrieb nie |
 
+Das Lager zeigt neben dem Bestand den **Bestellvorschlag**: alles unter Mindestbestand,
+gruppiert nach dem Lieferanten der letzten Lieferung (aus dem Beleg oder dem Wareneingang),
+aufgefüllt auf das Doppelte des Mindestbestands, Fässer in ganzen Gebinden. Bestellt wird
+beim Lieferanten, nicht hier.
+
 Die Berichte zeigen, was sich aus den Buchungen der Theke sicher sagen lässt: Umsatz nach
 Zahlart je Monat, Aufladungen, Wareneingang, Forderungen und Guthaben, dazu die Schwellen
 des § 131b BAO fürs Kalenderjahr. Die Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht

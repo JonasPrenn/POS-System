@@ -25,7 +25,7 @@ internal fun Route.warePages(web: Web) {
     get("/lager") {
         call.guarded(web, Area.STOCK) { ctx ->
             val stock = web.reads.stock()
-            call.html { stockPage(ctx, stock) }
+            call.html { stockPage(ctx, stock, web.reads.lastSuppliers()) }
         }
     }
     purchasePages(web)
@@ -33,7 +33,7 @@ internal fun Route.warePages(web: Web) {
 
 // -------------------------------------------------------------------- Lager
 
-private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>) {
+private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>, suppliers: Map<String, String>) {
     val low = stock.filter { it.low }
     val priced = stock.filter { it.value != null }
     val open = stock.mapNotNull { line -> Inventory.openContainer(line.state)?.let { line to it } }
@@ -106,16 +106,25 @@ private fun HTML.stockPage(ctx: PageContext, stock: List<StockLine>) {
                     }
                 }
                 if (low.isNotEmpty()) panel {
-                    panelHead("Was fehlt")
-                    table("t t-tight") {
-                        tbody {
-                            for (line in low) tr {
-                                td { +line.state.item.name }
-                                td("num") { span("money-s") { +"${Quantity.format(line.state.item.minLevel - line.available)} ${line.state.item.unit}" } }
+                    panelHead("Bestellvorschlag") { span("cap") { +"nach dem Lieferanten der letzten Lieferung" } }
+                    // Bestellt wird auf das Doppelte des Mindestbestands, bei Fässern in ganzen Gebinden — eine Zahl zum Anrufen, keine Bestellung.
+                    for ((supplier, lines) in low.groupBy { suppliers[it.state.item.id] ?: "" }.toSortedMap(compareBy({ it.isEmpty() }, { it }))) {
+                        div("panel-note") { span("title-s") { +supplier.ifEmpty { "Ohne bekannten Lieferanten" } } }
+                        table("t t-tight") {
+                            tbody {
+                                for (line in lines) tr {
+                                    val item = line.state.item
+                                    val missing = item.minLevel - line.available
+                                    val target = maxOf(0.0, 2 * item.minLevel - line.available)
+                                    val keg = line.state.containerTypes.maxByOrNull { it.nominalSize }
+                                    val proposal = if (item.tracking == StockTracking.CONTAINER && keg != null && keg.nominalSize > 0) "${kotlin.math.ceil(target / keg.nominalSize).toInt()}× ${keg.label}" else "${Quantity.format(kotlin.math.ceil(target))} ${item.unit}"
+                                    td { twoLine(item.name, "fehlen ${Quantity.format(missing)} ${item.unit} bis zum Mindestbestand") }
+                                    td("num") { span("money-s") { +proposal } }
+                                }
                             }
                         }
                     }
-                    div("panel-foot cap") { +"Bis zum Mindestbestand. Lieferanten je Artikel und der Bestellvorschlag kommen mit der Stammdatenpflege." }
+                    div("panel-foot cap") { +"Vorschlag: auf das Doppelte des Mindestbestands auffüllen, Fässer in ganzen Gebinden. Bestellt wird beim Lieferanten, nicht hier." }
                 }
             }
         }

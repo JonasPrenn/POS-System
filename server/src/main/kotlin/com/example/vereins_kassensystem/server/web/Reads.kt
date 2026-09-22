@@ -302,6 +302,17 @@ class Reads(private val db: Database, val zone: ZoneId) {
         }
     }
 
+    /** Je Lagerartikel der Lieferant der letzten Lieferung, die ihn enthielt — der Beleg, sonst der Wareneingang vom Tablet. */
+    fun lastSuppliers(): Map<String, String> = db.read { c ->
+        c.query(
+            """
+            SELECT DISTINCT ON (e.stock_item_id) e.stock_item_id, COALESCE(NULLIF(p.supplier_name, ''), d.supplier, '') AS supplier
+            FROM stock_entries e JOIN deliveries d ON d.id = e.delivery_id LEFT JOIN purchase_documents p ON p.delivery_id = d.id
+            WHERE NOT e.deleted AND NOT d.deleted AND e.quantity > 0 ORDER BY e.stock_item_id, d.occurred_at DESC
+            """.trimIndent()
+        ) { it.getObject("stock_item_id", UUID::class.java).toString() to it.getString("supplier") }.filter { it.second.isNotBlank() }.toMap()
+    }
+
     fun firstBookingYear(): Int? = db.read { c ->
         c.queryOne("SELECT EXTRACT(YEAR FROM MIN(occurred_at AT TIME ZONE ?))::int AS y FROM transactions WHERE NOT deleted", zone.id) { r ->
             r.getInt("y").takeIf { !r.wasNull() }

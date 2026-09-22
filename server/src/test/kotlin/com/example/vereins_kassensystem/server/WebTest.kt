@@ -339,6 +339,17 @@ class WebTest {
         assertContains(stock, "1× 50 l Fass")
         // 26 Stk zu 1,30 € und 82 l zu 2,84 €.
         assertContains(stock, "266,68 €")
+        // Bestellvorschlag: Bratwurst auf 80 auffüllen heißt 54 Stk, ohne bekannten Lieferanten — das Bier reicht.
+        assertContains(stock, "Bestellvorschlag"); assertContains(stock, "54 Stk"); assertContains(stock, "Ohne bekannten Lieferanten")
+        // Mit einer Lieferung vom Lieferanten gruppiert der Vorschlag nach ihm.
+        val delivery = newId()
+        ctx.push(
+            device.token,
+            insertOp("deliveries", buildJsonObject { put("id", delivery); put("supplier", "Metzgerei Huber"); put("occurred_at", now.minusSeconds(900).toString()) }),
+            insertOp("stock_entries", buildJsonObject { put("id", newId()); put("stock_item_id", wurst); put("item_name", "Bratwurst"); put("quantity", 1.0); put("unit_label", "Stk"); put("source", "MANUAL"); put("occurred_at", now.minusSeconds(900).toString()); put("delivery_id", delivery) }),
+        )
+        val again = browser.page("/verwaltung/lager")
+        assertContains(again, "Metzgerei Huber"); assertContains(again, "53 Stk")
     }
 
     @Test
