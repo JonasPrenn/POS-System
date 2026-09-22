@@ -74,6 +74,10 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
     val allCategories: StateFlow<List<MemberCategory>> = repository.allCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Bardienst ohne Barkasse (Konzept 4.5): Die Theke nimmt kein Bargeld — „Bar“ ist aus, und der Abschluss weist es ab. */
+    val cashBlocked: StateFlow<Boolean> = repository.openCashSession.map { it?.cashless == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val allTransactions: StateFlow<List<Transaction>> = repository.allTransactions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -250,6 +254,12 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         val member = _selectedMemberId.value?.let { repository.getMember(it) }
 
         if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return@launch
+
+        // Frisch gelesen, nicht aus dem Zustand: Der Bardienst kann eben erst begonnen haben.
+        if (paymentType == "CASH" && repository.openCashSession.first()?.cashless == true) {
+            _checkoutError.emit("Bardienst ohne Barkasse: kein Bargeld an dieser Theke. Deckel oder Karte.")
+            return@launch
+        }
 
         if (paymentType == Ledger.MEMBER_BALANCE && member != null) {
             // Die Sperre kommt aus der Verwaltung und gilt vor dem Limit: Sie steht mit Grund da.

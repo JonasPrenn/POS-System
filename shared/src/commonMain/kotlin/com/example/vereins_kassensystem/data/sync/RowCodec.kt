@@ -166,6 +166,7 @@ object RowCodec {
         put("closed_by", row.closedBy)
         put("closing_count", row.closingCount?.let(Money::wire))
         put("note", row.note)
+        put("cashless", row.cashless)
     }
 
     fun encode(row: CashMovement): JsonObject = buildJsonObject {
@@ -338,6 +339,7 @@ object RowCodec {
         closedBy = row.textOrNull("closed_by"),
         closingCount = row.moneyOrNull("closing_count"),
         note = row.textOrNull("note"),
+        cashless = row.flag("cashless"),
         sync = row.meta(deleted)
     )
 

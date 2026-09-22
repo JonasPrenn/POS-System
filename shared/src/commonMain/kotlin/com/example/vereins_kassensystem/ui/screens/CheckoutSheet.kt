@@ -69,7 +69,9 @@ fun CheckoutDialog(
     selectedMember: Member?,
     onDismiss: () -> Unit,
     onSetTipAmount: (Double) -> Unit,
-    onCheckout: (String) -> Unit
+    onCheckout: (String) -> Unit,
+    // Bardienst ohne Barkasse: „Bar“ bleibt sichtbar, aber aus — mit dem Grund darunter.
+    cashAllowed: Boolean = true
 ) {
     val total = cartTotal + topUpAmount + tipAmount
     var mode by remember { mutableStateOf<PayMode?>(null) }
@@ -117,6 +119,7 @@ fun CheckoutDialog(
 
                 when (mode) {
                     null -> PaymentChoice(
+                        cashAllowed = cashAllowed,
                         cartTotal = cartTotal,
                         topUpAmount = topUpAmount,
                         selectedMember = selectedMember,
@@ -187,6 +190,7 @@ private fun TotalHeadline(total: Double) {
 
 @Composable
 private fun PaymentChoice(
+    cashAllowed: Boolean,
     cartTotal: Double,
     topUpAmount: Double,
     selectedMember: Member?,
@@ -202,6 +206,7 @@ private fun PaymentChoice(
             icon = VdIcons.Payments,
             onClick = { onPick(PayMode.Cash) },
             modifier = Modifier.weight(1f),
+            enabled = cashAllowed,
             container = MaterialTheme.colorScheme.primaryContainer,
             content = MaterialTheme.colorScheme.onPrimaryContainer
         )
@@ -212,6 +217,14 @@ private fun PaymentChoice(
             modifier = Modifier.weight(1f),
             container = MaterialTheme.colorScheme.tertiaryContainer,
             content = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+    }
+    if (!cashAllowed) {
+        Text(
+            text = "Bardienst ohne Barkasse — an dieser Theke nur Deckel und Karte.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.sm, start = Spacing.xs)
         )
     }
 
@@ -273,14 +286,16 @@ private fun PaymentTile(
     onClick: () -> Unit,
     container: androidx.compose.ui.graphics.Color,
     content: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Surface(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.heightIn(min = 96.dp),
         shape = MaterialTheme.shapes.medium,
-        color = container,
-        contentColor = content
+        color = if (enabled) container else MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = if (enabled) content else MaterialTheme.colorScheme.onSurfaceVariant
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),

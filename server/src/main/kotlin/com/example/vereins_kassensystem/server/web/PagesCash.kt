@@ -80,10 +80,15 @@ private fun HTML.cashPage(ctx: PageContext, day: LocalDate, from: LocalDate, to:
                 if (open.isEmpty()) panel { div("panel-body") { h2t("Keine Schicht offen"); p("cap") { +"Geöffnet und gezählt wird am Tablet, unter Übersicht → Kasse." } } }
                 for (s in open) panel {
                     div("panel-body") {
-                        div("row-between") { h2t("Laufende Schicht · ${s.device}"); chip("offen seit ${ctx.time(s.openedAt)}", "ok") }
-                        p("cap") { +"Geöffnet von ${s.openedBy}. Gezählt wird am Tablet, nicht hier." }
-                        rows(listOf("Anfangsbestand, gezählt" to s.openingCount, "Bareinnahmen bisher" to s.cashIn, "Einlagen" to s.deposits, "Entnahmen" to -s.withdrawals))
-                        div("row-between") { span("title-s") { +"Müsste in der Lade sein" }; span("money-m") { +euro(s.expected) } }
+                        if (s.cashless) {
+                            div("row-between") { h2t("Bardienst · ${s.device}"); chip("ohne Barkasse", "neutral") }
+                            p("cap") { +"${s.openedBy}, seit ${ctx.time(s.openedAt)}. Kein Bargeld an dieser Theke — nur Deckel und Karte, keine Lade, nichts zu zählen." }
+                        } else {
+                            div("row-between") { h2t("Laufende Schicht · ${s.device}"); chip("offen seit ${ctx.time(s.openedAt)}", "ok") }
+                            p("cap") { +"Geöffnet von ${s.openedBy}. Gezählt wird am Tablet, nicht hier." }
+                            rows(listOf("Anfangsbestand, gezählt" to s.openingCount, "Bareinnahmen bisher" to s.cashIn, "Einlagen" to s.deposits, "Entnahmen" to -s.withdrawals))
+                            div("row-between") { span("title-s") { +"Müsste in der Lade sein" }; span("money-m") { +euro(s.expected) } }
+                        }
                     }
                 }
             }

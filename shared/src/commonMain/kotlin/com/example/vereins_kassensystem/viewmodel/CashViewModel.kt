@@ -26,6 +26,9 @@ data class CashState(
     val deposits: Double get() = movements.filter { it.kind == CashMovementKind.DEPOSIT }.sumOf { it.amount }
     val withdrawals: Double get() = movements.filter { it.kind == CashMovementKind.WITHDRAWAL }.sumOf { it.amount }
 
+    /** Bardienst ohne Barkasse: Die Theke nimmt kein Bargeld, gezählt wird nichts. */
+    val cashless: Boolean get() = session?.cashless == true
+
     /** Was jetzt in der Lade sein müsste. */
     val expected: Double get() = session?.let { Money.cents(it.openingCount + cashIn + deposits - withdrawals) } ?: 0.0
 }
@@ -44,8 +47,9 @@ class CashViewModel(private val repository: AppRepository, private val deviceLab
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CashState())
 
-    fun open(openingCount: Double, by: String) = viewModelScope.launch {
-        repository.openCashSession(openingCount, by, deviceLabel())
+    /** Bardienst beginnen: mit Barkasse und gezähltem Wechselgeld, oder ohne ([openingCount] null) — dann nimmt die Theke kein Bargeld. */
+    fun open(by: String, openingCount: Double?) = viewModelScope.launch {
+        repository.openCashSession(openingCount ?: 0.0, by, deviceLabel(), cashless = openingCount == null)
     }
 
     fun move(kind: CashMovementKind, amount: Double, reason: String, by: String) = viewModelScope.launch {
@@ -53,7 +57,7 @@ class CashViewModel(private val repository: AppRepository, private val deviceLab
         repository.recordCashMovement(session, kind, amount, reason, by)
     }
 
-    fun close(closingCount: Double, by: String, note: String?) = viewModelScope.launch {
+    fun close(closingCount: Double?, by: String, note: String?) = viewModelScope.launch {
         val session = state.value.session ?: return@launch
         repository.closeCashSession(session, closingCount, by, note)
     }

@@ -1,5 +1,10 @@
 package com.example.vereins_kassensystem.server
 
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.call.body
+import com.example.vereins_kassensystem.sync.ChangesResponse
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.server.web.Accounts
 import com.example.vereins_kassensystem.server.web.Role
@@ -42,8 +47,9 @@ class CashTest {
             sale("4.20", 1, "CASH", start.plusSeconds(900), refund = true),
             insertOp("cash_movements", buildJsonObject { put("id", newId()); put("session_id", session); put("kind", "WITHDRAWAL"); put("amount", "50.00"); put("reason", "zur Bank"); put("by_name", "Matthias"); put("occurred_at", start.plusSeconds(1000).toString()) }),
         )
-        // Das iPad verkauft währenddessen bar — in seine eigene Lade, ohne Schicht.
+        // Das iPad verkauft währenddessen bar — in seine eigene Lade, ohne Schicht. Danach beginnt dort ein Bardienst ohne Barkasse.
         ctx.push(garten.token, sale("4.20", 3, "CASH", start.plusSeconds(650)))
+        ctx.push(garten.token, insertOp("cash_sessions", buildJsonObject { put("id", newId()); put("device_label", "iPad Garten"); put("opened_at", start.plusSeconds(3000).toString()); put("opened_by", "Anna Berger"); put("opening_count", "0.00"); put("cashless", true) }))
         val closedAt = start.plusSeconds(7200)
         ctx.push(links.token, updateOp("cash_sessions", buildJsonObject { put("id", session); put("closed_at", closedAt.toString()); put("closed_by", "Matthias"); put("closing_count", "122.20"); put("note", "Wechselgeld verzählt") }))
 
@@ -63,6 +69,10 @@ class CashTest {
         assertContains(html, "Wechselgeld verzählt")
         assertContains(html, "Entnahme: zur Bank")
         assertFalse(html.contains("+12,60 €"), "die Lade des iPads ist eine andere")
+        // Der Bardienst ohne Barkasse steht als solcher da — und nicht im Kassenbuch, er hat keine Lade.
+        assertContains(html, "Bardienst · iPad Garten"); assertContains(html, "ohne Barkasse"); assertContains(html, "Anna Berger")
+        assertEquals(1, Regex("Schicht geöffnet, Wechselgeld gezählt").findAll(html).count(), "nur die Schicht mit Lade steht im Kassenbuch")
+        assertEquals(true, ctx.client.get("/v1/sync/changes?since=0") { bearerAuth(links.token) }.body<ChangesResponse>().changes.first { it.entity == "cash_sessions" && it.row["opened_by"]!!.jsonPrimitive.content == "Anna Berger" }.row["cashless"]!!.jsonPrimitive.booleanOrNull)
 
         val csv = browser.get("/verwaltung/kasse/kassenbuch.csv?von=${closedAt.atZone(ctx.zone()).toLocalDate().minusDays(1)}&bis=${closedAt.atZone(ctx.zone()).toLocalDate()}")
         assertEquals(HttpStatusCode.OK, csv.status)

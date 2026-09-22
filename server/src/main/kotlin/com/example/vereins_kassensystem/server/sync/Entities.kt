@@ -165,6 +165,8 @@ object Entities {
             Column("closed_by", ColumnType.TEXT, nullable = true),
             Column("closing_count", ColumnType.MONEY, nullable = true),
             Column("note", ColumnType.TEXT, nullable = true),
+            // Bardienst ohne Barkasse (V13): keine Lade, kein Bargeld, nichts zu zählen.
+            Column("cashless", ColumnType.BOOL, default = false),
         )),
         EntityDef("cash_movements", EntityKind.APPEND_ONLY, listOf(
             id,

@@ -27,6 +27,8 @@ data class CashSession(
     val closedBy: String? = null,
     val closingCount: Double? = null,
     val note: String? = null,
+    /** Bardienst ohne Barkasse: niemand zählt, und die Theke nimmt kein Bargeld — nur Deckel und Karte. */
+    val cashless: Boolean = false,
     @Embedded val sync: SyncMeta = SyncMeta()
 ) {
     val isOpen: Boolean get() = closedAt == null

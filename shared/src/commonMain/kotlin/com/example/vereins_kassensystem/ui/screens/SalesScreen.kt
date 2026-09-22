@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.ui.screens
 
+import com.example.vereins_kassensystem.ui.components.MemberSelectionDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -92,6 +93,7 @@ fun SalesScreen(viewModel: SalesViewModel) {
     val members by viewModel.allMembers.collectAsState()
     val memberCategories by viewModel.allCategories.collectAsState()
     val selectedMember by viewModel.selectedMember.collectAsState()
+    val cashBlocked by viewModel.cashBlocked.collectAsState()
     val topUpAmount by viewModel.topUpAmount.collectAsState()
     val tipAmount by viewModel.tipAmount.collectAsState()
 
@@ -232,7 +234,8 @@ fun SalesScreen(viewModel: SalesViewModel) {
                 onCheckout = { paymentType ->
                     if (paymentType == "CARD") viewModel.checkoutByCard(payments) else viewModel.checkout(paymentType)
                     showCheckout = false
-                }
+                },
+                cashAllowed = !cashBlocked
             )
         }
     }
@@ -710,59 +713,6 @@ fun VariantSelectionDialog(
     )
 }
 
-@Composable
-fun MemberSelectionDialog(
-    members: List<Member>,
-    onDismiss: () -> Unit,
-    onMemberSelected: (Member) -> Unit
-) {
-    var query by remember { mutableStateOf("") }
-    val filtered = remember(query, members) {
-        members.filter { it.matches(query) }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Mitglied auswählen") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text("Suche") },
-                    leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(Spacing.md))
-                if (filtered.isEmpty()) {
-                    Text(
-                        text = "Keine Mitglieder gefunden.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
-                        items(filtered, key = { it.id }) { member ->
-                            ListItem(
-                                headlineContent = { Text(member.displayName) },
-                                supportingContent = { Text(if (member.isBlocked) "${Money.format(member.balance)} · Deckel gesperrt" else Money.format(member.balance)) },
-                                leadingContent = { MemberAvatar(member.name, size = 36.dp) },
-                                modifier = Modifier.clickable {
-                                    onMemberSelected(member)
-                                    onDismiss()
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
-    )
-}
 
 @Composable
 fun ManualItemDialog(

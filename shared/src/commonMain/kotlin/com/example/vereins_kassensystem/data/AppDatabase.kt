@@ -54,7 +54,7 @@ import com.example.vereins_kassensystem.platform.nowMillis
         PendingChange::class,
         SyncState::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -335,7 +335,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, Migration10To11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+        /** Schema 15: der Bardienst ohne Barkasse — eine Schicht, in der die Theke kein Bargeld nimmt und niemand zählt. */
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE cash_sessions ADD COLUMN cashless INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, Migration10To11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
 
         const val FILE_NAME = "vereins_kassensystem_db"
     }

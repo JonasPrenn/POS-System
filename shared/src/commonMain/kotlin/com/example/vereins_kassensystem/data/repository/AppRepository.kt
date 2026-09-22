@@ -705,10 +705,13 @@ class AppRepository(private val database: AppDatabase) {
         )
     }
 
-    /** Öffnet die Schicht. Gibt es schon eine offene, bleibt sie — zwei Schichten in einer Lade gibt es nicht. */
-    suspend fun openCashSession(openingCount: Double, by: String, deviceLabel: String): CashSession = write {
+    /**
+     * Beginnt den Bardienst. Gibt es schon einen, bleibt er — zwei Schichten in einer Lade gibt es nicht.
+     * Ohne Barkasse ([cashless]) zählt niemand, und die Theke nimmt kein Bargeld.
+     */
+    suspend fun openCashSession(openingCount: Double, by: String, deviceLabel: String, cashless: Boolean = false): CashSession = write {
         cashDao.openSession()?.let { return@write it }
-        val row = CashSession(deviceLabel = deviceLabel, openedBy = by.trim(), openingCount = Money.cents(openingCount))
+        val row = CashSession(deviceLabel = deviceLabel, openedBy = by.trim(), openingCount = if (cashless) 0.0 else Money.cents(openingCount), cashless = cashless)
         cashDao.insertSession(row)
         insert(SyncTables.CASH_SESSIONS, row.id, RowCodec.encode(row))
         row
@@ -721,9 +724,9 @@ class AppRepository(private val database: AppDatabase) {
     }
 
     /** Schließt mit dem gezählten Bestand. Die Differenz zum Soll steht in der Verwaltung, mit Namen — Korrektur ohne Grund gibt es nicht. */
-    suspend fun closeCashSession(session: CashSession, closingCount: Double, by: String, note: String?) = write {
+    suspend fun closeCashSession(session: CashSession, closingCount: Double?, by: String, note: String?) = write {
         val current = cashDao.session(session.id) ?: return@write
-        val row = current.copy(closedAt = nowMillis(), closedBy = by.trim(), closingCount = Money.cents(closingCount), note = note?.trim()?.ifEmpty { null })
+        val row = current.copy(closedAt = nowMillis(), closedBy = by.trim(), closingCount = if (current.cashless) null else Money.cents(closingCount ?: 0.0), note = note?.trim()?.ifEmpty { null })
         cashDao.updateSession(row)
         update(SyncTables.CASH_SESSIONS, row.id, RowCodec.encode(row), current.sync.serverUpdatedAt)
     }

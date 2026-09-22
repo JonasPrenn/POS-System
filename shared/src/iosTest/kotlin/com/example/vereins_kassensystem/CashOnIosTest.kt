@@ -1,5 +1,8 @@
 package com.example.vereins_kassensystem
 
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlin.test.assertTrue
 import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.data.entity.CashMovementKind
@@ -73,4 +76,23 @@ class CashOnIosTest {
             db.close()
         }
     }
+@Test
+fun `a shift without a drawer needs no count and says so on the wire`() = runTest {
+    val db = openTestDatabase()
+    try {
+        val repository = AppRepository(db)
+        val shift = repository.openCashSession(0.0, "Anna Berger", "iPad Garten", cashless = true)
+        assertTrue(shift.cashless); money(0.0, shift.openingCount, "ohne Lade kein Wechselgeld")
+        assertEquals(shift.id, repository.openCashSession(150.0, "Jemand", "x").id, "einen zweiten Bardienst am selben Gerät gibt es nicht")
+        assertTrue(assertNotNull(repository.openCashSession.first()).cashless)
+        repository.closeCashSession(shift, null, "Anna Berger", "Gartenfest")
+        assertNull(repository.openCashSession.first())
+        val closed = assertNotNull(db.cashDao().session(shift.id))
+        assertNull(closed.closingCount, "ohne Lade wird nichts gezählt"); assertNotNull(closed.closedAt); assertEquals("Gartenfest", closed.note)
+        assertEquals(closed.copy(sync = closed.sync), RowCodec.decodeCashSession(RowCodec.encode(closed), false).copy(sync = closed.sync))
+        assertEquals(true, RowCodec.encode(closed)["cashless"]?.jsonPrimitive?.booleanOrNull)
+    } finally {
+        db.close()
+    }
+}
 }

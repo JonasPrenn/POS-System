@@ -118,7 +118,9 @@ Das SMTP-Passwort liegt in der Tabelle `settings`, wie alles andere in dieser Da
 die Schicht mit dem gezählten Wechselgeld, nimmt Entnahmen und Einlagen mit Grund und Namen
 auf und schließt mit der Zählung — eine Differenz braucht einen Vermerk. Das kommt als
 `cash_sessions` und `cash_movements` über den Abgleich an, wie jede andere Zeile der Theke.
-Die Verwaltung rechnet daraus das Kassenbuch: je Schicht Öffnung, Bareinnahmen des Geräts
+Ein Bardienst ohne Barkasse (Schema 15, `cash_sessions.cashless`, V13) hat keine Lade: Die Theke
+nimmt in der Zeit kein Bargeld, unter Kasse steht er als solcher, im Kassenbuch kommt er nicht
+vor. Die Verwaltung rechnet daraus das Kassenbuch: je Schicht Öffnung, Bareinnahmen des Geräts
 (`transaction_effects` nach `origin_device`, Barverkäufe nach Rabatt, Aufladungen und
 Trinkgeld in bar, Stornos ziehen ab), Entnahmen, Einlagen, Schluss mit Differenz, dazu der
 fortgeführte Bestand — nichts davon steht als Zähler in einer Spalte. Jede Lade ist eine
@@ -255,6 +257,7 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `src/main/resources/db/migration/V13__bardienst.sql` | `cash_sessions.cashless`, synchronisiert — der Bardienst ohne Barkasse |
 | `src/main/resources/db/migration/V12__geraeteeinstellungen.sql` | `device_settings`, synchronisiert, nur vom Server geschrieben — Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung für alle Tablets |
 | `src/main/resources/db/migration/V11__posteingang.sql` | Posteingang, freigegebene Absender, gebuchte Zeilen je Beleg |
 | `src/main/resources/db/migration/V10__pfand.sql` | Pfandgebinde und Bewegungen, Konto „Pfand und Leergut“ |

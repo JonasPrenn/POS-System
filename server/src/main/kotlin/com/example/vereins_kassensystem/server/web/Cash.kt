@@ -14,6 +14,8 @@ class CashSessionLine(
     val closedAt: Instant?, val closedBy: String?, val closingCount: Double?, val note: String?,
     /** Bareinnahmen des Geräts in der Schicht, Entnahmen, Einlagen — aus den Buchungen, nicht gespeichert. */
     val cashIn: Double, val withdrawals: Double, val deposits: Double,
+    /** Bardienst ohne Barkasse: keine Lade, nichts zu zählen — im Kassenbuch kommt er nicht vor. */
+    val cashless: Boolean = false,
 ) {
     val expected: Double get() = openingCount + cashIn + deposits - withdrawals
     val difference: Double? get() = closingCount?.let { it - expected }
@@ -59,7 +61,7 @@ class Cash(private val db: Database, private val zone: ZoneId) {
             CashSessionLine(
                 it.getObject("id", UUID::class.java), it.getString("device"), it.getTimestamp("opened_at").toInstant(), it.getString("opened_by"), it.getDouble("opening_count"),
                 it.getTimestamp("closed_at")?.toInstant(), it.getString("closed_by"), it.getBigDecimal("closing_count")?.toDouble(), it.getString("note"),
-                it.getDouble("cash_in"), it.getDouble("withdrawals"), it.getDouble("deposits")
+                it.getDouble("cash_in"), it.getDouble("withdrawals"), it.getDouble("deposits"), it.getBoolean("cashless")
             )
         }
     }
@@ -112,6 +114,7 @@ class Cash(private val db: Database, private val zone: ZoneId) {
         val movements = movements(from, toInclusive)
         val entries = ArrayList<CashBookEntry>()
         for (s in sessions) {
+            if (s.cashless) continue   // keine Lade, keine Zeile im Kassenbuch
             var balance = s.openingCount
             entries += CashBookEntry(s.openedAt, s.device, "Schicht geöffnet, Wechselgeld gezählt", s.openedBy, "COUNT", null, balance)
             for (m in movements.filter { it.sessionId == s.id }) {
