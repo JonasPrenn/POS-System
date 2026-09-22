@@ -87,6 +87,19 @@ als Aufladung mit Zahlart `BANK` gebucht und erreicht die Tablets über den Abgl
 zweiten Kontostand gibt es nicht. Erinnerungen per E-Mail oder als Vermerk, Storno mit Grund.
 Das SMTP-Passwort liegt in der Tabelle `settings`, wie alles andere in dieser Datenbank.
 
+**Kasse** (`web/Cash.kt`, Konzept 4.5): Gezählt wird am Tablet, nicht im Web. Dort öffnet
+die Schicht mit dem gezählten Wechselgeld, nimmt Entnahmen und Einlagen mit Grund und Namen
+auf und schließt mit der Zählung — eine Differenz braucht einen Vermerk. Das kommt als
+`cash_sessions` und `cash_movements` über den Abgleich an, wie jede andere Zeile der Theke.
+Die Verwaltung rechnet daraus das Kassenbuch: je Schicht Öffnung, Bareinnahmen des Geräts
+(`transaction_effects` nach `origin_device`, Barverkäufe nach Rabatt, Aufladungen und
+Trinkgeld in bar, Stornos ziehen ab), Entnahmen, Einlagen, Schluss mit Differenz, dazu der
+fortgeführte Bestand — nichts davon steht als Zähler in einer Spalte. Jede Lade ist eine
+eigene: Was das zweite Tablet bar einnimmt, taucht in der Schicht des ersten nicht auf.
+Dazu der Tagesbericht nach Gerät und Zahlart, die laufenden Schichten und das Bankbuch aus
+dem Kontoauszug-Import; das Kassenbuch gibt es als CSV. Ändern lässt sich hier nichts —
+ein Fehler bekommt am Tablet eine Gegenbuchung.
+
 Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten; der
 Rest liegt unter „Mehr".
 
@@ -98,10 +111,10 @@ persönlich weiter. Der letzte Administrator kann sich nicht selbst herabstufen 
 | Rolle | Sieht |
 |---|---|
 | Administrator | alles, dazu Benutzer |
-| Kassier | Übersicht, Mitglieder, Abrechnung, Berichte, Lager, Einkauf, Geräte, Protokoll, Einstellungen |
-| Senior und Chargen | Übersicht, Mitglieder, Abrechnung, Berichte, Lager, Einkauf — lesend |
+| Kassier | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Einkauf, Geräte, Protokoll, Einstellungen |
+| Senior und Chargen | Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Lager, Einkauf — lesend |
 | Budenwart | Lager, Einkauf — keine Deckel (Art. 9 DSGVO, 2.5 im Konzept) |
-| Rechnungsprüfer | Abrechnung, Berichte, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
+| Rechnungsprüfer | Abrechnung, Kasse, Berichte, Einkauf, Protokoll; mit „Zugang bis" zeitlich begrenzt |
 
 **Wie sie gebaut ist:** Passwörter mit Argon2id wie die Gerätetoken. Im Cookie steht ein
 Zufallswert (`HttpOnly`, `Secure`, `SameSite=Lax`, nur unter `/verwaltung`), in der Datenbank
@@ -120,7 +133,8 @@ Adresse begrenzt.
 Die Berichte zeigen, was sich aus den Buchungen der Theke sicher sagen lässt: Umsatz nach
 Zahlart je Monat, Aufladungen, Wareneingang, Forderungen und Guthaben, dazu die Schwellen
 des § 131b BAO fürs Kalenderjahr. Die Einnahmen-Ausgaben-Rechnung mit Vermögensübersicht
-braucht Kassenbuch, Eingangsrechnungen mit Konten und das Bankbuch — Phasen 2 bis 4.
+braucht dazu die Konten der Belege (Phase 2), das Kassenbuch und das Bankbuch (Phase 3) —
+alle drei sind da; die Rechnung selbst mit Vermögensübersicht und Export ist Phase 4.
 
 ## Die ersten Anfragen
 
@@ -149,13 +163,14 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 |---|---|
 | `src/main/resources/db/migration/V1__grundgeruest.sql` | Schema nach Kapitel 3, Sicht `member_balances` nach 2.2 |
 | `src/main/resources/db/migration/V2__lagerabgaenge.sql` | `stock_draws` und `stock_entries.container_type_id` (siehe Abweichungen) |
-| `sync/Entities.kt` | Die zwölf Tabellen mit Spalten, Vorgabewerten und Konfliktart |
+| `sync/Entities.kt` | Die vierzehn synchronisierten Tabellen mit Spalten, Vorgabewerten und Konfliktart |
 | `sync/SyncStore.kt` | Ziehen, Schieben, Konfliktregeln (Kapitel 4) |
 | `sync/Values.kt` | Zahlenformate nach 5.4: Geld als Zeichenkette, Zeit als ISO 8601 |
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
-| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `resources/web/app.css` |
+| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `src/main/resources/db/migration/V7__kasse.sql` | `cash_sessions` und `cash_movements`, synchronisiert — die Schichten und Barbewegungen der Tablets |
 | `src/main/resources/db/migration/V6__abrechnung.sql` | Profile, Abrechnungsläufe, Abrechnungen mit Nummernkreis, importierte Bankumsätze |
 | `src/main/resources/db/migration/V5__einkauf.sql` | Lieferanten, Kontenrahmen, Belegdaten (`purchase_documents`, 1:1 zu `deliveries`), Belegzeilen mit Konto |
 | `src/main/resources/db/migration/V4__couleurname.sql` | `members.nickname`, synchronisiert |

@@ -44,6 +44,7 @@ class Web(val config: ServerConfig, db: Database, val devices: DeviceStore, val 
     val writes = Writes(db)
     val purchases = Purchases(db, config.zone)
     val statements = Statements(db, writes, config.zone)
+    val cash = Cash(db, config.zone)
 }
 
 private const val COOKIE = "vd_session"
@@ -72,6 +73,7 @@ fun Route.webRoutes(web: Web) {
         mainPages(web)
         warePages(web)
         statementPages(web)
+        cashPages(web)
         systemPages(web)
     }
 }

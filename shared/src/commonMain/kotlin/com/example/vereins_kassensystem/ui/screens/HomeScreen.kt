@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.components.CashSection
 import com.example.vereins_kassensystem.ui.components.MoneyStatTile
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.StatTile
@@ -36,6 +37,7 @@ import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.viewmodel.AnalyticsViewModel
+import com.example.vereins_kassensystem.viewmodel.CashViewModel
 import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
@@ -56,8 +58,10 @@ fun HomeScreen(
     analyticsViewModel: AnalyticsViewModel,
     productViewModel: ProductViewModel,
     memberViewModel: MemberViewModel,
-    inventoryViewModel: InventoryViewModel
+    inventoryViewModel: InventoryViewModel,
+    cashViewModel: CashViewModel
 ) {
+    val cash by cashViewModel.state.collectAsState()
     val summary by analyticsViewModel.summary.collectAsState()
     val products by productViewModel.allProductsWithVariants.collectAsState()
     val members by memberViewModel.allMembers.collectAsState()
@@ -99,6 +103,15 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+
+            item {
+                CashSection(
+                    state = cash,
+                    onOpen = cashViewModel::open,
+                    onMove = cashViewModel::move,
+                    onClose = cashViewModel::close
+                )
             }
 
             if (lowStock.isNotEmpty()) {

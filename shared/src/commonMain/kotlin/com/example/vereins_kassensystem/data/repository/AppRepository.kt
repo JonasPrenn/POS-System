@@ -6,6 +6,9 @@ import com.example.vereins_kassensystem.data.AppDatabase
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
+import com.example.vereins_kassensystem.data.entity.CashMovement
+import com.example.vereins_kassensystem.data.entity.CashMovementKind
+import com.example.vereins_kassensystem.data.entity.CashSession
 import com.example.vereins_kassensystem.data.entity.ContainerType
 import com.example.vereins_kassensystem.data.entity.ContainerTypeRow
 import com.example.vereins_kassensystem.data.entity.Delivery
@@ -70,6 +73,7 @@ class AppRepository(private val database: AppDatabase) {
     private val stockDao = database.stockDao()
     private val deliveryDao = database.deliveryDao()
     private val syncDao = database.syncDao()
+    private val cashDao = database.cashDao()
 
     // ------------------------------------------------------------------ lesen
 
@@ -672,7 +676,54 @@ class AppRepository(private val database: AppDatabase) {
     }
 
     private suspend fun Outbox.insertTransactionRow(transaction: Transaction) {
-        transactionDao.insertTransaction(transaction)
+        // Von hier gebucht — das zählt für die Lade dieses Geräts.
+        transactionDao.insertTransaction(transaction.copy(local = true))
         insert(SyncTables.TRANSACTIONS, transaction.id, RowCodec.encode(transaction))
+    }
+
+    // ------------------------------------------------------------------ Kasse
+
+    val openCashSession: Flow<CashSession?> = cashDao.observeOpenSession()
+
+    fun cashMovements(sessionId: String): Flow<List<CashMovement>> = cashDao.observeMovements(sessionId)
+
+    fun cashInSince(since: Long): Flow<Double> = cashDao.observeCashInSince(since)
+
+    /**
+     * Was in der Lade sein müsste: gezähltes Wechselgeld plus Bareinnahmen dieses Geräts, plus
+     * Einlagen, minus Entnahmen. Eine offene Schicht zählt alles seit der Öffnung — auch, was
+     * in derselben Millisekunde wie diese Frage gebucht wird; eine geschlossene bis zum Schluss.
+     */
+    suspend fun expectedCash(session: CashSession): Double {
+        val movements = cashDao.movements(session.id)
+        val cashIn = cashDao.cashInBetween(session.openedAt, session.closedAt ?: Long.MAX_VALUE)
+        return Money.cents(
+            session.openingCount + cashIn +
+                movements.filter { it.kind == CashMovementKind.DEPOSIT }.sumOf { it.amount } -
+                movements.filter { it.kind == CashMovementKind.WITHDRAWAL }.sumOf { it.amount }
+        )
+    }
+
+    /** Öffnet die Schicht. Gibt es schon eine offene, bleibt sie — zwei Schichten in einer Lade gibt es nicht. */
+    suspend fun openCashSession(openingCount: Double, by: String, deviceLabel: String): CashSession = write {
+        cashDao.openSession()?.let { return@write it }
+        val row = CashSession(deviceLabel = deviceLabel, openedBy = by.trim(), openingCount = Money.cents(openingCount))
+        cashDao.insertSession(row)
+        insert(SyncTables.CASH_SESSIONS, row.id, RowCodec.encode(row))
+        row
+    }
+
+    suspend fun recordCashMovement(session: CashSession, kind: CashMovementKind, amount: Double, reason: String, by: String) = write {
+        val row = CashMovement(sessionId = session.id, kind = kind, amount = Money.cents(amount), reason = reason.trim(), byName = by.trim())
+        cashDao.insertMovement(row)
+        insert(SyncTables.CASH_MOVEMENTS, row.id, RowCodec.encode(row))
+    }
+
+    /** Schließt mit dem gezählten Bestand. Die Differenz zum Soll steht in der Verwaltung, mit Namen — Korrektur ohne Grund gibt es nicht. */
+    suspend fun closeCashSession(session: CashSession, closingCount: Double, by: String, note: String?) = write {
+        val current = cashDao.session(session.id) ?: return@write
+        val row = current.copy(closedAt = nowMillis(), closedBy = by.trim(), closingCount = Money.cents(closingCount), note = note?.trim()?.ifEmpty { null })
+        cashDao.updateSession(row)
+        update(SyncTables.CASH_SESSIONS, row.id, RowCodec.encode(row), current.sync.serverUpdatedAt)
     }
 }

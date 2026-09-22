@@ -14,8 +14,11 @@ import com.example.vereins_kassensystem.data.dao.MemberDao
 import com.example.vereins_kassensystem.data.dao.ProductDao
 import com.example.vereins_kassensystem.data.dao.StockDao
 import com.example.vereins_kassensystem.data.dao.StockEntryDao
+import com.example.vereins_kassensystem.data.dao.CashDao
 import com.example.vereins_kassensystem.data.dao.SyncDao
 import com.example.vereins_kassensystem.data.dao.TransactionDao
+import com.example.vereins_kassensystem.data.entity.CashMovement
+import com.example.vereins_kassensystem.data.entity.CashSession
 import com.example.vereins_kassensystem.data.entity.ContainerTypeRow
 import com.example.vereins_kassensystem.data.entity.Delivery
 import com.example.vereins_kassensystem.data.entity.MemberCategory
@@ -46,10 +49,12 @@ import com.example.vereins_kassensystem.platform.nowMillis
         ProductComponent::class,
         Delivery::class,
         StockDraw::class,
+        CashSession::class,
+        CashMovement::class,
         PendingChange::class,
         SyncState::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -63,6 +68,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun stockDao(): StockDao
     abstract fun deliveryDao(): DeliveryDao
     abstract fun syncDao(): SyncDao
+    abstract fun cashDao(): CashDao
 
     companion object {
 
@@ -294,7 +300,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, Migration10To11, MIGRATION_11_12)
+        /** Schema 13: Schichten und Barbewegungen (Konzept 4.5), und welche Buchungen von diesem Gerät sind. */
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE transactions ADD COLUMN local INTEGER NOT NULL DEFAULT 0")
+                connection.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS cash_sessions (
+                        id TEXT NOT NULL PRIMARY KEY, deviceLabel TEXT NOT NULL, openedAt INTEGER NOT NULL, openedBy TEXT NOT NULL,
+                        openingCount REAL NOT NULL, closedAt INTEGER, closedBy TEXT, closingCount REAL, note TEXT,
+                        deleted INTEGER NOT NULL, deletedAt INTEGER, serverUpdatedAt TEXT
+                    )
+                    """.trimIndent()
+                )
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_cash_sessions_openedAt ON cash_sessions(openedAt)")
+                connection.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS cash_movements (
+                        id TEXT NOT NULL PRIMARY KEY, sessionId TEXT NOT NULL, kind TEXT NOT NULL, amount REAL NOT NULL,
+                        reason TEXT NOT NULL, byName TEXT NOT NULL, timestamp INTEGER NOT NULL,
+                        deleted INTEGER NOT NULL, deletedAt INTEGER, serverUpdatedAt TEXT
+                    )
+                    """.trimIndent()
+                )
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_cash_movements_sessionId ON cash_movements(sessionId)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS index_cash_movements_timestamp ON cash_movements(timestamp)")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, Migration10To11, MIGRATION_11_12, MIGRATION_12_13)
 
         const val FILE_NAME = "vereins_kassensystem_db"
     }

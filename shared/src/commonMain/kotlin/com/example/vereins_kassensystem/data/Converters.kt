@@ -1,6 +1,7 @@
 package com.example.vereins_kassensystem.data
 
 import androidx.room.TypeConverter
+import com.example.vereins_kassensystem.data.entity.CashMovementKind
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
 import com.example.vereins_kassensystem.data.entity.StockEntrySource
 import com.example.vereins_kassensystem.data.entity.StockTracking
@@ -10,6 +11,13 @@ import com.example.vereins_kassensystem.data.entity.StockTracking
  * later cannot silently reinterpret existing rows.
  */
 class Converters {
+
+    @TypeConverter
+    fun cashMovementKindToString(value: CashMovementKind): String = value.name
+
+    @TypeConverter
+    fun stringToCashMovementKind(value: String?): CashMovementKind =
+        CashMovementKind.entries.firstOrNull { it.name == value } ?: CashMovementKind.WITHDRAWAL
 
     @TypeConverter
     fun stockTrackingToString(value: StockTracking): String = value.name

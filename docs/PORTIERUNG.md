@@ -7,8 +7,10 @@ am 21. September freigegeben und in vier Commits gebaut worden (7a bis 7d); was 
 entstand und wo es von der Spezifikation abweicht, steht unten in einem eigenen Abschnitt.
 
 **Vor dem ersten Start der neuen App auf dem Vereinstablet: sichern.** Das Update hebt die
-Datenbank von Schema 10 auf 12 (11 baut jede Tabelle um, 12 ergänzt den Couleurnamen). Im Emulator ist das mit
-einem echten Datenbestand geprüft, auf dem Tablet selbst nicht.
+Datenbank von Schema 10 auf 13 (11 baut jede Tabelle um, 12 ergänzt den Couleurnamen, 13 die
+Kassenlade: `cash_sessions`, `cash_movements` und die Marke `local` an Buchungen). Im Emulator
+ist 10 → 11 mit einem echten Datenbestand geprüft, 12 und 13 nur auf frischen Datenbanken der
+Tests und Simulatoren, auf dem Tablet selbst nichts davon.
 
 ---
 
@@ -29,6 +31,7 @@ einem echten Datenbestand geprüft, auf dem Tablet selbst nicht.
 | **Migration 10 → 11 auf Android** mit echtem Bestand im Emulator | Drei Mitglieder (40,00 / −12,50 / 102,00 €), Lager mit Fässern und vier Anstichen: nach dem Update alle Salden, Bestände, „gezapft" und gelernten Ausbeuten unverändert; ein Verkauf auf den Deckel bucht Transaktion und Lagerabgang |
 | **Zwei Geräte gegen den echten Server** (Docker: PostgreSQL 16 + API), Android-Emulator und iPad-Simulator, durch die Oberfläche | Android koppelt als Quelle, 62 Zeilen gehen hoch. iPad koppelt, bekommt den Entscheidungsdialog („beide haben Daten"), übernimmt den Serverstand: dieselben Salden und derselbe Lagerbestand bis auf die Nachkommastelle. **A1** in beide Richtungen (Produkte Android → iPad, Mitglied iPad → Android). **A3/A7/A8:** Server aus, iPad bucht 3,50 € und Android 2,00 € auf denselben Deckel, beide zeigen „Offline · n warten" und verkaufen weiter; Server an — Server, iPad und Android stehen auf 31,00 €. **Sperre:** Android am Server gesperrt, zeigt „Abgemeldet", verkauft weiter, meldet sich mit frischem Code neu an, die wartende Buchung kommt an |
 | **Web-Verwaltung gegen dieselbe Aufstellung**, 22. September | Im Browser bei 1440 und 390 Pixeln, hell und dunkel: Übersicht, Mitglieder mit Kontoauszug, Berichte, Lager, Geräte, Benutzer. Das Lager zeigt dieselben Zahlen wie Tablet und iPad (Helles 105,4 l, Soda 9,2 l gezapft, gelernte Erträge 29,2 l und 47 l) — gerechnet mit derselben `Inventory`. Eine Aufladung über 5,00 € vom Schreibtisch stand nach dem nächsten Abgleich auf dem iPad im Simulator |
+| **Kasse, iPad-Simulator gegen den Server in Docker**, 22. September | Schicht mit 150,00 € Wechselgeld geöffnet, Entnahme 50,00 € „Bank“, zwei Barverkäufe (7,00 und 3,50 €), geschlossen mit 101,50 € und dem Vermerk „Wechselgeld falsch“. Am Server: Kassenbuch 150,00 → 100,00 → 110,50 → gezählt 101,50, Differenz −9,00 €; der Tagesbericht zeigt 10,50 € bar für „iPad Garten“, die laufende Schicht war vorher als solche zu sehen; CSV mit denselben Zeilen. **Dabei gefunden:** Nach dem Abgleich zählte das Tablet den eigenen Barverkauf nicht mehr — der Server schickt jede hochgeladene Zeile beim nächsten Ziehen zurück, und `SyncApplier` ersetzte damit die Marke `local`. Behoben (die Marke bleibt stehen), mit einem Zusatz in `SyncEngineTest`, der ohne die Behebung fehlschlägt. Der 7,00-€-Verkauf lief noch mit dem alten Build, daher zeigte das Tablet beim Schließen −2,00 €, der Server −9,00 € — mit dem behobenen Build stimmten Tablet (3,50 € bar seit Öffnung, Soll 103,50 €) und Server überein |
 | Schlüsselbund im Simulator | Mit `CODE_SIGNING_ALLOWED=NO` gebaut verweigert er jeden Zugriff (-34018); die Kopplung merkt das seit 7d und sagt es. Mit Ad-hoc-Signatur gebaut (Xcode-Run, oder `xcodebuild` ohne den Schalter) hält er das Token — so geprüft |
 
 **Nicht geprüft:**

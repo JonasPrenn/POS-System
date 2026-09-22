@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.data.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
@@ -44,5 +45,7 @@ data class Transaction(
      */
     val note: String? = null,
 
+    /** Von diesem Gerät gebucht — nicht vom Server gezogen. Die Kassenlade zählt nur das. Geht nicht über den Draht. */
+    @ColumnInfo(defaultValue = "0") val local: Boolean = false,
     @Embedded val sync: SyncMeta = SyncMeta()
 )

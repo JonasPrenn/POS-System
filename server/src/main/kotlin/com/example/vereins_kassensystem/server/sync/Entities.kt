@@ -152,6 +152,28 @@ object Entities {
             Column("occurred_at", ColumnType.TIMESTAMP),
             Column("note", ColumnType.TEXT, nullable = true),
         )),
+        // Kasse (Konzept 4.5): Die Schicht gehört dem Gerät, das sie öffnet; geschlossen wird
+        // sie per Update — Stammdatenregel, ohne dass je ein zweites Gerät schriebe.
+        EntityDef("cash_sessions", EntityKind.MASTER, listOf(
+            id,
+            Column("device_label", ColumnType.TEXT, default = ""),
+            Column("opened_at", ColumnType.TIMESTAMP),
+            Column("opened_by", ColumnType.TEXT, default = ""),
+            Column("opening_count", ColumnType.MONEY),
+            Column("closed_at", ColumnType.TIMESTAMP, nullable = true),
+            Column("closed_by", ColumnType.TEXT, nullable = true),
+            Column("closing_count", ColumnType.MONEY, nullable = true),
+            Column("note", ColumnType.TEXT, nullable = true),
+        )),
+        EntityDef("cash_movements", EntityKind.APPEND_ONLY, listOf(
+            id,
+            Column("session_id", ColumnType.UUID),
+            Column("kind", ColumnType.TEXT, allowed = setOf("WITHDRAWAL", "DEPOSIT")),
+            Column("amount", ColumnType.MONEY),
+            Column("reason", ColumnType.TEXT, default = ""),
+            Column("by_name", ColumnType.TEXT, default = ""),
+            Column("occurred_at", ColumnType.TIMESTAMP),
+        )),
     )
 
     val byName: Map<String, EntityDef> = all.associateBy { it.table }

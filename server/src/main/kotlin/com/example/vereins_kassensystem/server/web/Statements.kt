@@ -234,6 +234,10 @@ class Statements(private val db: Database, private val writes: Writes, private v
 
     // ------------------------------------------------------------ Bankumsätze
 
+    fun allBankTransactions(limit: Int): List<BankTransaction> = db.read { c ->
+        c.query("SELECT * FROM bank_transactions ORDER BY booking_date DESC, imported_at DESC LIMIT ?", limit) { it.bank() }
+    }
+
     fun openBankTransactions(): List<BankTransaction> = db.read { c ->
         c.query("SELECT * FROM bank_transactions WHERE status = 'OPEN' ORDER BY booking_date DESC, imported_at DESC") { it.bank() }
     }

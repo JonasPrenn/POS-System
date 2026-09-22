@@ -1,5 +1,8 @@
 package com.example.vereins_kassensystem.data.sync
 
+import com.example.vereins_kassensystem.data.entity.CashMovement
+import com.example.vereins_kassensystem.data.entity.CashMovementKind
+import com.example.vereins_kassensystem.data.entity.CashSession
 import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
 import com.example.vereins_kassensystem.data.entity.ContainerTypeRow
 import com.example.vereins_kassensystem.data.entity.Delivery
@@ -45,6 +48,8 @@ object SyncTables {
     const val TAPPED = "tapped_containers"
     const val TRANSACTIONS = "transactions"
     const val STOCK_DRAWS = "stock_draws"
+    const val CASH_SESSIONS = "cash_sessions"
+    const val CASH_MOVEMENTS = "cash_movements"
 }
 
 /**
@@ -146,6 +151,28 @@ object RowCodec {
         put("close_reason", row.closeReason?.name)
         put("discarded_volume", row.discardedVolume)
         put("note", row.note)
+    }
+
+    fun encode(row: CashSession): JsonObject = buildJsonObject {
+        put("id", row.id)
+        put("device_label", row.deviceLabel)
+        put("opened_at", iso(row.openedAt))
+        put("opened_by", row.openedBy)
+        put("opening_count", Money.wire(row.openingCount))
+        put("closed_at", row.closedAt?.let(::iso))
+        put("closed_by", row.closedBy)
+        put("closing_count", row.closingCount?.let(Money::wire))
+        put("note", row.note)
+    }
+
+    fun encode(row: CashMovement): JsonObject = buildJsonObject {
+        put("id", row.id)
+        put("session_id", row.sessionId)
+        put("kind", row.kind.name)
+        put("amount", Money.wire(row.amount))
+        put("reason", row.reason)
+        put("by_name", row.byName)
+        put("occurred_at", iso(row.timestamp))
     }
 
     fun encode(row: Transaction): JsonObject = buildJsonObject {
@@ -291,6 +318,30 @@ object RowCodec {
         timestamp = row.millis("occurred_at"),
         isRefund = row.flag("is_refund"),
         note = row.textOrNull("note"),
+        sync = row.meta(deleted)
+    )
+
+    fun decodeCashSession(row: JsonObject, deleted: Boolean) = CashSession(
+        id = row.text("id"),
+        deviceLabel = row.textOrNull("device_label") ?: "",
+        openedAt = row.millis("opened_at"),
+        openedBy = row.textOrNull("opened_by") ?: "",
+        openingCount = row.money("opening_count"),
+        closedAt = row.millisOrNull("closed_at"),
+        closedBy = row.textOrNull("closed_by"),
+        closingCount = row.moneyOrNull("closing_count"),
+        note = row.textOrNull("note"),
+        sync = row.meta(deleted)
+    )
+
+    fun decodeCashMovement(row: JsonObject, deleted: Boolean) = CashMovement(
+        id = row.text("id"),
+        sessionId = row.text("session_id"),
+        kind = row.textOrNull("kind")?.let { name -> CashMovementKind.entries.firstOrNull { it.name == name } } ?: CashMovementKind.WITHDRAWAL,
+        amount = row.money("amount"),
+        reason = row.textOrNull("reason") ?: "",
+        byName = row.textOrNull("by_name") ?: "",
+        timestamp = row.millis("occurred_at"),
         sync = row.meta(deleted)
     )
 

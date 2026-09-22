@@ -491,6 +491,8 @@ class SyncEngine(
         syncDao.allTapped().forEach { upload(SyncTables.TAPPED, it.id, it.sync.deleted, RowCodec.encode(it)) }
         syncDao.allTransactions().forEach { upload(SyncTables.TRANSACTIONS, it.id, false, RowCodec.encode(it)) }
         syncDao.allStockDraws().forEach { upload(SyncTables.STOCK_DRAWS, it.id, false, RowCodec.encode(it)) }
+        syncDao.allCashSessions().forEach { upload(SyncTables.CASH_SESSIONS, it.id, it.sync.deleted, RowCodec.encode(it)) }
+        syncDao.allCashMovements().forEach { upload(SyncTables.CASH_MOVEMENTS, it.id, false, RowCodec.encode(it)) }
 
         syncDao.putState(SyncState(SyncKeys.SINCE, "0"))
         syncDao.putState(SyncState(SyncKeys.ENABLED, "1"))
@@ -507,6 +509,8 @@ class SyncEngine(
             syncDao.allStockItems().size + syncDao.allTransactions().size + syncDao.allStockEntries().size
 
     private suspend fun wipeAllTables() {
+        syncDao.wipeCashMovements()
+        syncDao.wipeCashSessions()
         syncDao.wipeStockDraws()
         syncDao.wipeTransactions()
         syncDao.wipeTapped()

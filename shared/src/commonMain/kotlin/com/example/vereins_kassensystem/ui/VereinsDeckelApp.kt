@@ -37,6 +37,7 @@ import com.example.vereins_kassensystem.ui.theme.ThemeMode
 import com.example.vereins_kassensystem.ui.theme.VereinsDeckelTheme
 import com.example.vereins_kassensystem.viewmodel.AnalyticsViewModel
 import com.example.vereins_kassensystem.viewmodel.InventoryViewModel
+import com.example.vereins_kassensystem.viewmodel.CashViewModel
 import com.example.vereins_kassensystem.viewmodel.MemberViewModel
 import com.example.vereins_kassensystem.viewmodel.ProductViewModel
 import com.example.vereins_kassensystem.viewmodel.SalesViewModel
@@ -95,6 +96,7 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
     val salesViewModel: SalesViewModel = viewModel { SalesViewModel(repository) }
     val productViewModel: ProductViewModel = viewModel { ProductViewModel(repository) }
     val memberViewModel: MemberViewModel = viewModel { MemberViewModel(repository) }
+    val cashViewModel: CashViewModel = viewModel { CashViewModel(repository) { graph.syncEngine.status.value.deviceLabel ?: graph.platform.description } }
     val analyticsViewModel: AnalyticsViewModel = viewModel { AnalyticsViewModel(repository) }
     val inventoryViewModel: InventoryViewModel = viewModel { InventoryViewModel(repository) }
 
@@ -121,7 +123,8 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
                     analyticsViewModel = analyticsViewModel,
                     productViewModel = productViewModel,
                     memberViewModel = memberViewModel,
-                    inventoryViewModel = inventoryViewModel
+                    inventoryViewModel = inventoryViewModel,
+                    cashViewModel = cashViewModel
                 )
             }
             composable(Destination.History.route) {

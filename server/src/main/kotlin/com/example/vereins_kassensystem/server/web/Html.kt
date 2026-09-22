@@ -68,6 +68,7 @@ object Icons {
         "keg" to """<path d="M7 3h10M7 21h10M6.5 3c-1.5 3-1.5 15 0 18M17.5 3c1.5 3 1.5 15 0 18M5.5 9h13M5.5 15h13"/>""",
         "camera" to """<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2.5h5L16 6"/>""",
         "close" to """<path d="M6 6l12 12M18 6L6 18"/>""",
+        "cash" to """<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v.01M17.5 14.5v.01"/>""",
         "receipt" to """<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>""",
         "mail" to """<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>""",
         "printer" to """<path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7"/>""",
@@ -97,6 +98,7 @@ val NAV: List<Pair<String?, List<NavEntry>>> = listOf(
     "Mitglieder und Geld" to listOf(
         NavEntry(Area.MEMBERS, "Mitglieder", "users", "$BASE/mitglieder"),
         NavEntry(Area.STATEMENTS, "Abrechnung", "receipt", "$BASE/abrechnung"),
+        NavEntry(Area.CASH, "Kasse", "cash", "$BASE/kasse"),
         NavEntry(Area.REPORTS, "Berichte", "book", "$BASE/berichte"),
     ),
     "Ware" to listOf(

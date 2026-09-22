@@ -161,10 +161,16 @@ class SyncEngineTest {
         // Beide lesen 20,00 und buchen, ohne voneinander zu wissen.
         theke.sell(beer, maria)
         ipad.sell(wine, ipad.repository.allMembers.first().single())
+        ipad.sell(wine, null)
         theke.engine.syncOnce(); ipad.engine.syncOnce(); theke.engine.syncOnce()
 
         assertEquals(11.0, theke.balanceOf("M. Bauer"), 0.0001)
         assertEquals(11.0, ipad.balanceOf("M. Bauer"), 0.0001)
+
+        // Die Lade zählt nur, was das eigene Gerät bar gebucht hat — auch nachdem der Server
+        // die eigenen Zeilen zurückgeschickt hat (das Echo darf die Marke `local` nicht löschen).
+        assertEquals(20.0, theke.db.cashDao().cashInBetween(0, Long.MAX_VALUE), 0.0001, "Theke: die Aufladung in bar, nicht der Barverkauf des iPads")
+        assertEquals(5.0, ipad.db.cashDao().cashInBetween(0, Long.MAX_VALUE), 0.0001, "iPad: der eigene Barverkauf, nicht die Aufladung der Theke")
     }
 
     @Test

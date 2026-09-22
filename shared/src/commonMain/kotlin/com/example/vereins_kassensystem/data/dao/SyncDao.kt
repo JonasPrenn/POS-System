@@ -4,6 +4,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.example.vereins_kassensystem.data.entity.CashMovement
+import com.example.vereins_kassensystem.data.entity.CashSession
 import com.example.vereins_kassensystem.data.entity.ContainerTypeRow
 import com.example.vereins_kassensystem.data.entity.Delivery
 import com.example.vereins_kassensystem.data.entity.MemberCategory
@@ -78,7 +80,11 @@ interface SyncDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertStockEntry(row: StockEntry)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertTapped(row: TappedContainerRow)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertTransaction(row: Transaction)
+    /** Ob die Buchung hier gebucht wurde; null, wenn es sie hier noch nicht gibt. */
+    @Query("SELECT local FROM transactions WHERE id = :id") suspend fun isLocalTransaction(id: String): Boolean?
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertStockDraw(row: StockDraw)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertCashSession(row: CashSession)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertCashMovement(row: CashMovement)
 
     // ------------------------------------------------- Alles, für die Erstbefüllung
 
@@ -94,6 +100,8 @@ interface SyncDao {
     @Query("SELECT * FROM tapped_containers ORDER BY openedAt") suspend fun allTapped(): List<TappedContainerRow>
     @Query("SELECT * FROM transactions ORDER BY timestamp") suspend fun allTransactions(): List<Transaction>
     @Query("SELECT * FROM stock_draws ORDER BY timestamp") suspend fun allStockDraws(): List<StockDraw>
+    @Query("SELECT * FROM cash_sessions ORDER BY openedAt") suspend fun allCashSessions(): List<CashSession>
+    @Query("SELECT * FROM cash_movements ORDER BY timestamp") suspend fun allCashMovements(): List<CashMovement>
 
     // ---------------------------- Leeren, wenn ein Gerät den Serverstand übernimmt
 
@@ -109,4 +117,6 @@ interface SyncDao {
     @Query("DELETE FROM tapped_containers") suspend fun wipeTapped()
     @Query("DELETE FROM transactions") suspend fun wipeTransactions()
     @Query("DELETE FROM stock_draws") suspend fun wipeStockDraws()
+    @Query("DELETE FROM cash_sessions") suspend fun wipeCashSessions()
+    @Query("DELETE FROM cash_movements") suspend fun wipeCashMovements()
 }

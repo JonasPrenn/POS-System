@@ -16,8 +16,8 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Server- und API-Spezifikation | fertig, `docs/VereinsDeckel-Server-und-API.pdf` |
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
 | Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufgestellt ist er noch nirgends |
-| Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 12 (11 = UUID-Schlüssel, 12 = Couleurname) mit hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
-| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`). Schreibt in synchronisierte Tabellen nur Mitglieder, Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung) und Wareneingänge (`web/Purchases.kt`), immer über `Database.write`. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
+| Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 13 (11 = UUID-Schlüssel, 12 = Couleurname, 13 = Kasse) mit hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
+| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet, `ui/components/CashSection.kt`). Schreibt in synchronisierte Tabellen nur Mitglieder, Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung) und Wareneingänge (`web/Purchases.kt`), immer über `Database.write`. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
 `docs/PORTIERUNG.md`; Kartenzahlung gibt es auf iOS erst, wenn das SumUp-iOS-SDK per
@@ -34,7 +34,7 @@ shared/          Kotlin Multiplatform. Datenhaltung, Logik, gesamte Oberfläche.
                  data/repository/AppRepository ist der einzige Schreibweg, data/sync/ der Abgleich.
   androidMain/   Android-Umsetzungen der expect-Deklarationen.
   iosMain/       iOS-Umsetzungen. Bindet Swift über Interfaces ein, nicht umgekehrt.
-  iosTest/       Läuft im Simulator: Room, Migration 10 → 11, Bedientest, und der Abgleich mit
+  iosTest/       Läuft im Simulator: Room, Migration 10 → 11, Bedientest, Kassenlade, und der Abgleich mit
                  zwei Geräten gegen einen nachgebauten Server.
 androidApp/      Nur Hülle: MainActivity, Application, BackupWorker, Manifest, Ressourcen.
 iosApp/          Xcode-Projekt und Swift-Host. Baut das Kotlin-Framework über Gradle.
