@@ -1,5 +1,13 @@
 package com.example.vereins_kassensystem.server.web
 
+import io.ktor.server.response.header
+import io.ktor.server.application.ApplicationCall
+import kotlinx.html.textArea
+import kotlinx.html.FormEncType
+import io.ktor.server.response.respondText
+import io.ktor.http.withCharset
+import io.ktor.http.HttpHeaders
+import io.ktor.http.ContentType
 import com.example.vereins_kassensystem.data.Ledger
 import com.example.vereins_kassensystem.platform.Ids
 import com.example.vereins_kassensystem.ui.format.Money
@@ -109,6 +117,60 @@ fun HTML.setupPage(problem: String?, name: String = "", login: String = "") = do
     }
 }
 
+private suspend fun ApplicationCall.membersView(web: Web, ctx: PageContext, importPlan: MemberCsv.Plan?, notice: String?, problem: String?) {
+    val all = web.reads.members()
+    val selected = uuidOrNull(request.queryParameters["m"])?.let { id -> all.firstOrNull { it.id == id } }
+    val shown = selected ?: all.firstOrNull()
+    val categories = if (ctx.user.role.writesMembers) web.writes.categories() else emptyList()
+    html {
+        membersPage(ctx, all, request.queryParameters["q"].orEmpty(), request.queryParameters["f"] ?: "alle",
+            shown, selected != null, shown?.let { web.reads.statement(it.id, 12) }.orEmpty(), categories,
+            shown?.let { web.statements.profile(it.id) }, shown?.let { web.statements.statementsOf(it.id, 5) }.orEmpty(),
+            notice, problem, importPlan)
+    }
+}
+
+/** Anlegen, was die Vorschau versprochen hat — je Zeile ein Schreibvorgang, damit ein Fehler in Zeile 40 die 39 davor nicht mitnimmt. */
+private fun applyImport(web: Web, user: WebUser, plan: MemberCsv.Plan): String {
+    val categories = web.writes.categories().associateBy({ it.name.lowercase() }, { it.id }).toMutableMap()
+    val membersById = web.reads.members().associateBy { it.id }
+    var created = 0; var filled = 0; var newCategories = 0; var failed = 0
+    for (line in plan.lines) {
+        val row = line.row
+        try {
+            when (line.fate) {
+                MemberCsv.Fate.NEW -> {
+                    // Eine unbekannte Kategorie entsteht mit Limit 0; das Limit setzt der Kassier unter „Kategorien und Limits“.
+                    val categoryId = row.category.takeIf { it.isNotBlank() }?.let { name ->
+                        categories[name.lowercase()] ?: web.products.createCategory(user, name, "0").also { categories[name.lowercase()] = it; newCategories++ }
+                    }
+                    val id = web.writes.createMember(user, row.name, row.nickname, categoryId)
+                    if (listOf(row.number, row.email, row.address, row.notes).any { it.isNotBlank() } || row.consent == true) {
+                        web.statements.saveProfile(user, id, row.number, row.email, row.address, row.consent == true && row.email.isNotBlank(), row.notes)
+                    }
+                    created++
+                }
+                MemberCsv.Fate.EXISTS -> if (line.fills.isNotEmpty()) {
+                    val id = line.existingId!!
+                    if ("Couleurname" in line.fills) membersById[id]?.let { m -> web.writes.updateMember(user, id, m.name, row.nickname, m.category?.let { categories[it.lowercase()] }) }
+                    val p = web.statements.profile(id)
+                    val email = p.email.ifBlank { row.email }
+                    web.statements.saveProfile(user, id, p.number.ifBlank { row.number }, email, p.address.ifBlank { row.address }, p.consentEmail || (row.consent == true && email.isNotBlank()), p.notes.ifBlank { row.notes })
+                    filled++
+                }
+                MemberCsv.Fate.SKIPPED -> Unit
+            }
+        } catch (e: AccountProblem) { failed++ }
+    }
+    val skipped = plan.skipped + failed
+    web.audit.record(user, "member.import", detail = "$created angelegt, $filled ergänzt, $skipped übersprungen, $newCategories Kategorien neu")
+    return "${count(created, "Mitglied", "Mitglieder")} angelegt" +
+        (if (newCategories > 0) ", ${count(newCategories, "Kategorie", "Kategorien")} neu" else "") +
+        (if (filled > 0) ", ${count(filled, "Profil", "Profile")} ergänzt" else "") +
+        (if (skipped > 0) ", $skipped übersprungen" else "") +
+        ". Die Tablets bekommen die Mitglieder beim nächsten Abgleich."
+}
+
 // ------------------------------------------------------------------ Seiten
 
 internal fun Route.mainPages(web: Web) {
@@ -126,17 +188,40 @@ internal fun Route.mainPages(web: Web) {
         }
     }
     get("/mitglieder") {
+        call.guarded(web, Area.MEMBERS) { ctx -> call.membersView(web, ctx, null, call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"]) }
+    }
+    // Die Liste als Datei — mit den Profilfeldern, also nur für den, der sie auch pflegt.
+    get("/mitglieder.csv") {
         call.guarded(web, Area.MEMBERS) { ctx ->
-            val all = web.reads.members()
-            val selected = uuidOrNull(call.request.queryParameters["m"])?.let { id -> all.firstOrNull { it.id == id } }
-            val shown = selected ?: all.firstOrNull()
-            val categories = if (ctx.user.role.writesMembers) web.writes.categories() else emptyList()
-            call.html {
-                membersPage(ctx, all, call.request.queryParameters["q"].orEmpty(), call.request.queryParameters["f"] ?: "alle",
-                    shown, selected != null, shown?.let { web.reads.statement(it.id, 12) }.orEmpty(), categories,
-                    shown?.let { web.statements.profile(it.id) }, shown?.let { web.statements.statementsOf(it.id, 5) }.orEmpty(),
-                    call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"])
+            if (!ctx.user.role.writesMembers) return@guarded call.forbidden(ctx, "Die Liste mit Profilen bekommt der Kassier.")
+            val members = web.reads.members()
+            call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"mitglieder.csv\"")
+            call.respondText(MemberCsv.export(members, web.statements.profiles(members.map { it.id })), ContentType.Text.CSV.withCharset(Charsets.UTF_8))
+        }
+    }
+    // Erst die Vorschau: Die Datei wird gelesen und gegen den Bestand gerechnet, angelegt wird noch nichts.
+    post("/mitglieder/import") {
+        call.guardedUpload(web, Area.MEMBERS, back = "$BASE/mitglieder") { ctx, upload ->
+            if (!ctx.user.role.writesMembers) return@guardedUpload call.forbidden(ctx, "Mitglieder importiert der Kassier.")
+            try {
+                val table = MemberCsv.parse(upload.bytes ?: throw AccountProblem("Keine Datei ausgewählt."))
+                val members = web.reads.members()
+                call.membersView(web, ctx, MemberCsv.plan(table, members, web.writes.categories(), web.statements.profiles(members.map { it.id })), null, null)
+            } catch (e: AccountProblem) {
+                call.respondRedirect("$BASE/mitglieder?fehler=${e.message.orEmpty().encodeURLParameter()}")
             }
+        }
+    }
+    // Dann das Anlegen — noch einmal gegen den Bestand gerechnet, damit ein zweiter Klick niemanden doppelt anlegt.
+    post("/mitglieder/import/anlegen") {
+        call.guardedPost(web, Area.MEMBERS) { ctx, form ->
+            if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Mitglieder importiert der Kassier.")
+            val outcome = try {
+                val table = MemberCsv.parse(form["daten"].orEmpty().toByteArray())
+                val members = web.reads.members()
+                "hinweis=" + applyImport(web, ctx.user, MemberCsv.plan(table, members, web.writes.categories(), web.statements.profiles(members.map { it.id }))).encodeURLParameter()
+            } catch (e: AccountProblem) { "fehler=" + e.message.orEmpty().encodeURLParameter() }
+            call.respondRedirect("$BASE/mitglieder?$outcome")
         }
     }
     post("/mitglieder") {
@@ -429,7 +514,7 @@ private val MEMBER_FILTERS: List<Triple<String, String, (MemberLine) -> Boolean>
 private fun HTML.membersPage(
     ctx: PageContext, all: List<MemberLine>, query: String, filter: String,
     shown: MemberLine?, chosen: Boolean, statement: List<StatementLine>, categories: List<MemberCategoryOption>,
-    profile: Profile?, history: List<Statement>, notice: String?, problem: String?,
+    profile: Profile?, history: List<Statement>, notice: String?, problem: String?, importPlan: MemberCsv.Plan? = null,
 ) {
     val tabs = all.count { it.owes }
     val test = MEMBER_FILTERS.firstOrNull { it.first == filter }?.third ?: { true }
@@ -443,6 +528,17 @@ private fun HTML.membersPage(
 
     shell(ctx, Area.MEMBERS, "Mitglieder", "${count(all.size, "Mitglied", "Mitglieder")} · $tabs im Minus · ${all.count { it.overLimit }} über dem Limit", actions = {
         a(href = "$BASE/mitglieder/kategorien", classes = "btn btn-quiet") { +"Kategorien und Limits" }
+        if (ctx.user.role.writesMembers) {
+            a(href = "$BASE/mitglieder.csv", classes = "btn btn-quiet") { icon("download", "m"); +"CSV" }
+            dialog("$BASE/mitglieder/import", "btn btn-quiet", "Importieren", "Mitglieder aus einer CSV-Datei", triggerIcon = "upload") {
+                form(action = "$BASE/mitglieder/import", encType = FormEncType.multipartFormData, method = FormMethod.post, classes = "stack-tight") {
+                    csrf(ctx)
+                    p("muted") { +"Die Datei des Tablets („Name;Mitgliedergruppe“) oder eine aus Excel mit Kopfzeile — erkannt werden Name, Couleurname, Kategorie, Mitgliedsnummer, E-Mail, Anschrift, Einwilligung. Wen es schon gibt, legt der Import nicht noch einmal an; am Profil ergänzt er nur, was leer ist. Erst kommt eine Vorschau." }
+                    label("field") { span { +"CSV-Datei" }; input(InputType.file, name = "datei") { accept = ".csv,text/csv,text/plain"; required = true } }
+                    button(type = ButtonType.submit, classes = "btn btn-primary") { +"Prüfen" }
+                }
+            }
+        }
         if (ctx.user.role.writesMembers) dialog("$BASE/mitglieder/neu", "btn btn-primary", "Mitglied anlegen", triggerIcon = "plus") {
             postForm(ctx, "$BASE/mitglieder", "stack-tight") {
                 label("field") { span { +"Name" }; input(InputType.text, name = "name") { required = true; maxLength = "80" } }
@@ -453,6 +549,7 @@ private fun HTML.membersPage(
         }
     }) {
         flash(notice, problem)
+        importPlan?.let { plan -> importPreview(ctx, plan) }
         div("cols cols-side split${if (chosen) " has-sel" else ""}") {
             panel("split-list") {
                 form(action = "$BASE/mitglieder", method = FormMethod.get, classes = "toolbar") {
@@ -565,6 +662,43 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
             if (kotlin.math.abs(m.balance) >= 0.005) div("note note-warn") { icon("alert", "m"); span { +"Der Deckel steht auf ${euro(m.balance)}. Erst ausgleichen, dann löschen." } }
             button(type = ButtonType.submit, classes = "btn btn-danger") { +"Ja, löschen" }
         }
+    }
+}
+
+/** Die Vorschau des Imports: was angelegt, was ergänzt, was übersprungen würde — und der Knopf, der es tut. */
+private fun FlowContent.importPreview(ctx: PageContext, plan: MemberCsv.Plan) = panel {
+    panelHead("Import prüfen") { span("cap") { +"${count(plan.table.rows.size, "Zeile", "Zeilen")} · Trennzeichen ${if (plan.table.delimiter == '\t') "Tabulator" else "„${plan.table.delimiter}“"} · ${plan.table.charset}" } }
+    div("panel-note") {
+        +"${count(plan.created, "Mitglied", "Mitglieder")} neu"
+        if (plan.newCategories.isNotEmpty()) +", ${count(plan.newCategories.size, "Kategorie", "Kategorien")} neu (${plan.newCategories.joinToString(", ")}, mit Limit 0 — unter „Kategorien und Limits“ nachziehen)"
+        if (plan.existing > 0) +", ${plan.existing} gibt es schon"
+        if (plan.skipped > 0) +", ${plan.skipped} übersprungen"
+        +"."
+    }
+    table("t t-tight") {
+        thead { tr { th { +"Name" }; th(classes = "hide-sm") { +"Kategorie" }; th(classes = "hide-sm") { +"Profil" }; th { +"Ergebnis" } } }
+        tbody {
+            for (l in plan.lines) tr {
+                td("fill") { twoLine(l.row.name.ifBlank { "(ohne Namen)" }, listOfNotNull("Zeile ${l.row.line}", l.row.nickname.takeIf { it.isNotBlank() }?.let { "v. $it" }).joinToString(" · ")) }
+                td("hide-sm") { +l.row.category; if (l.newCategory) { +" "; chip("neu", "neutral") } }
+                td("hide-sm cap") { +listOf(l.row.number, l.row.email, l.row.address.lineSequence().firstOrNull().orEmpty()).filter { it.isNotBlank() }.joinToString(" · ") }
+                td {
+                    when (l.fate) {
+                        MemberCsv.Fate.NEW -> chip("wird angelegt", "ok", "check")
+                        MemberCsv.Fate.EXISTS -> chip(if (l.fills.isEmpty()) "gibt es schon" else "ergänzt: ${l.fills.joinToString(", ")}", "neutral")
+                        MemberCsv.Fate.SKIPPED -> chip("übersprungen: ${l.reason}", "warn", "alert")
+                    }
+                }
+            }
+        }
+    }
+    div("panel-foot") {
+        if (plan.hasWork) postForm(ctx, "$BASE/mitglieder/import/anlegen", "row wrap") {
+            // Die Datei fährt als Text mit; beim Anlegen wird sie noch einmal gegen den Bestand gerechnet.
+            textArea { attributes["hidden"] = ""; name = "daten"; +plan.table.text }
+            button(type = ButtonType.submit, classes = "btn btn-primary") { icon("upload", "m"); +"${count(plan.created, "Mitglied", "Mitglieder")} anlegen${if (plan.filled > 0) " und Profile ergänzen" else ""}" }
+            a(href = "$BASE/mitglieder", classes = "btn") { +"Abbrechen" }
+        } else p("muted") { +"Nichts zu tun — alle stehen schon in der Liste." }
     }
 }
 

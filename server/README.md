@@ -67,7 +67,10 @@ Administrator legen Mitglieder an, ändern Name, Couleurname und Kategorie, sper
 mit Grund (die Theke zeigt ihn und schreibt nicht mehr an), löschen ein Mitglied, dessen Deckel
 auf null steht (weich: die Tablets nehmen es aus ihren Listen, die Buchungen behalten den Namen,
 das Profil am Server ist weg), und buchen Aufladungen (bar, Karte,
-Überweisung) und Korrekturen mit Grund auf den Deckel. Das ist das Einzige, was die
+Überweisung) und Korrekturen mit Grund auf den Deckel. Mitglieder kommen auch als CSV herein
+(`web/MemberCsv.kt`: die Datei des Tablets oder eine aus Excel mit Kopfzeile, Vorschau zuerst,
+wen es schon gibt, den gibt es nur einmal, leere Profilfelder werden ergänzt) und als CSV
+wieder heraus. Das ist das Einzige, was die
 Verwaltung in synchronisierte Tabellen schreibt, und es geht über `Database.write`
 (`web/Writes.kt`) — dieselbe Sequenzsperre wie beim Abgleich; die Tablets holen es sich beim
 nächsten Abgleich. Gebucht wird in der Form, in der die App bucht; jede Buchung trägt den

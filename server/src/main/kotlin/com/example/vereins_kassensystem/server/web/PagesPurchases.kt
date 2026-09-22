@@ -53,13 +53,13 @@ import java.time.LocalDate
 import java.util.UUID
 
 /** Ein abgeschicktes Formular mit Datei: die Felder und, wenn dabei, die Datei. */
-private class Upload(val fields: Map<String, String>, val fileName: String?, val contentType: ContentType?, val bytes: ByteArray?)
+internal class Upload(val fields: Map<String, String>, val fileName: String?, val contentType: ContentType?, val bytes: ByteArray?)
 
 /**
  * Wie [guardedPost], aber für `multipart/form-data`: Das Sitzungsgeheimnis steckt in einem
  * Feld zwischen den Teilen, die Datei bleibt im Speicher, bis feststeht, dass sie klein genug ist.
  */
-private suspend fun ApplicationCall.guardedUpload(web: Web, area: Area, block: suspend (PageContext, Upload) -> Unit) = guarded(web, area) { ctx ->
+internal suspend fun ApplicationCall.guardedUpload(web: Web, area: Area, back: String = "$BASE/einkauf", block: suspend (PageContext, Upload) -> Unit) = guarded(web, area) { ctx ->
     val fields = HashMap<String, String>()
     var fileName: String? = null
     var contentType: ContentType? = null
@@ -81,7 +81,7 @@ private suspend fun ApplicationCall.guardedUpload(web: Web, area: Area, block: s
     if (!Tokens.constantTimeEquals(fields["_csrf"].orEmpty(), ctx.session.csrf)) {
         return@guarded forbidden(ctx, "Das Formular ist abgelaufen. Bitte die Seite neu laden und noch einmal versuchen.")
     }
-    if (tooBig) return@guarded respondRedirect("$BASE/einkauf?fehler=${"Die Datei ist größer als 20 MB.".encodeURLParameter()}")
+    if (tooBig) return@guarded respondRedirect("$back?fehler=${"Die Datei ist größer als 20 MB.".encodeURLParameter()}")
     block(ctx, Upload(fields, fileName, contentType, bytes))
 }
 
