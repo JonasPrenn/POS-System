@@ -8,7 +8,7 @@
 # nicht eine Viertelstunde.
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /src
-COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts gradle.properties VERSION ./
 COPY gradle ./gradle
 COPY core ./core
 COPY server ./server
