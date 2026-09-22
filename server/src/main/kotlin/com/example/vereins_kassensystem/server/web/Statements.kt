@@ -234,6 +234,64 @@ class Statements(private val db: Database, private val writes: Writes, private v
         return booked
     }
 
+    // ------------------------------------------------- Aufladung nach dem Stichtag
+
+    /**
+     * Was seit dem Stichtag auf den Deckel kam, ohne dass die Abrechnung davon weiß — an der
+     * Theke bar oder mit Karte statt per Überweisung. Vermutlich die Zahlung; entscheiden tut
+     * der Kassier.
+     */
+    class TopUpsSince(val amount: Double, val count: Int, val lastAt: Instant, val lastKind: String, val lastId: UUID) {
+        val lastKindLabel: String get() = topUpKindLabel(lastKind)
+    }
+
+    /**
+     * Je offener Abrechnung die Aufladungen nach dem Stichtag ihres Laufs: Summe, Anzahl, die
+     * jüngste. Eine Aufladung, die schon eine Abrechnung bezahlt hat, zählt nicht noch einmal.
+     */
+    fun topUpsSince(statements: Collection<Statement>): Map<UUID, TopUpsSince> {
+        val ids = statements.filter { it.status == StatementStatus.OPEN && it.amount > 0 }.map { it.id }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return db.read { c ->
+            c.query(
+                """
+                SELECT s.id, COUNT(*) AS n, SUM(t.price) AS amount, MAX(t.occurred_at) AS last_at,
+                       (ARRAY_AGG(t.payment_type ORDER BY t.occurred_at DESC))[1] AS last_kind,
+                       (ARRAY_AGG(t.id ORDER BY t.occurred_at DESC))[1] AS last_id
+                FROM statements s
+                JOIN statement_runs r ON r.id = s.run_id
+                JOIN transactions t ON t.member_id = s.member_id AND NOT t.deleted AND t.product_ref = ?::uuid AND t.price > 0
+                     AND t.occurred_at >= ((r.period_to + 1)::timestamp AT TIME ZONE ?)
+                     AND NOT EXISTS (SELECT 1 FROM statements x WHERE x.payment_id = t.id)
+                WHERE s.id = ANY(?)
+                GROUP BY s.id
+                """.trimIndent(),
+                Ledger.TOPUP_REF, zone.id, c.createArrayOf("uuid", ids.toTypedArray())
+            ) { rs ->
+                rs.getObject("id", UUID::class.java) to TopUpsSince(rs.getDouble("amount"), rs.getInt("n"), rs.getTimestamp("last_at").toInstant(), rs.getString("last_kind"), rs.getObject("last_id", UUID::class.java))
+            }.toMap()
+        }
+    }
+
+    /** Bezahlt — mit einer Aufladung, die schon am Deckel steht. Keine zweite Buchung; die Tablets merken nichts davon. */
+    fun settleWithTopUp(by: WebUser, statementId: UUID, transactionId: UUID) {
+        val s = statement(statementId) ?: throw AccountProblem("Diese Abrechnung gibt es nicht.")
+        if (s.status != StatementStatus.OPEN) throw AccountProblem("Die Abrechnung ${s.number} ist ${if (s.status == StatementStatus.PAID) "schon bezahlt" else "storniert"}.")
+        db.transaction { c ->
+            val topUp = c.queryOne(
+                "SELECT price, payment_type, occurred_at FROM transactions t WHERE id = ? AND member_id = ? AND NOT deleted AND product_ref = ?::uuid AND price > 0 AND NOT EXISTS (SELECT 1 FROM statements x WHERE x.payment_id = t.id)",
+                transactionId, s.memberId, Ledger.TOPUP_REF
+            ) { Triple(it.getDouble("price"), it.getString("payment_type"), it.getTimestamp("occurred_at").toInstant()) }
+                ?: throw AccountProblem("Diese Aufladung gibt es nicht, gehört nicht zu ${s.memberName} oder hat schon eine Abrechnung bezahlt.")
+            val (amount, kind, at) = topUp
+            val day = at.atZone(zone).toLocalDate()
+            c.execute("UPDATE statements SET status = 'PAID', paid_at = ?, payment_id = ? WHERE id = ?", Date.valueOf(day), transactionId, s.id)
+            AuditLog.record(c, by.id, by.displayName, "statement.paid", s.number,
+                "${Money.format(amount)} ${topUpKindLabel(kind)} — Aufladung vom ${day.dayOfMonth}.${day.monthValue}., keine neue Buchung${if (kotlin.math.abs(amount - s.amount) > 0.005) " (gefordert ${Money.format(s.amount)})" else ""}")
+        }
+    }
+
+
     // ------------------------------------------------------------ Bankumsätze
 
     fun allBankTransactions(limit: Int): List<BankTransaction> = db.read { c ->
@@ -288,3 +346,6 @@ class Statements(private val db: Database, private val writes: Writes, private v
     private fun startOf(day: LocalDate): Timestamp = Timestamp.from(day.atStartOfDay(zone).toInstant())
     private fun money(v: Double): BigDecimal = BigDecimal.valueOf(Money.cents(v))
 }
+
+/** Wie das Tablet die Zahlart einer Aufladung nennt — in Worten für Hinweis und Protokoll. */
+private fun topUpKindLabel(kind: String): String = when (kind) { "CASH" -> "bar"; "CARD" -> "mit Karte"; "BANK" -> "per Überweisung"; else -> kind.lowercase() }

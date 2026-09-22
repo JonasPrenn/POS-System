@@ -91,8 +91,10 @@ internal fun Route.statementPages(web: Web) {
             val lastMonthEnd = ctx.today.withDayOfMonth(1).minusDays(1)
             val to = call.request.queryParameters["stichtag"]?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
                 ?: if (nextFrom.isAfter(lastMonthEnd)) minOf(nextFrom.withDayOfMonth(nextFrom.lengthOfMonth()), ctx.today) else lastMonthEnd
+            val open = web.statements.openStatements()
+            val covered = web.statements.topUpsSince(list + open)
             call.html {
-                statementsPage(ctx, runs, run, list, profiles, web.statements.openStatements(), web.statements.openBankTransactions(),
+                statementsPage(ctx, runs, run, list, profiles, open, covered, web.statements.openBankTransactions(),
                     nextFrom, to, threshold, web.statements.preview(to, threshold), call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"])
             }
         }
@@ -175,9 +177,15 @@ internal fun Route.statementPages(web: Web) {
             if (!ctx.user.role.writesMembers) return@guardedPost call.forbidden(ctx, "Zahlungen bucht der Kassier.")
             val s = uuidOrNull(call.parameters["id"])?.let(web.statements::statement) ?: return@guardedPost call.respondRedirect("$BASE/abrechnung")
             val outcome = try {
-                val amount = form["betrag"]?.takeIf { it.isNotBlank() }?.let { Money.parse(it) ?: throw AccountProblem("Den Betrag bitte als Zahl.") } ?: s.amount
-                web.statements.recordPayment(ctx.user, s.id, amount, TopUpKind.entries.firstOrNull { it.name == form["zahlart"] } ?: TopUpKind.BANK, form["am"]?.takeIf { it.isNotBlank() }?.let(LocalDate::parse) ?: ctx.today)
-                "hinweis=" + "Zahlung von ${s.memberName} gebucht — als Aufladung, die Tablets sehen sie beim nächsten Abgleich.".encodeURLParameter()
+                val topUp = uuidOrNull(form["aufladung"])
+                if (topUp != null) {
+                    web.statements.settleWithTopUp(ctx.user, s.id, topUp)
+                    "hinweis=" + "Abrechnung ${s.number} bezahlt — mit der Aufladung, die schon am Deckel steht, keine neue Buchung.".encodeURLParameter()
+                } else {
+                    val amount = form["betrag"]?.takeIf { it.isNotBlank() }?.let { Money.parse(it) ?: throw AccountProblem("Den Betrag bitte als Zahl.") } ?: s.amount
+                    web.statements.recordPayment(ctx.user, s.id, amount, TopUpKind.entries.firstOrNull { it.name == form["zahlart"] } ?: TopUpKind.BANK, form["am"]?.takeIf { it.isNotBlank() }?.let(LocalDate::parse) ?: ctx.today)
+                    "hinweis=" + "Zahlung von ${s.memberName} gebucht — als Aufladung, die Tablets sehen sie beim nächsten Abgleich.".encodeURLParameter()
+                }
             } catch (e: AccountProblem) { "fehler=" + e.message.orEmpty().encodeURLParameter() }
             call.respondRedirect("$BASE/abrechnung?lauf=${s.runId}&$outcome")
         }
@@ -239,7 +247,7 @@ internal fun Route.statementPages(web: Web) {
 
 private fun HTML.statementsPage(
     ctx: PageContext, runs: List<StatementRun>, run: StatementRun?, list: List<Statement>, profiles: Map<UUID, Profile>,
-    open: List<Statement>, bank: List<BankTransaction>, nextFrom: LocalDate, previewTo: LocalDate, threshold: Double,
+    open: List<Statement>, covered: Map<UUID, Statements.TopUpsSince>, bank: List<BankTransaction>, nextFrom: LocalDate, previewTo: LocalDate, threshold: Double,
     preview: List<Pair<MemberLine, Double>>, notice: String?, problem: String?,
 ) {
     val writes = ctx.user.role.writesMembers
@@ -250,6 +258,16 @@ private fun HTML.statementsPage(
         }
     }) {
         flash(notice, problem)
+        val coveredOpen = open.filter { it.id in covered }
+        if (coveredOpen.isNotEmpty()) div("note note-warn") {
+            icon("wallet", "m")
+            span {
+                +"${count(coveredOpen.size, "offene Abrechnung", "offene Abrechnungen")} mit Aufladung seit dem Stichtag — vermutlich an der Theke bezahlt: "
+                +coveredOpen.take(6).joinToString(", ") { "${it.memberName} (${euroSigned(covered.getValue(it.id).amount)})" }
+                +(if (coveredOpen.size > 6) " und ${coveredOpen.size - 6} weitere. " else ". ")
+                +(if (writes) "„Bezahlt mit dieser Aufladung“ unter „Mehr“ schließt die Abrechnung ohne zweite Buchung." else "Der Kassier kann sie damit schließen.")
+            }
+        }
         if (!ctx.verein.bank.configured) div("note note-warn") { icon("alert", "m"); span { +"Ohne Bankverbindung unter Einstellungen bekommt der Auszug keinen QR-Code und keine IBAN — nur den Verwendungszweck." } }
         panel {
             div("figures") {
@@ -281,6 +299,7 @@ private fun HTML.statementsPage(
                                         s.status == StatementStatus.CANCELLED -> chip("storniert", "neutral")
                                         s.status == StatementStatus.PAID -> chip("bezahlt ${s.paidAt?.let { ctx.dayShort(it) }.orEmpty()}", "ok", "check")
                                         s.amount <= 0 -> chip("nichts zu zahlen", "neutral")
+                                        covered[s.id] != null -> chip("aufgeladen ${euroSigned(covered.getValue(s.id).amount)}", "deckel", "wallet")
                                         s.reminderLevel > 0 -> chip("erinnert ${s.remindedAt?.let { ctx.day(it) }.orEmpty()}", "warn")
                                         s.overdue(ctx.today) -> chip("überfällig", "error", "alert")
                                         else -> chip("offen", "neutral")
@@ -297,15 +316,25 @@ private fun HTML.statementsPage(
                                         a(href = "$BASE/abrechnung/${s.id}.pdf", classes = if (more) "btn btn-quiet hide-sm" else "btn btn-quiet") { +"PDF" }
                                         if (more) dialog("$BASE/abrechnung/${s.id}/mehr", "btn", "Mehr", "Abrechnung ${s.number}") {
                                             div("stack-tight") {
-                                                a(href = "$BASE/abrechnung/${s.id}.pdf", classes = "btn btn-wide only-sm") { icon("printer", "m"); +"PDF öffnen" }
-                                                if (profile?.canEmail == true) postForm(ctx, "$BASE/abrechnung/${s.id}/senden") { hiddenInput(name = "erinnerung") { value = if (s.sentAt != null && s.overdue(ctx.today)) "1" else "0" }; button(type = ButtonType.submit, classes = "btn btn-wide") { icon("mail", "m"); +(if (s.sentAt != null && s.overdue(ctx.today)) "Erinnerung mailen" else "Per E-Mail senden") } }
+a(href = "$BASE/abrechnung/${s.id}.pdf", classes = "btn btn-wide only-sm") { icon("printer", "m"); +"PDF öffnen" }
+val topUps = covered[s.id]
+val reminder = s.sentAt != null && s.overdue(ctx.today)
+// Was seit dem Stichtag an der Theke auf den Deckel kam, ist vermutlich die Zahlung: ein Klick, keine zweite Buchung.
+if (topUps != null) postForm(ctx, "$BASE/abrechnung/${s.id}/bezahlt", "stack-tight") {
+    hiddenInput(name = "aufladung") { value = topUps.lastId.toString() }
+    p("muted") { +"Seit dem Stichtag aufgeladen: ${euroSigned(topUps.amount)}${if (topUps.count > 1) " in ${topUps.count} Aufladungen" else ""}, zuletzt ${ctx.friendly(topUps.lastAt)} ${topUps.lastKindLabel}." }
+    if (topUps.amount + 0.005 >= s.amount) button(type = ButtonType.submit, classes = "btn btn-primary btn-wide") { icon("check", "m"); +"Bezahlt mit dieser Aufladung" }
+    else p("cap") { +"Weniger als die geforderten ${euro(s.amount)} — unten als Zahlung buchen, wenn der Rest kommt." }
+}
+// Wer an der Theke aufgeladen hat, bekommt keine Erinnerung — nur der erste Versand bleibt möglich.
+if (profile?.canEmail == true && !(reminder && topUps != null)) postForm(ctx, "$BASE/abrechnung/${s.id}/senden") { hiddenInput(name = "erinnerung") { value = if (reminder) "1" else "0" }; button(type = ButtonType.submit, classes = "btn btn-wide") { icon("mail", "m"); +(if (reminder) "Erinnerung mailen" else "Per E-Mail senden") } }
                                                 if (s.amount > 0) postForm(ctx, "$BASE/abrechnung/${s.id}/bezahlt", "stack-tight") {
                                                     label("field") { span { +"Zahlung eingegangen, Betrag" }; input(InputType.text, name = "betrag") { value = Money.formatPlain(s.amount); attributes["inputmode"] = "decimal" } }
                                                     label("field") { span { +"Wie" }; select { name = "zahlart"; for (k in TopUpKind.entries) option { value = k.name; +k.label } } }
                                                     label("field") { span { +"Am" }; input(InputType.date, name = "am") { value = ctx.today.toString() } }
                                                     button(type = ButtonType.submit, classes = "btn btn-brass btn-wide") { +"Zahlung buchen" }
                                                 }
-                                                if (s.overdue(ctx.today)) postForm(ctx, "$BASE/abrechnung/${s.id}/erinnert", "stack-tight") {
+                                                if (s.overdue(ctx.today) && topUps == null) postForm(ctx, "$BASE/abrechnung/${s.id}/erinnert", "stack-tight") {
                                                     label("field") { span { +"Erinnert — wie?" }; input(InputType.text, name = "wie") { placeholder = "auf der Bude angesprochen" } }
                                                     button(type = ButtonType.submit, classes = "btn btn-wide") { +"Erinnerung vermerken" }
                                                 }

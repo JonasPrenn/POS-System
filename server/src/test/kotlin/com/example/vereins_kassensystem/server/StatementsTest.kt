@@ -173,4 +173,46 @@ class StatementsTest {
         assertContains(kassier.page("/verwaltung/mitglieder?m=$georg"), "0,00 €")
         assertContains(kassier.page("/verwaltung/protokoll"), "Zahlung eingegangen")
     }
+@Test
+fun `a top-up at the till after the cut-off shows on the statement and settles it without a second booking`() = serverTest(insecureCookies = true) { ctx ->
+    val device = ctx.pairDevice("Theke links")
+    val anna = newId(); val helles = newId()
+    val aug = LocalDate.of(2026, 8, 12)
+    ctx.push(
+        device.token,
+        insertOp("members", buildJsonObject { put("id", anna); put("name", "Anna Berger") }),
+        insertOp("products", buildJsonObject { put("id", helles); put("name", "Helles 0,5"); put("price", "3.00"); put("category", "Getränke") }),
+        insertOp("transactions", buildJsonObject { put("id", newId()); put("transaction_group_id", newId()); put("member_id", anna); put("member_name", "Anna Berger"); put("product_ref", helles); put("product_name", "Helles 0,5"); put("price", "3.00"); put("quantity", 10); put("payment_type", Ledger.MEMBER_BALANCE); put("occurred_at", at(aug, 20)) }),
+    )
+    Accounts(ctx.db).create("lukas", "Lukas Hofer", Role.KASSIER, password)
+    val kassier = browser()
+    kassier.form("/verwaltung/anmelden", "login" to "lukas", "passwort" to password)
+    val page = kassier.page("/verwaltung/abrechnung?stichtag=2026-08-31&schwelle=-5")
+    val created = kassier.form("/verwaltung/abrechnung/lauf", "_csrf" to csrfOf(page), "name" to "Bierrechnung August 2026", "von" to "2026-08-01", "stichtag" to "2026-08-31", "ziel" to "2026-09-14", "schwelle" to "-5,00", "zusatz" to "", "zusatzbetrag" to "", "alle" to "0")
+    val run = assertNotNull(Regex("lauf=([0-9a-f-]{36})").find(location(created))).groupValues[1]
+    var list = kassier.page("/verwaltung/abrechnung?lauf=$run")
+    assertContains(list, "30,00 €"); assertFalse(list.contains("aufgeladen"))
+    val statementId = Regex("""/verwaltung/abrechnung/([0-9a-f-]{36})\.pdf""").find(list)!!.groupValues[1]
+    val since = ctx.client.get("/v1/sync/changes?since=0") { bearerAuth(device.token) }.body<ChangesResponse>().nextSince
+
+    // Anna zahlt am 5. September an der Theke: 30 € bar auf den Deckel — das Tablet meldet eine Aufladung, die Abrechnung weiß nichts davon.
+    val topUp = newId()
+    ctx.push(device.token, insertOp("transactions", buildJsonObject { put("id", topUp); put("transaction_group_id", newId()); put("member_id", anna); put("member_name", "Anna Berger"); put("product_ref", Ledger.TOPUP_REF); put("product_name", "Guthabenaufladung"); put("price", "30.00"); put("quantity", 1); put("payment_type", "CASH"); put("occurred_at", at(LocalDate.of(2026, 9, 5), 19)) }))
+    list = kassier.page("/verwaltung/abrechnung?lauf=$run")
+    assertContains(list, "aufgeladen +30,00 €"); assertContains(list, "vermutlich an der Theke bezahlt"); assertContains(list, "Bezahlt mit dieser Aufladung")
+    assertContains(kassier.page("/verwaltung"), "vermutlich bezahlt", message = "der Kassier sieht es auf der Übersicht")
+
+    // Ein Klick schließt die Abrechnung mit genau dieser Aufladung; gebucht wird nichts Zweites, Anna bleibt auf 0.
+    val settled = kassier.form("/verwaltung/abrechnung/$statementId/bezahlt", "_csrf" to csrfOf(list), "aufladung" to topUp)
+    assertContains(location(settled), "keine%20neue%20Buchung")
+    val after = kassier.page("/verwaltung/abrechnung?lauf=$run")
+    assertContains(after, "bezahlt 05.09."); assertFalse(after.contains("aufgeladen +"))
+    val pulled = ctx.client.get("/v1/sync/changes?since=$since") { bearerAuth(device.token) }.body<ChangesResponse>()
+    assertEquals(1, pulled.changes.count { it.entity == "transactions" }, "nur die Aufladung vom Tablet, keine zweite Buchung")
+    assertContains(kassier.page("/verwaltung/mitglieder?m=$anna"), "0,00 €")
+    assertContains(kassier.page("/verwaltung/protokoll"), "keine neue Buchung")
+    assertFalse(kassier.page("/verwaltung").contains("vermutlich bezahlt"))
+    // Dieselbe Aufladung bezahlt keine zweite Abrechnung.
+    assertContains(location(kassier.form("/verwaltung/abrechnung/$statementId/bezahlt", "_csrf" to csrfOf(list), "aufladung" to topUp)), "fehler=")
+}
 }

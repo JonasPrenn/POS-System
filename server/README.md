@@ -105,6 +105,10 @@ oder aus dem Kontoauszug der Bank (`BankImport.kt`: CAMT.053 als XML, oder eine 
 Spalten am Kopf erkannt werden; ein zweites Einlesen bucht nichts doppelt). Eine Zahlung wird
 als Aufladung mit Zahlart `BANK` gebucht und erreicht die Tablets über den Abgleich — einen
 zweiten Kontostand gibt es nicht. Erinnerungen per E-Mail oder als Vermerk, Storno mit Grund.
+Zahlt jemand an der Theke statt per Überweisung, sieht die Verwaltung die Aufladung nach dem
+Stichtag: Die Abrechnung bleibt offen, steht aber als „aufgeladen“ da und auf der Übersicht
+als Hinweis für den Kassier; ein Klick schließt sie mit genau dieser Aufladung — ohne zweite
+Buchung, und erinnert wird dann nicht mehr.
 Das SMTP-Passwort liegt in der Tabelle `settings`, wie alles andere in dieser Datenbank.
 
 **Kasse** (`web/Cash.kt`, Konzept 4.5): Gezählt wird am Tablet, nicht im Web. Dort öffnet

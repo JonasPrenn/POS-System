@@ -119,7 +119,9 @@ internal fun Route.mainPages(web: Web) {
             val members = web.reads.members()
             val stock = if (ctx.user.role.may(Area.STOCK)) web.reads.stock() else emptyList()
             call.html {
-                overviewPage(ctx, week, web.reads.tabTotals(members), web.reads.recentCheckouts(8), web.devices.list(), stock, if (ctx.user.role.may(Area.PURCHASES)) web.purchases.openDocuments() else emptyList())
+                // Abrechnungen, deren Deckel seit dem Stichtag aufgeladen wurde: vermutlich bezahlt, noch offen — das sieht der Kassier zuerst hier.
+                val covered = if (ctx.user.role.may(Area.STATEMENTS)) web.statements.topUpsSince(web.statements.openStatements()).size else 0
+                overviewPage(ctx, week, web.reads.tabTotals(members), web.reads.recentCheckouts(8), web.devices.list(), stock, if (ctx.user.role.may(Area.PURCHASES)) web.purchases.openDocuments() else emptyList(), covered)
             }
         }
     }
@@ -291,8 +293,15 @@ private fun paymentChip(type: String, topUp: Boolean, refund: Boolean): Pair<Str
 
 private fun HTML.overviewPage(
     ctx: PageContext, week: List<DayRevenue>, tabs: TabTotals, checkouts: List<Checkout>,
-    devices: List<com.example.vereins_kassensystem.server.devices.DeviceRecord>, stock: List<StockLine>, open: List<Document>,
+    devices: List<com.example.vereins_kassensystem.server.devices.DeviceRecord>, stock: List<StockLine>, open: List<Document>, coveredStatements: Int = 0,
 ) = shell(ctx, Area.OVERVIEW, "Übersicht", ctx.longDate()) {
+    if (coveredStatements > 0) div("note note-warn") {
+        icon("wallet", "m")
+        span {
+            +"${count(coveredStatements, "offene Abrechnung", "offene Abrechnungen")}, deren Deckel seit dem Stichtag aufgeladen wurde — vermutlich bezahlt. "
+            a(href = "$BASE/abrechnung", classes = "link") { +"Zur Abrechnung"; icon("chevron", "s") }
+        }
+    }
     val today = week.last().revenue
     val weekTotal = week.fold(Revenue()) { a, d -> a + d.revenue }
     val quiet = week.filter { it.revenue.total <= 0 && it.day != ctx.today }
