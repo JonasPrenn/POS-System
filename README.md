@@ -8,7 +8,7 @@ a till attached, built for a volunteer on a shift rather than a trained cashier.
 
 ## Features
 
-- **Sales** — colour-coded product grid, search, cart with quantity steppers, haptics
+- **Sales** — colour-coded product grid, search, cart with quantity steppers, haptics; cash tips from the change or as a typed amount
 - **Member tabs** — balances with an allowance per category, audited top-ups
 - **Stock** — recipes, several container sizes per item, learned keg yields
 - **Goods receipts** — a whole receipt with its lines and a photo of the Kassabon

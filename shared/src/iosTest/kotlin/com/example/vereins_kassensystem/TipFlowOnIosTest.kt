@@ -130,6 +130,31 @@ class TipFlowOnIosTest {
         }
     }
 
+    @Test
+    fun `cash takes the change as tip or a typed amount and passend works on an uneven total`() = withTill(Terminal(asksForTip = false)) { repository ->
+        // Drei Bier, 12,60 €: Die Summe der Zeilen trägt Rechenstaub, „Passend“ muss trotzdem reichen.
+        repeat(3) { clickDescription(beer) }
+        clickText("Bezahlen"); clickText("Bar"); clickText("Passend"); clickText("Abschließen")
+        waitUntil("passend bezahlt", 10_000) { cash(repository).size == 1 }
+
+        // „Passt so“: 5 € für 4,20 € — das Rückgeld wird Trinkgeld.
+        clickDescription(beer)
+        clickText("Bezahlen"); clickText("Bar"); clickText("5"); clickText("Rückgeld als Trinkgeld"); clickText("Abschließen")
+        waitUntil("Trinkgeld aus dem Rückgeld", 10_000) { cash(repository).size == 3 }
+
+        // „Mach neun“: 10 € für 8,40 €, 0,60 € Trinkgeld getippt, 1,00 € zurück.
+        repeat(2) { clickDescription(beer) }
+        clickText("Bezahlen"); clickText("Bar"); clickText("10")
+        clickText("Trinkgeld"); clickText("0"); clickText(","); clickText("6")
+        onAllNodesWithText("Trinkgeld").onFirst().assertIsSelected()
+        clickText("Abschließen")
+        waitUntil("getipptes Trinkgeld", 10_000) { cash(repository).size == 5 }
+
+        val tips = cash(repository).filter { it.productId == Ledger.TIP_REF }.map { it.price }.sorted()
+        assertEquals(listOf(0.6, 0.8), tips, "Trinkgeld in bar, als eigene Zeile")
+        assertEquals(setOf(3, 1, 2), cash(repository).filter { it.productId != Ledger.TIP_REF }.map { it.quantity }.toSet())
+    }
+
     private fun card(repository: AppRepository): List<Transaction> = runBlocking { repository.allTransactions.first().filter { it.paymentType == "CARD" } }
     private fun cash(repository: AppRepository): List<Transaction> = runBlocking { repository.allTransactions.first().filter { it.paymentType == "CASH" } }
 

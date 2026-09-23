@@ -1,5 +1,15 @@
 package com.example.vereins_kassensystem.ui.screens
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -15,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +57,9 @@ import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import kotlin.math.ceil
 import com.example.vereins_kassensystem.ui.icons.VdIcons
 
+/** Ab dieser Fensterbreite steht im Bardialog das Tastenfeld neben den Beträgen (WindowSizeClass.Expanded). */
+private val WideCashBreakpoint = 840.dp
+
 /** Which payment route the user picked. Null while still choosing. */
 private enum class PayMode { Cash, Card, Balance }
 
@@ -75,107 +87,159 @@ fun CheckoutDialog(
     // Fragt das Kartenterminal selbst nach Trinkgeld, fragt die App nicht.
     tipOnTerminal: Boolean = false
 ) {
-    val total = cartTotal + topUpAmount + tipAmount
+    // In Cent gerechnet: Die Summe der Zeilen trägt Rechenstaub (3 × 4,20 € ergibt
+    // 12,600000000000001), und „Passend“ reichte dann nie für „Abschließen“.
+    val base = Money.cents(cartTotal + topUpAmount)
+    val total = Money.cents(base + tipAmount)
     var mode by remember { mutableStateOf<PayMode?>(null) }
     var cashGiven by remember { mutableStateOf("") }
+    // Bar: Das Tastenfeld schreibt in „Gegeben“ oder ins Trinkgeld, je nachdem, welches Feld gewählt ist.
+    var tipInput by remember { mutableStateOf("") }
+    var editingTip by remember { mutableStateOf(false) }
 
-    val cashGivenValue = Money.parse(cashGiven) ?: 0.0
-    val change = (cashGivenValue - total).coerceAtLeast(0.0)
+    // Bar im Querformat: Unter den Beträgen ist kein Platz mehr für das ganze Tastenfeld — auf
+    // breiten Geräten steht es deshalb daneben. Gefragt wird die Breite des Fensters, nicht die Lage.
+    val windowWidth = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() }
+    val wideCash = mode == PayMode.Cash && windowWidth >= WideCashBreakpoint
+
+    val cashGivenValue = Money.cents(Money.parse(cashGiven) ?: 0.0)
+    val change = Money.cents(cashGivenValue - total).coerceAtLeast(0.0)
     val cashCovers = cashGivenValue >= total
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        // Capped rather than fillMaxWidth: on a tablet an unbounded dialog stretches the
-        // keypad into absurdly wide keys and pushes the change display off the bottom.
-        modifier = Modifier
-            .padding(Spacing.xl)
-            .widthIn(max = 520.dp),
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (mode != null) {
-                    IconButton(onClick = {
-                        mode = null
-                        onSetTipAmount(0.0)
-                        cashGiven = ""
-                    }) {
-                        Icon(VdIcons.ArrowBack, contentDescription = "Zurück")
-                    }
-                    Spacer(Modifier.width(Spacing.sm))
-                }
-                Text(
-                    text = when (mode) {
-                        null -> "Zahlung wählen"
-                        PayMode.Cash -> "Barzahlung"
-                        PayMode.Card -> "Kartenzahlung"
-                        PayMode.Balance -> "Vom Deckel"
-                    },
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            }
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                TotalHeadline(total)
-                Spacer(Modifier.height(Spacing.xl))
-
-                when (mode) {
-                    null -> PaymentChoice(
-                        cashAllowed = cashAllowed,
-                        cartTotal = cartTotal,
-                        topUpAmount = topUpAmount,
-                        selectedMember = selectedMember,
-                        categories = categories,
-                        onPick = { mode = it }
-                    )
-
-                    PayMode.Cash -> CashPane(
-                        cashGiven = cashGiven,
-                        given = cashGivenValue,
-                        change = change,
-                        total = total,
-                        onCashGivenChange = { cashGiven = it }
-                    )
-
-                    PayMode.Card -> when {
-                        // Auf eine reine Aufladung gibt es kein Trinkgeld.
-                        cartTotal <= 0.0 -> CardNote("Aufladung per Karte — ohne Trinkgeld.")
-                        tipOnTerminal -> CardNote("Das Trinkgeld wählt der Gast am Kartenterminal. Gebucht wird, was SumUp meldet.")
-                        // Das Terminal fragt nicht selbst (oder ist noch nicht gekoppelt): Die App fragt, auf den Einkauf, nicht auf eine Aufladung.
-                        else -> TipPane(
-                            base = cartTotal,
-                            tipAmount = tipAmount,
-                            onSetTipAmount = onSetTipAmount
-                        )
-                    }
-
-                    PayMode.Balance -> Text(
-                        text = "Der Betrag wird direkt vom Deckel des Mitglieds abgezogen.",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            if (mode != null) {
-                PayButton(
-                    amount = total,
-                    onClick = {
-                        onCheckout(
-                            when (mode) {
-                                PayMode.Cash -> "CASH"
-                                PayMode.Card -> "CARD"
-                                else -> "MEMBER_BALANCE"
+    // Ein eigener Rahmen im Aussehen des Material-Dialogs: Der AlertDialog wird nie breiter
+    // als 560 dp, und im Querformat braucht die Barzahlung die Breite für das Tastenfeld daneben.
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            // Capped rather than fillMaxWidth: on a tablet an unbounded dialog stretches the
+            // keypad into absurdly wide keys and pushes the change display off the bottom.
+            modifier = Modifier
+                .padding(Spacing.xl)
+                .widthIn(max = if (wideCash) 880.dp else 520.dp),
+            shape = AlertDialogDefaults.shape,
+            color = AlertDialogDefaults.containerColor,
+            tonalElevation = AlertDialogDefaults.TonalElevation
+        ) {
+            Column(modifier = Modifier.padding(Spacing.xl)) {
+                CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.titleContentColor) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (mode != null) {
+                            IconButton(onClick = {
+                                mode = null
+                                onSetTipAmount(0.0)
+                                cashGiven = ""
+                                tipInput = ""
+                                editingTip = false
+                            }) {
+                                Icon(VdIcons.ArrowBack, contentDescription = "Zurück")
                             }
+                            Spacer(Modifier.width(Spacing.sm))
+                        }
+                        Text(
+                            text = when (mode) {
+                                null -> "Zahlung wählen"
+                                PayMode.Cash -> "Barzahlung"
+                                PayMode.Card -> "Kartenzahlung"
+                                PayMode.Balance -> "Vom Deckel"
+                            },
+                            style = MaterialTheme.typography.headlineSmall
                         )
-                    },
-                    enabled = mode != PayMode.Cash || cashCovers,
-                    label = "Abschließen"
-                )
+                    }
+                }
+                Spacer(Modifier.height(Spacing.lg))
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    CompositionLocalProvider(
+                        LocalContentColor provides AlertDialogDefaults.textContentColor,
+                        LocalTextStyle provides MaterialTheme.typography.bodyMedium
+                    ) {
+                        TotalHeadline(total)
+                        Spacer(Modifier.height(Spacing.lg))
+
+                        when (mode) {
+                            null -> PaymentChoice(
+                                cashAllowed = cashAllowed,
+                                cartTotal = cartTotal,
+                                topUpAmount = topUpAmount,
+                                selectedMember = selectedMember,
+                                categories = categories,
+                                onPick = { mode = it }
+                            )
+
+                            PayMode.Cash -> CashPane(
+                                wide = wideCash,
+                                given = cashGivenValue,
+                                tip = tipAmount,
+                                change = change,
+                                editingTip = editingTip,
+                                onEditGiven = { editingTip = false },
+                                onEditTip = { editingTip = true },
+                                onPassend = {
+                                    cashGiven = Money.formatPlain(total).replace('.', ',')
+                                    editingTip = false
+                                },
+                                onNote = { note ->
+                                    cashGiven = note.toString()
+                                    editingTip = false
+                                },
+                                // „Passt so“: Was über den Einkauf hinaus gegeben wurde, ist Trinkgeld.
+                                onChangeAsTip = {
+                                    val rest = Money.cents(cashGivenValue - base)
+                                    tipInput = Money.formatPlain(rest).replace('.', ',')
+                                    onSetTipAmount(rest)
+                                    editingTip = false
+                                },
+                                onKey = { edit ->
+                                    if (editingTip) {
+                                        tipInput = edit(tipInput)
+                                        onSetTipAmount(Money.cents(Money.parse(tipInput) ?: 0.0))
+                                    } else {
+                                        cashGiven = edit(cashGiven)
+                                    }
+                                }
+                            )
+
+                            PayMode.Card -> when {
+                                // Auf eine reine Aufladung gibt es kein Trinkgeld.
+                                cartTotal <= 0.0 -> CardNote("Aufladung per Karte — ohne Trinkgeld.")
+                                tipOnTerminal -> CardNote("Das Trinkgeld wählt der Gast am Kartenterminal. Gebucht wird, was SumUp meldet.")
+                                // Das Terminal fragt nicht selbst (oder ist noch nicht gekoppelt): Die App fragt, auf den Einkauf, nicht auf eine Aufladung.
+                                else -> TipPane(
+                                    base = cartTotal,
+                                    tipAmount = tipAmount,
+                                    onSetTipAmount = onSetTipAmount
+                                )
+                            }
+
+                            PayMode.Balance -> Text(
+                                text = "Der Betrag wird direkt vom Deckel des Mitglieds abgezogen.",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+                if (mode != null) {
+                    Spacer(Modifier.height(Spacing.xl))
+                    PayButton(
+                        amount = total,
+                        onClick = {
+                            onCheckout(
+                                when (mode) {
+                                    PayMode.Cash -> "CASH"
+                                    PayMode.Card -> "CARD"
+                                    else -> "MEMBER_BALANCE"
+                                }
+                            )
+                        },
+                        enabled = mode != PayMode.Cash || cashCovers,
+                        label = "Abschließen"
+                    )
+                }
             }
-        },
-        dismissButton = {}
-    )
+        }
+    }
 }
 
 @Composable
@@ -241,7 +305,8 @@ private fun PaymentChoice(
 
         val limit = categories.find { it.id == selectedMember.categoryId }?.negativeBalanceLimit ?: 0.0
         // A top-up is money coming in; paying for it out of the same balance is circular.
-        val canUseBalance = (selectedMember.balance - cartTotal) >= limit && topUpAmount == 0.0
+        // In Cent verglichen: Mit Rechenstaub in der Summe wäre ein genau reichendes Guthaben zu wenig.
+        val canUseBalance = Money.cents(selectedMember.balance - cartTotal) >= limit && topUpAmount == 0.0
 
         Surface(
             onClick = { if (canUseBalance) onPick(PayMode.Balance) },
@@ -320,64 +385,135 @@ private fun PaymentTile(
 /**
  * Counting cash. Quick denominations cover most sales in one tap; the keypad handles the
  * rest. "Passend" fills in the exact total, which is what most people hand over.
+ *
+ * Trinkgeld: „Passt so“ ist ein Knopf — das Rückgeld wird Trinkgeld. „Mach neun“ ist ein
+ * Betrag: das Feld „Trinkgeld“ antippen, dann schreibt das Tastenfeld dort hinein. Gebucht
+ * wird es als Trinkgeld in bar, und die Lade zählt es mit, weil es in ihr liegt.
  */
 @Composable
 private fun CashPane(
-    cashGiven: String,
+    wide: Boolean,
     given: Double,
+    tip: Double,
     change: Double,
-    total: Double,
-    onCashGivenChange: (String) -> Unit
+    editingTip: Boolean,
+    onEditGiven: () -> Unit,
+    onEditTip: () -> Unit,
+    onPassend: () -> Unit,
+    onNote: (Int) -> Unit,
+    onChangeAsTip: () -> Unit,
+    onKey: ((String) -> String) -> Unit
 ) {
-    Column {
-        // Given and change sit together above the keypad. The change is the number read
-        // aloud across the counter, so it must never be the thing that scrolled away.
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Surface(
-                modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Column(modifier = Modifier.padding(Spacing.md)) {
-                    Text("Gegeben", style = MaterialTheme.typography.labelMedium)
-                    // Formatted, not the raw keystrokes: "2020" and "20,20" look far too
-                    // alike on a keypad, and the difference is two thousand euro.
-                    MoneyText(
-                        amount = given,
-                        style = MoneyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+    val amounts: @Composable () -> Unit = {
+        Column {
+            // Given and change sit together above the keypad. The change is the number read
+            // aloud across the counter, so it must never be the thing that scrolled away.
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                AmountField(
+                    label = "Gegeben",
+                    amount = given,
+                    active = !editingTip,
+                    onClick = onEditGiven,
+                    modifier = Modifier.weight(1f)
+                )
+                Surface(
+                    modifier = Modifier.weight(1.2f),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ) {
+                    Column(modifier = Modifier.padding(Spacing.md)) {
+                        Text("Rückgeld", style = MaterialTheme.typography.labelMedium)
+                        MoneyText(amount = change, style = MoneyLarge)
+                    }
                 }
             }
-            Surface(
-                modifier = Modifier.weight(1.2f),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(Spacing.md)) {
-                    Text("Rückgeld", style = MaterialTheme.typography.labelMedium)
-                    MoneyText(amount = change, style = MoneyLarge)
+                AmountField(
+                    label = "Trinkgeld",
+                    amount = tip,
+                    active = editingTip,
+                    onClick = onEditTip,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(
+                    onClick = onChangeAsTip,
+                    enabled = change > 0.0,
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .heightIn(min = TouchTarget.min),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text("Rückgeld als Trinkgeld", textAlign = TextAlign.Center)
+                }
+            }
+
+            Spacer(Modifier.height(Spacing.md))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                QuickCash("Passend", onPassend)
+                listOf(5, 10, 20, 50).forEach { note ->
+                    QuickCash("$note") { onNote(note) }
                 }
             }
         }
-
-        Spacer(Modifier.height(Spacing.md))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            QuickCash("Passend") { onCashGivenChange(Money.formatPlain(total).replace('.', ',')) }
-            listOf(5, 10, 20, 50).forEach { note ->
-                QuickCash("$note") { onCashGivenChange(note.toString()) }
-            }
-        }
-
-        Spacer(Modifier.height(Spacing.md))
-
+    }
+    val keypad: @Composable () -> Unit = {
         NumericKeypad(
-            onDigit = { onCashGivenChange(AmountInput.digit(cashGiven, it)) },
-            onBackspace = { onCashGivenChange(AmountInput.backspace(cashGiven)) },
-            onDecimalSeparator = { onCashGivenChange(AmountInput.separator(cashGiven)) }
+            onDigit = { c -> onKey { current -> AmountInput.digit(current, c) } },
+            onBackspace = { onKey { current -> AmountInput.backspace(current) } },
+            onDecimalSeparator = { onKey { current -> AmountInput.separator(current) } }
         )
+    }
+
+    if (wide) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
+            Box(modifier = Modifier.weight(1.2f)) { amounts() }
+            Box(modifier = Modifier.weight(1f)) { keypad() }
+        }
+    } else {
+        Column {
+            amounts()
+            Spacer(Modifier.height(Spacing.md))
+            keypad()
+        }
+    }
+}
+
+/** Ein Betrag, in den das Tastenfeld schreibt, wenn er gewählt ist. Der gewählte trägt einen Rahmen. */
+@Composable
+private fun AmountField(
+    label: String,
+    amount: Double,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        selected = active,
+        onClick = onClick,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        // Eine Stufe heller als der Dialog, damit das Feld als antippbar zu erkennen ist.
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        border = if (active) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+    ) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
+            Text(label, style = MaterialTheme.typography.labelMedium)
+            // Formatted, not the raw keystrokes: "2020" and "20,20" look far too
+            // alike on a keypad, and the difference is two thousand euro.
+            MoneyText(
+                amount = amount,
+                style = MoneyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 
