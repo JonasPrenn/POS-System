@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.ui.screens
 
+import androidx.compose.runtime.produceState
 import com.example.vereins_kassensystem.ui.components.MemberSelectionDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -106,6 +107,8 @@ fun SalesScreen(viewModel: SalesViewModel) {
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var variantFor by remember { mutableStateOf<ProductWithVariants?>(null) }
     var showCheckout by remember { mutableStateOf(false) }
+    // Beim Öffnen des Bezahldialogs gefragt: Ein gerade gekoppeltes Terminal zählt beim nächsten Mal.
+    val tipOnTerminal by produceState(false, showCheckout, payments) { value = showCheckout && payments.asksForTipOnTerminal() }
     var showCartSheet by remember { mutableStateOf(false) }
 
     val visibleProducts = remember(products, search, selectedCategory) {
@@ -229,13 +232,15 @@ fun SalesScreen(viewModel: SalesViewModel) {
                 topUpAmount = topUpAmount,
                 tipAmount = tipAmount,
                 selectedMember = selectedMember,
-                onDismiss = { showCheckout = false },
+                // Geschlossen ohne Bezahlen: Ein gewähltes Trinkgeld gilt nicht für den nächsten Versuch.
+                onDismiss = { showCheckout = false; viewModel.setTipAmount(0.0) },
                 onSetTipAmount = viewModel::setTipAmount,
                 onCheckout = { paymentType ->
                     if (paymentType == "CARD") viewModel.checkoutByCard(payments) else viewModel.checkout(paymentType)
                     showCheckout = false
                 },
-                cashAllowed = !cashBlocked
+                cashAllowed = !cashBlocked,
+                tipOnTerminal = tipOnTerminal
             )
         }
     }

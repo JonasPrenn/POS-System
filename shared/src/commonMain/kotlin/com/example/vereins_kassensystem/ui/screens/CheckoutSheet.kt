@@ -71,7 +71,9 @@ fun CheckoutDialog(
     onSetTipAmount: (Double) -> Unit,
     onCheckout: (String) -> Unit,
     // Bardienst ohne Barkasse: „Bar“ bleibt sichtbar, aber aus — mit dem Grund darunter.
-    cashAllowed: Boolean = true
+    cashAllowed: Boolean = true,
+    // Fragt das Kartenterminal selbst nach Trinkgeld, fragt die App nicht.
+    tipOnTerminal: Boolean = false
 ) {
     val total = cartTotal + topUpAmount + tipAmount
     var mode by remember { mutableStateOf<PayMode?>(null) }
@@ -135,11 +137,17 @@ fun CheckoutDialog(
                         onCashGivenChange = { cashGiven = it }
                     )
 
-                    PayMode.Card -> TipPane(
-                        base = cartTotal + topUpAmount,
-                        tipAmount = tipAmount,
-                        onSetTipAmount = onSetTipAmount
-                    )
+                    PayMode.Card -> when {
+                        // Auf eine reine Aufladung gibt es kein Trinkgeld.
+                        cartTotal <= 0.0 -> CardNote("Aufladung per Karte — ohne Trinkgeld.")
+                        tipOnTerminal -> CardNote("Das Trinkgeld wählt der Gast am Kartenterminal. Gebucht wird, was SumUp meldet.")
+                        // Das Terminal fragt nicht selbst (oder ist noch nicht gekoppelt): Die App fragt, auf den Einkauf, nicht auf eine Aufladung.
+                        else -> TipPane(
+                            base = cartTotal,
+                            tipAmount = tipAmount,
+                            onSetTipAmount = onSetTipAmount
+                        )
+                    }
 
                     PayMode.Balance -> Text(
                         text = "Der Betrag wird direkt vom Deckel des Mitglieds abgezogen.",
@@ -393,6 +401,12 @@ private fun androidx.compose.foundation.layout.RowScope.QuickCash(
             Text(label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
         }
     }
+}
+
+/** Ein Satz zur Kartenzahlung, wo sonst die Trinkgeldwahl stünde. */
+@Composable
+private fun CardNote(text: String) {
+    Text(text = text, style = MaterialTheme.typography.bodyLarge)
 }
 
 /** Tips are offered before handing the terminal over, so the amount is already on it. */

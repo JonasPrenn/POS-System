@@ -22,6 +22,7 @@ frischen Datenbanken der Tests und Simulatoren, auf dem Tablet selbst nichts dav
 | `./gradlew :androidApp:assembleDebug` | erfolgreich |
 | `./gradlew :shared:allTests` | grün, auf der JVM und im iOS-Simulator: `InventoryTest`, der Room-Integrationstest und der Bedientest `SalesFlowOnIosTest` (die Zahlformat-Tests laufen seit dem 21. September in `:core`) |
 | `SalesFlowOnIosTest` (Kotlin/Native im Simulator) | Barverkauf und Verkauf auf den Deckel durch die echte Oberfläche — `VereinsDeckelApp` mit Navigation, ViewModels und Dialogen über einer Datenbank im Speicher: Kachel, Bezahlen, Bar, Passend, Abschließen; dann Mitglied wählen, Kachel, Bezahlen, Deckel, Abschließen. Geprüft gegen die Datenbank: eine `CASH`-Zeile ohne Mitglied, eine `MEMBER_BALANCE`-Zeile, Saldo 23,50 → 19,30 € |
+| Trinkgeld bei Karte, 23. September (`TipFlowOnIosTest` im Simulator, `SumUpOutcomeTest` auf der JVM) | Mit einem nachgebauten Terminal durch die echte Oberfläche: Fragt das Terminal selbst, zeigt die App keine Trinkgeldwahl, schickt `tipOnTerminal` und bucht das Trinkgeld, das zurückkommt. Sonst wählt die App (5/10/15 % auf den Einkauf, nicht auf eine Aufladung) und schickt es getrennt vom Betrag. Nach Abbruch und nach Ablehnung steht eine Meldung da, gebucht ist nichts, und die Barzahlung danach enthält kein Trinkgeld mehr. Jeder Antwortcode des SumUp-SDK 7.0.0 hat eine deutsche Meldung mit SumUps eigenem Text dahinter. **Nicht geprüft: mit einem echten SumUp Solo** — dass das SDK `tipOnCardReader()` am Gerät so umsetzt und das Trinkgeld in der `TransactionInfo` zurückgibt, steht in seiner Dokumentation und seinem Code, gelaufen ist es hier nicht |
 | `xcodebuild` für iosApp, Debug, iPad-Simulator | BUILD SUCCEEDED |
 | Start im iPad-Simulator (iPad Pro 13", iOS 26.5) | Verkaufsbildschirm mit Leiste, Bestellung, Icons; Datenbank angelegt; Produkte aus der Datenbank erscheinen |
 | Dasselbe mit **Xcode 27.0** (SDK iOS 27.0), 21. September | `xcodebuild` BUILD SUCCEEDED, `:shared:allTests` grün, der neue Build startet im Simulator (Runtime iOS 26.5) und öffnet die vorhandene Datenbank |
@@ -217,7 +218,8 @@ Xcode vorgesehene, und was hier zu tun war, ist gebaut und getestet (`ServerAddr
    die iOS-Dateiauswahl und Kamera anfassen — beides ist geschrieben, aber nie gelaufen.
 2. **SumUp auf iOS.** Das SumUp-iOS-SDK per Swift Package einbinden, eine `SumUpBridge`
    in Swift schreiben (Vertrag in `SumUpPayments.ios.kt`: `isLoggedIn`, `login`,
-   `checkout` mit Completion-Blöcken) und sie in `iOSApp.swift` statt `nil` übergeben.
+   `isTipOnTerminalAvailable`, `checkout` mit Trinkgeld und Completion-Blöcken) und sie in
+   `iOSApp.swift` statt `nil` übergeben.
    Bis dahin meldet Karte sich sauber ab; Bar und Deckel funktionieren.
 3. **Hintergrundsicherung auf iOS** erst auf einem Gerät beurteilen; der Simulator führt
    BGTasks nicht selbstständig aus.

@@ -86,22 +86,35 @@ interface PaymentProcessor {
     suspend fun login(affiliateKey: String): Result<Unit>
 
     /**
-     * Belastet die Karte.
+     * Ob das Terminal den Gast selbst nach Trinkgeld fragt — bei SumUp der Solo und der Solo
+     * Lite, sobald sie mit diesem Gerät gekoppelt sind. Dann fragt die App nicht; sonst bietet
+     * sie das Trinkgeld selbst an.
+     */
+    suspend fun asksForTipOnTerminal(): Boolean = false
+
+    /**
+     * Belastet die Karte mit [amount] — Ware und Aufladung, ohne Trinkgeld.
+     *
+     * Trinkgeld kommt auf einem von zwei Wegen dazu. Mit [tipOnTerminal] fragt das Terminal den
+     * Gast, und [tip] ist 0. Sonst ist [tip] das in der App gewählte Trinkgeld; es geht getrennt
+     * an den Anbieter, damit es auf seinem Beleg als Trinkgeld steht. Gebucht wird, was
+     * [PaymentResult.Success.tip] meldet — nicht, was die App vorher annahm.
      *
      * [reference] ist die transactionGroupId der Buchung. Sie geht an den Anbieter mit,
      * damit sich eine Zahlung im SumUp-Konto später einem Kassiervorgang zuordnen lässt —
      * ohne sie ist die Zuordnung im Streitfall Handarbeit.
      */
-    suspend fun charge(amount: Double, reference: String): PaymentResult
+    suspend fun charge(amount: Double, reference: String, tip: Double = 0.0, tipOnTerminal: Boolean = false): PaymentResult
 }
 
 sealed interface PaymentResult {
-    /** [providerTransactionId] ist die Nummer beim Anbieter, nicht die eigene. */
-    data class Success(val providerTransactionId: String?) : PaymentResult
+    /** [providerTransactionId] ist die Nummer beim Anbieter, nicht die eigene; [tip] das Trinkgeld, das mit belastet wurde. */
+    data class Success(val providerTransactionId: String?, val tip: Double = 0.0) : PaymentResult
 
-    /** Der Kassier hat abgebrochen. Kein Fehler, keine Meldung nötig. */
+    /** Der Kassier hat abgebrochen. Kein Fehler — die Kasse sagt es trotzdem kurz, bucht nichts und vergisst das Trinkgeld. */
     data object Cancelled : PaymentResult
 
+    /** Nicht durchgegangen: [message] sagt dem Kassier, warum, und was er jetzt tun kann. */
     data class Failed(val message: String) : PaymentResult
 }
 

@@ -12,7 +12,7 @@ a till attached, built for a volunteer on a shift rather than a trained cashier.
 - **Member tabs** — balances with an allowance per category, audited top-ups
 - **Stock** — recipes, several container sizes per item, learned keg yields
 - **Goods receipts** — a whole receipt with its lines and a photo of the Kassabon
-- **SumUp** — card payments through a paired terminal
+- **SumUp** — card payments through a paired terminal; the guest picks the tip on the terminal (SumUp Solo, Solo Lite), otherwise the till offers it, and every SumUp error is shown in plain words
 - **Analytics and history** — per day, week, month; per product and category
 - **Backups** — manual and scheduled
 
