@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.platform
 
+import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.coroutines.CompletableDeferred
 
 /**
@@ -24,15 +25,21 @@ interface SumUpBridge {
     fun isLoggedIn(): Boolean
     fun login(affiliateKey: String, onResult: (Boolean, String?) -> Unit)
 
+    /** Ob das gekoppelte Terminal selbst nach Trinkgeld fragt (im iOS-SDK `isTipOnCardReaderAvailable`). */
+    fun isTipOnTerminalAvailable(): Boolean
+
     /**
-     * [onResult] bekommt: erfolgreich, Transaktionsnummer beim Anbieter, Fehlertext.
-     * Ein Abbruch durch den Kassier kommt als (false, null, null) — kein Fehlertext,
-     * weil es keiner ist.
+     * [amount] ohne Trinkgeld. Mit [tipOnTerminal] fragt das Terminal den Gast
+     * (`tipOnCardReaderIfAvailable`); sonst geht [tip] getrennt mit (`tipAmount`).
+     * [onResult] bekommt: erfolgreich, Transaktionsnummer beim Anbieter, belastetes
+     * Trinkgeld, Fehlertext. Ein Abbruch durch den Kassier kommt als (false, null, null, null).
      */
     fun checkout(
         amount: Double,
+        tip: Double,
+        tipOnTerminal: Boolean,
         reference: String,
-        onResult: (Boolean, String?, String?) -> Unit
+        onResult: (Boolean, String?, Double?, String?) -> Unit
     )
 }
 
@@ -54,15 +61,17 @@ class IosSumUpPaymentProcessor(private val bridge: SumUpBridge) : PaymentProcess
         return deferred.await()
     }
 
-    override suspend fun charge(amount: Double, reference: String): PaymentResult {
-        if (!bridge.isLoggedIn()) return PaymentResult.Failed("Nicht bei SumUp angemeldet.")
+    override suspend fun asksForTipOnTerminal(): Boolean = bridge.isLoggedIn() && bridge.isTipOnTerminalAvailable()
+
+    override suspend fun charge(amount: Double, reference: String, tip: Double, tipOnTerminal: Boolean): PaymentResult {
+        if (!bridge.isLoggedIn()) return PaymentResult.Failed("Nicht bei SumUp angemeldet: unter Einstellungen → Kartenzahlung anmelden. Nichts gebucht.")
 
         val deferred = CompletableDeferred<PaymentResult>()
-        bridge.checkout(amount, reference) { ok, transactionId, error ->
+        bridge.checkout(amount, if (tipOnTerminal) 0.0 else tip, tipOnTerminal, reference) { ok, transactionId, chargedTip, error ->
             deferred.complete(
                 when {
-                    ok -> PaymentResult.Success(transactionId)
-                    error != null -> PaymentResult.Failed(error)
+                    ok -> PaymentResult.Success(transactionId, Money.cents(chargedTip ?: if (tipOnTerminal) 0.0 else tip))
+                    error != null -> PaymentResult.Failed("Kartenzahlung nicht durchgegangen. Nichts gebucht. (SumUp: $error)")
                     else -> PaymentResult.Cancelled
                 }
             )
@@ -84,6 +93,6 @@ object UnavailablePaymentProcessor : PaymentProcessor {
     override suspend fun login(affiliateKey: String): Result<Unit> =
         Result.failure(IllegalStateException("Auf diesem Gerät ist kein Kartenterminal eingerichtet."))
 
-    override suspend fun charge(amount: Double, reference: String): PaymentResult =
-        PaymentResult.Failed("Auf diesem Gerät ist kein Kartenterminal eingerichtet.")
+    override suspend fun charge(amount: Double, reference: String, tip: Double, tipOnTerminal: Boolean): PaymentResult =
+        PaymentResult.Failed("Auf diesem Gerät ist kein Kartenterminal eingerichtet. Nichts gebucht.")
 }
