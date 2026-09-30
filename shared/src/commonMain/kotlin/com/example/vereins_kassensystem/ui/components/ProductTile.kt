@@ -2,6 +2,9 @@ package com.example.vereins_kassensystem.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -35,6 +41,7 @@ import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
+import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.ui.theme.categoryColor
 import kotlinx.coroutines.delay
@@ -53,6 +60,7 @@ import kotlinx.coroutines.delay
  * Height is a minimum rather than a 1:1 aspect ratio so the tile grows instead of
  * clipping when the reader has large text turned on.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ProductTile(
     product: Product,
@@ -64,9 +72,12 @@ fun ProductTile(
      * cellar state can work it out.
      */
     servingsLeft: Int? = null,
-    lowThreshold: Int = 10
+    lowThreshold: Int = 10,
+    /** Was ein langer Druck anbietet, etwa „Ausblenden“ — als kleines Menü an der Kachel. */
+    longPress: TileAction? = null
 ) {
     val haptics = LocalHapticFeedback.current
+    var menuOpen by remember { mutableStateOf(false) }
     var pulseKey by remember { mutableIntStateOf(0) }
     var pulsing by remember { mutableStateOf(false) }
 
@@ -87,15 +98,29 @@ fun ProductTile(
     val isLowStock = servingsLeft != null && servingsLeft <= lowThreshold
     val accent = categoryColor(product.category)
 
+    // Die Kachel füllt ihre Zelle im Raster; das Menü des langen Drucks hängt an ihr.
+    Box(propagateMinConstraints = true) {
     Surface(
-        onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            pulseKey++
-            onClick()
-        },
+        // Kleiner als früher (Wunsch vom 30. September 2026): Auf einem 8-Zoll-Tablet quer passen
+        // so vier Kacheln in eine Reihe statt drei — und jede bleibt weit über Daumengröße.
         modifier = modifier
-            .heightIn(min = 112.dp)
+            .heightIn(min = 88.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(MaterialTheme.shapes.medium)
+            .combinedClickable(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    pulseKey++
+                    onClick()
+                },
+                onLongClickLabel = longPress?.label,
+                onLongClick = longPress?.let {
+                    {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menuOpen = true
+                    }
+                }
+            )
             .semantics {
                 contentDescription = buildString {
                     append(product.name)
@@ -108,7 +133,7 @@ fun ProductTile(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
-        Column(modifier = Modifier.padding(Spacing.md)) {
+        Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(8.dp),
@@ -140,7 +165,7 @@ fun ProductTile(
                 }
             }
 
-            Spacer(Modifier.height(Spacing.sm))
+            Spacer(Modifier.height(Spacing.xs))
 
             Text(
                 text = product.name,
@@ -150,7 +175,7 @@ fun ProductTile(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(Spacing.sm))
+            Spacer(Modifier.height(Spacing.xs))
 
             if (product.hasVariants) {
                 Text(
@@ -167,5 +192,21 @@ fun ProductTile(
             }
         }
     }
+    if (longPress != null) {
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(longPress.label, style = MaterialTheme.typography.titleMedium) },
+                onClick = {
+                    menuOpen = false
+                    longPress.onClick()
+                },
+                modifier = Modifier.heightIn(min = TouchTarget.sales)
+            )
+        }
+    }
+    }
 }
+
+/** Eine Aktion für den langen Druck auf eine Kachel. */
+data class TileAction(val label: String, val onClick: () -> Unit)
 

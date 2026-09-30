@@ -39,6 +39,9 @@ object Money {
      */
     fun formatPlain(amount: Double): String = Decimals.fixed(amount, 2)
 
+    /** Ein Schein oder eine Münze beim Namen, der Wert in Cent: "100 €", "2 €", "50 ct". */
+    fun denomination(cents: Int): String = if (cents >= 100) "${cents / 100} €" else "$cents ct"
+
     /**
      * Der Betrag, wie er über den Draht geht: "4.20", immer zwei Stellen, Punkt als
      * Trennzeichen, kein Währungszeichen (Spezifikation 5.4). Als Zeichenkette, weil eine

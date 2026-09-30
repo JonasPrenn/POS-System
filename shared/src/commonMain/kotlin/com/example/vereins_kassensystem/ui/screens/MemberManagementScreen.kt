@@ -31,7 +31,9 @@ import com.example.vereins_kassensystem.platform.rememberTextFileWriter
 @Composable
 fun MemberManagementScreen(
     viewModel: MemberViewModel,
-    onMemberClick: (Member) -> Unit
+    onMemberClick: (Member) -> Unit,
+    // Bar aufladen geht nur bei offener Kasse mit Barkasse: Das Geld liegt dann in der Lade, die gezählt wird.
+    cashDrawerOpen: Boolean = false
 ) {
     val members by viewModel.allMembers.collectAsState()
     val categories by viewModel.allCategories.collectAsState()
@@ -188,6 +190,7 @@ fun MemberManagementScreen(
         if (memberToTopUp != null) {
             TopUpDialog(
                 member = memberToTopUp!!,
+                cashAllowed = cashDrawerOpen,
                 onDismiss = { memberToTopUp = null },
                 onConfirm = { amount, reason, paymentType ->
                     viewModel.adjustBalance(memberToTopUp!!, amount, reason, paymentType)
@@ -357,11 +360,14 @@ enum class TopUpKind(val label: String, val paymentType: String, val defaultReas
 fun TopUpDialog(
     member: Member,
     onDismiss: () -> Unit,
-    onConfirm: (amount: Double, reason: String, paymentType: String) -> Unit
+    onConfirm: (amount: Double, reason: String, paymentType: String) -> Unit,
+    // Ohne offene Kasse mit Barkasse gibt es kein Bargeld: „Bar“ bleibt sichtbar, aber aus — mit dem Grund darunter.
+    cashAllowed: Boolean = true
 ) {
+    val initialKind = if (cashAllowed) TopUpKind.CASH else TopUpKind.CARD
     var amount by remember { mutableStateOf("") }
-    var kind by remember { mutableStateOf(TopUpKind.CASH) }
-    var reason by remember { mutableStateOf(TopUpKind.CASH.defaultReason) }
+    var kind by remember { mutableStateOf(initialKind) }
+    var reason by remember { mutableStateOf(initialKind.defaultReason) }
 
     val parsed = Money.parse(amount)
     // Payments must bring money in; only a correction may be negative.
@@ -389,9 +395,17 @@ fun TopUpDialog(
                                 kind = option
                             },
                             label = { Text(option.label) },
+                            enabled = option != TopUpKind.CASH || cashAllowed,
                             shape = MaterialTheme.shapes.small
                         )
                     }
+                }
+                if (!cashAllowed) {
+                    Text(
+                        text = "Bar geht nur bei offener Kasse mit Barkasse — geöffnet wird im Verkauf, im Warenkorb.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 if (kind.isPayment) {
@@ -454,7 +468,7 @@ fun TopUpDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(parsed ?: 0.0, reason.trim(), kind.paymentType) },
-                enabled = amountValid && reasonValid
+                enabled = amountValid && reasonValid && (kind != TopUpKind.CASH || cashAllowed)
             ) {
                 Text(if (kind == TopUpKind.CORRECTION) "Korrigieren" else "Aufladen")
             }

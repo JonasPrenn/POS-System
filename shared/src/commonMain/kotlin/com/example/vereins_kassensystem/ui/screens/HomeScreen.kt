@@ -109,7 +109,7 @@ fun HomeScreen(
                 CashSection(
                     state = cash,
                     members = members,
-                    onOpen = cashViewModel::open,
+                    onGoToSales = onNavigateToSales,
                     onMove = cashViewModel::move,
                     onClose = cashViewModel::close
                 )

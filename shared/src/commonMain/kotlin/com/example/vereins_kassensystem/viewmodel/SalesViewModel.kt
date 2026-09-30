@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vereins_kassensystem.data.Ledger
+import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
@@ -43,7 +44,7 @@ data class CartItem(
     val hasDiscount: Boolean get() = discountPercent > 0.0 || fixedDiscount > 0.0
 }
 
-class SalesViewModel(private val repository: AppRepository) : ViewModel() {
+class SalesViewModel(private val repository: AppRepository, private val settings: SettingsRepository) : ViewModel() {
 
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
@@ -74,7 +75,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
     val allCategories: StateFlow<List<MemberCategory>> = repository.allCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** Bardienst ohne Barkasse (Konzept 4.5): Die Theke nimmt kein Bargeld — „Bar“ ist aus, und der Abschluss weist es ab. */
+    /** Kasse ohne Barkasse (Konzept 4.5): Die Theke nimmt kein Bargeld — „Bar“ ist aus, und der Abschluss weist es ab. */
     val cashBlocked: StateFlow<Boolean> = repository.openCashSession.map { it?.cashless == true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -85,10 +86,22 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         cartItems.sumOf { it.lineTotal } + topUp + tip
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
-    /** Distinct product categories, for the filter above the sales grid. */
-    val productCategories: StateFlow<List<String>> = allProductsWithVariants
-        .map { products ->
-            products.map { it.product.category }
+    /** Im Verkauf ausgeblendet, nur auf diesem Gerät — stehen nur unter „Ausgeblendet“. */
+    val hiddenProductIds: StateFlow<Set<String>> = settings.hiddenProducts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun setProductHidden(product: Product, hidden: Boolean) = viewModelScope.launch {
+        settings.setProductHidden(product.id, hidden)
+    }
+
+    /**
+     * Distinct product categories, for the filter above the sales grid. Nur Kategorien mit
+     * wenigstens einem sichtbaren Produkt: Eine, deren Produkte alle ausgeblendet sind, zeigte
+     * sonst ein leeres Raster.
+     */
+    val productCategories: StateFlow<List<String>> = combine(allProductsWithVariants, hiddenProductIds) { products, hidden ->
+            products.filterNot { it.product.id in hidden }
+                .map { it.product.category }
                 .filter { it.isNotBlank() }
                 .distinct()
                 .sorted()
@@ -237,17 +250,26 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
      * Die Referenz entsteht vorab und geht an den Anbieter mit, damit sich die Zahlung
      * im SumUp-Konto dem Kassiervorgang zuordnen lässt.
      *
-     * Trinkgeld: Kann das Terminal selbst fragen und liegt Ware im Warenkorb, fragt es den
-     * Gast, und gebucht wird, was SumUp als Trinkgeld meldet. Sonst geht das in der App
-     * gewählte Trinkgeld getrennt mit. Auf eine reine Aufladung gibt es keins. Geht die
+     * Trinkgeld: Kann das Terminal selbst fragen und liegt Ware im Warenkorb oder ist ein
+     * Mitglied gewählt, fragt es den Gast, und gebucht wird, was SumUp als Trinkgeld meldet —
+     * mit gewähltem Mitglied auch auf eine reine Aufladung (Wunsch vom 30. September 2026; das
+     * Trinkgeld ist mit Karte bezahlt und belastet den Deckel nicht). Fragt das Terminal nicht
+     * selbst, geht das in der App gewählte Trinkgeld getrennt mit, und das nur auf Ware. Geht die
      * Zahlung nicht durch — abgelehnt, gestört oder abgebrochen —, ist das Trinkgeld vergessen
      * und die Kasse sagt, was war; sonst landete es beim nächsten Versuch bar oder auf dem Deckel.
      * Der Betrag ist auf Cent gerundet: Die Summe der Zeilen trägt sonst Rechenstaub.
+     *
+     * Ohne offene Kasse wird die Karte gar nicht erst belastet — geprüft wird vor dem Terminal,
+     * nicht erst vor der Buchung: Eine belastete Karte ohne Buchung ist der teuerste Fehler.
      */
     fun checkoutByCard(payments: PaymentProcessor) = viewModelScope.launch {
+        if (repository.openCashSession.first() == null) {
+            _checkoutError.emit(TILL_CLOSED)
+            return@launch
+        }
         val reference = Ids.new()
         val goods = _cart.value.isNotEmpty()
-        val onTerminal = goods && payments.asksForTipOnTerminal()
+        val onTerminal = (goods || _selectedMemberId.value != null) && payments.asksForTipOnTerminal()
         val tip = if (goods && !onTerminal) Money.cents(_tipAmount.value) else 0.0
         val amount = Money.cents(_cart.value.sumOf { it.lineTotal } + _topUpAmount.value)
         when (val result = payments.charge(amount, reference, tip, onTerminal)) {
@@ -276,9 +298,15 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
 
         if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return
 
-        // Frisch gelesen, nicht aus dem Zustand: Der Bardienst kann eben erst begonnen haben.
-        if (paymentType == "CASH" && repository.openCashSession.first()?.cashless == true) {
-            _checkoutError.emit("Bardienst ohne Barkasse: kein Bargeld an dieser Theke. Deckel oder Karte.")
+        // Frisch gelesen, nicht aus dem Zustand: Die Kasse kann eben erst geöffnet worden sein.
+        // Ohne offene Kasse wird nicht kassiert, auch nicht vom Deckel (Entscheidung vom 30. September 2026).
+        val session = repository.openCashSession.first()
+        if (session == null) {
+            _checkoutError.emit(TILL_CLOSED)
+            return
+        }
+        if (paymentType == "CASH" && session.cashless) {
+            _checkoutError.emit("Kasse ohne Barkasse: kein Bargeld an dieser Theke. Deckel oder Karte.")
             return
         }
 
@@ -319,5 +347,9 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
 
         clearCart()
         selectMember(null)
+    }
+
+    private companion object {
+        const val TILL_CLOSED = "Die Kasse ist zu. Erst im Warenkorb öffnen, dann kassieren."
     }
 }

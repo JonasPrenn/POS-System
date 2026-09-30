@@ -17,7 +17,7 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
 | Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufstellen mit `server/deploy/install.sh` (Docker und git genügen, gebaut wird im Container); Updates aus dem Repo über die Verwaltung (`web/Updates.kt`, Dienst `updater`). Aufgestellt ist er bisher nur zum Probieren auf dem eigenen Rechner |
 | Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 15 (11 = UUID-Schlüssel, 12 = Couleurname, 13 = Kasse, 14 = Sperre, 15 = Bardienst ohne Barkasse) mit hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
-| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet, `ui/components/CashSection.kt`), das Sortiment (`web/Products.kt`) und die Bücher (`web/Books.kt`: Einnahmen-Ausgaben-Rechnung und Vermögensübersicht, hergeleitet, nichts fortgeschrieben). Schreibt in synchronisierte Tabellen nur Mitglieder (anlegen, ändern, sperren, löschen), Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung), Wareneingänge (`web/Purchases.kt`) und das Sortiment samt Kategorien (`web/Products.kt`) sowie die Einstellungen der Tablets (`device_settings`: Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung — die Geräte lesen sie nur), immer über `Database.write`. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
+| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet nach Stückelung, `ui/components/CashDialogs.kt`; geöffnet im Warenkorb, geschlossen auf der Übersicht), das Sortiment (`web/Products.kt`) und die Bücher (`web/Books.kt`: Einnahmen-Ausgaben-Rechnung und Vermögensübersicht, hergeleitet, nichts fortgeschrieben). Schreibt in synchronisierte Tabellen nur Mitglieder (anlegen, ändern, sperren, löschen), Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung), Wareneingänge (`web/Purchases.kt`) und das Sortiment samt Kategorien (`web/Products.kt`) sowie die Einstellungen der Tablets (`device_settings`: Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung — die Geräte lesen sie nur), immer über `Database.write`. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
 `docs/PORTIERUNG.md`; Kartenzahlung gibt es auf iOS erst, wenn das SumUp-iOS-SDK per
@@ -58,7 +58,9 @@ Tabellenziffern, damit Zahlen in einer Liste nicht zittern. Sonst darf nichts um
 Rolle konkurrieren.
 
 **Daumen zuerst.** Alles auf dem Verkaufsweg ist mindestens 56dp groß und liegt in den
-unteren zwei Dritteln. Nichts Wichtiges versteckt sich hinter einer Schublade.
+unteren zwei Dritteln. Nichts Wichtiges versteckt sich hinter einer Schublade. Der Deckel
+bucht im Bezahldialog mit einem Tipp, ohne Bestätigung im zweiten Schritt (Entscheidung des
+Besitzers vom 30. September 2026).
 
 **Keine losen Werte.** Abstände kommen aus `Spacing`, Radien aus `Shapes`, Schriftgrade
 aus `Type.kt`, Beträge durch `Money`, Mengen durch `Quantity`, Zeit durch
@@ -75,7 +77,11 @@ Beide sollen leer bleiben.
 **Breite, nicht Ausrichtung.** Layoutentscheidungen hängen an `WindowSizeClass` oder an
 `GridCells.Adaptive`, nie an `Configuration.ORIENTATION_LANDSCAPE`. Ein Tablet im
 Hochformat und ein geteilter Bildschirm sind genau die Fälle, die Ausrichtung falsch
-beantwortet.
+beantwortet. Dazu die Höhe: Unter `CompactWindowHeight` (700 dp — ein 8-Zoll-Tablet quer, das
+Vereinsgerät Galaxy Tab Active3 hat 960 × 600 dp) steht die Verwaltung in der Leiste hinter
+„Mehr“, der Gesamtbetrag im Bezahldialog in der Titelzeile, und die Zähldialoge stellen
+Bedienung und Zählen nebeneinander. Gefragt wird die Fensterhöhe, nie die Ausrichtung. Wer
+Dialoge baut, prüft sie auf 960 × 600 dp (`adb shell wm size 1920x1200` bei Dichte 320).
 
 **Icons liegen im Repo.** `ui/icons/VdIcons.kt`, erzeugt von `docs/tools/gen_icons.py`.
 Nicht von Hand ändern — beim nächsten Lauf wäre es weg. Grund für das Selbermachen:
@@ -111,6 +117,13 @@ mindert die Deckelbelastung, ein Trinkgeld auf den Deckel belastet ihn.
 steht als Zeile in `stock_draws`. Die Spezifikation (2.3) wollte es aus Buchung mal Rezeptur
 herleiten; die Glasgröße der Variante steht aber in keiner Buchungszeile, und jede
 Rezepturänderung schriebe die Vergangenheit um.
+
+**Ohne offene Kasse wird nicht kassiert.** Entscheidung des Besitzers vom 30. September 2026.
+Geöffnet wird im Warenkorb: mit Barkasse und Schein für Schein gezähltem Wechselgeld
+(`CashCount` in `:core`, gespeichert wird nur die Summe), oder ohne Barkasse — dann nimmt die
+Theke kein Bargeld. Solange die Kasse zu ist, gibt es kein „Bezahlen“, und `SalesViewModel`
+weist jede Buchung ab; eine Karte wird gar nicht erst belastet. Bar aufladen geht nur in eine
+offene Barkasse. Die Sperre steht im ViewModel, nicht nur in der Oberfläche.
 
 **Ein Schreibweg, und der Auftrag an den Server entsteht in derselben Transaktion.** Jede
 Änderung geht durch `AppRepository.write`; ist das Gerät gekoppelt, liegt danach eine Zeile

@@ -38,39 +38,36 @@ import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.viewmodel.CashState
 
 /**
- * Der Bardienst dieses Geräts auf der Übersicht (Konzept 4.5): Wer die Theke übernimmt,
- * beginnt hier — mit Barkasse, dann wird das Wechselgeld gezählt, Entnahme und Einlage
- * brauchen einen Grund, und am Ende wird der Bestand gezählt; oder ohne Barkasse, dann nimmt
- * die Theke kein Bargeld, und es gibt nichts zu zählen. Wer beginnt, zählt oder beendet, ist
- * ein Mitglied aus der Liste — kein freier Name.
- *
- * Nichts davon liegt im Verkaufsweg: Wer nicht zählt, verkauft trotzdem. Nur „Bar“ ist aus,
- * solange ein Bardienst ohne Barkasse läuft.
+ * Die Kasse dieses Geräts auf der Übersicht (Konzept 4.5). Geöffnet wird sie im Verkauf, im
+ * Warenkorb — ohne offene Kasse wird nicht kassiert. Hier steht, wer sie seit wann hat, und
+ * hier wird Geld entnommen oder eingelegt und die Kasse geschlossen: mit Barkasse nach
+ * Zählung des Bestands, ohne Barkasse ohne Zählung. Wer zählt oder schließt, ist ein Mitglied
+ * aus der Liste — kein freier Name.
  */
 @Composable
 fun CashSection(
     state: CashState,
     members: List<Member>,
-    onOpen: (by: String, openingCount: Double?) -> Unit,
+    onGoToSales: () -> Unit,
     onMove: (kind: CashMovementKind, amount: Double, reason: String, by: String) -> Unit,
     onClose: (closingCount: Double?, by: String, note: String?) -> Unit,
 ) {
     var dialog by remember { mutableStateOf<CashDialog?>(null) }
     val session = state.session
 
-    VdSection(title = "Bardienst", icon = VdIcons.PointOfSale) {
+    VdSection(title = "Kasse", icon = VdIcons.PointOfSale) {
         when {
             session == null -> {
                 Text(
-                    "Kein Bardienst. Wer die Theke übernimmt, beginnt hier — mit Barkasse und gezähltem Wechselgeld, oder ohne Barkasse, wenn kein Bargeld genommen wird.",
+                    "Die Kasse ist zu. Geöffnet wird im Verkauf, im Warenkorb — mit Barkasse und gezähltem Wechselgeld, oder ohne Barkasse, wenn kein Bargeld genommen wird. Vorher wird nicht kassiert.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Button(
-                    onClick = { dialog = CashDialog.Start },
+                OutlinedButton(
+                    onClick = onGoToSales,
                     modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
                     shape = MaterialTheme.shapes.small
-                ) { Text("Bardienst beginnen") }
+                ) { Text("Zum Verkauf") }
             }
             session.cashless -> {
                 Text(
@@ -87,7 +84,7 @@ fun CashSection(
                     onClick = { dialog = CashDialog.End },
                     modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
                     shape = MaterialTheme.shapes.small
-                ) { Text("Bardienst beenden") }
+                ) { Text("Kasse schließen") }
             }
             else -> {
                 Text(
@@ -122,15 +119,13 @@ fun CashSection(
     }
 
     when (dialog) {
-        CashDialog.Start -> StartDialog(members = members, onDismiss = { dialog = null }, onConfirm = { by, amount -> onOpen(by, amount); dialog = null })
         CashDialog.Move -> MovementDialog(
             members = members, defaultBy = session?.openedBy.orEmpty(),
             onDismiss = { dialog = null }, onConfirm = { kind, amount, reason, by -> onMove(kind, amount, reason, by); dialog = null }
         )
-        CashDialog.Close -> CountDialog(
-            title = "Kasse schließen", amountLabel = "Bestand in der Lade, gezählt", confirm = "Schließen", expected = state.expected,
-            members = members, defaultBy = session?.openedBy.orEmpty(),
-            onDismiss = { dialog = null }, onConfirm = { amount, by, note -> onClose(amount, by, note); dialog = null }
+        CashDialog.Close -> CloseCashDialog(
+            expected = state.expected, members = members, defaultBy = session?.openedBy.orEmpty(),
+            onDismiss = { dialog = null }, onClose = { amount, by, note -> onClose(amount, by, note); dialog = null }
         )
         CashDialog.End -> EndDialog(
             members = members, defaultBy = session?.openedBy.orEmpty(),
@@ -140,66 +135,7 @@ fun CashSection(
     }
 }
 
-private enum class CashDialog { Start, Move, Close, End }
-
-/** Wer — ein Mitglied aus der Liste. Der Knopf zeigt den Namen und öffnet die Auswahl. */
-@Composable
-private fun WhoRow(label: String, name: String, members: List<Member>, onPicked: (String) -> Unit) {
-    var picking by remember { mutableStateOf(false) }
-    OutlinedButton(
-        onClick = { picking = true },
-        modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
-        shape = MaterialTheme.shapes.small
-    ) {
-        Icon(VdIcons.Groups, contentDescription = null)
-        Spacer(Modifier.width(Spacing.sm))
-        Text(if (name.isBlank()) "$label: Mitglied wählen" else "$label: $name")
-    }
-    if (picking) MemberSelectionDialog(members = members, onDismiss = { picking = false }, onMemberSelected = { onPicked(it.name) })
-}
-
-@Composable
-private fun StartDialog(members: List<Member>, onDismiss: () -> Unit, onConfirm: (by: String, openingCount: Double?) -> Unit) {
-    var by by remember { mutableStateOf("") }
-    var withCash by remember { mutableStateOf(true) }
-    var amount by remember { mutableStateOf("") }
-    val parsed = Money.parse(amount)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Bardienst beginnen") },
-        text = {
-            Column {
-                WhoRow("Wer", by, members) { by = it }
-                Spacer(Modifier.height(Spacing.lg))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(selected = withCash, onClick = { withCash = true }, label = { Text("Mit Barkasse") })
-                    FilterChip(selected = !withCash, onClick = { withCash = false }, label = { Text("Ohne Barkasse") })
-                }
-                Spacer(Modifier.height(Spacing.md))
-                if (withCash) {
-                    OutlinedTextField(
-                        value = amount, onValueChange = { amount = it }, label = { Text("Wechselgeld in der Lade, gezählt") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    Text(
-                        "Kein Bargeld an dieser Theke: „Bar“ ist im Verkauf aus, gezählt wird nichts. Deckel und Karte gehen.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(by, if (withCash) parsed ?: 0.0 else null) },
-                enabled = by.isNotBlank() && (!withCash || (parsed != null && parsed >= 0))
-            ) { Text("Beginnen") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
-    )
-}
+private enum class CashDialog { Move, Close, End }
 
 @Composable
 private fun EndDialog(members: List<Member>, defaultBy: String, onDismiss: () -> Unit, onConfirm: (by: String, note: String?) -> Unit) {
@@ -208,7 +144,7 @@ private fun EndDialog(members: List<Member>, defaultBy: String, onDismiss: () ->
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Bardienst beenden") },
+        title = { Text("Kasse schließen") },
         text = {
             Column {
                 Text("Ohne Barkasse gibt es nichts zu zählen.", style = MaterialTheme.typography.bodyMedium)
@@ -218,64 +154,7 @@ private fun EndDialog(members: List<Member>, defaultBy: String, onDismiss: () ->
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Notiz") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(by, note.trim().ifEmpty { null }) }, enabled = by.isNotBlank()) { Text("Beenden") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
-    )
-}
-
-@Composable
-private fun CountDialog(
-    title: String,
-    amountLabel: String,
-    confirm: String,
-    members: List<Member>,
-    defaultBy: String,
-    expected: Double? = null,
-    onDismiss: () -> Unit,
-    onConfirm: (amount: Double, by: String, note: String?) -> Unit,
-) {
-    var amount by remember { mutableStateOf("") }
-    var by by remember { mutableStateOf(defaultBy) }
-    var note by remember { mutableStateOf("") }
-    val parsed = Money.parse(amount)
-    val difference = if (expected != null && parsed != null) Money.cents(parsed - expected) else null
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = amount, onValueChange = { amount = it }, label = { Text(amountLabel) }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth()
-                )
-                if (expected != null) {
-                    Spacer(Modifier.height(Spacing.sm))
-                    Text("Soll: ${Money.format(expected)}", style = MaterialTheme.typography.bodyMedium)
-                    if (difference != null && difference != 0.0) {
-                        Text(
-                            "Differenz ${Money.formatSigned(difference)} — wird mit Namen vermerkt.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Spacer(Modifier.height(Spacing.lg))
-                WhoRow("Wer zählt", by, members) { by = it }
-                Spacer(Modifier.height(Spacing.lg))
-                OutlinedTextField(
-                    value = note, onValueChange = { note = it },
-                    label = { Text(if (difference != null && difference != 0.0) "Grund für die Differenz" else "Notiz") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(parsed ?: 0.0, by.trim(), note.trim().ifEmpty { null }) },
-                enabled = parsed != null && parsed >= 0 && by.isNotBlank() && !(difference != null && difference != 0.0 && note.isBlank())
-            ) { Text(confirm) }
-        },
+        confirmButton = { Button(onClick = { onConfirm(by, note.trim().ifEmpty { null }) }, enabled = by.isNotBlank()) { Text("Schließen") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
     )
 }

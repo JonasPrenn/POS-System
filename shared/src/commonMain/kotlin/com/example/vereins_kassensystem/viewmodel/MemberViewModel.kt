@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -49,6 +50,11 @@ class MemberViewModel(private val repository: AppRepository) : ViewModel() {
         reason: String,
         paymentType: String
     ) = viewModelScope.launch {
+        // Bar nur in eine offene Barkasse: Frisch gelesen, denn die Lade zählt, was hineinkommt.
+        if (paymentType == "CASH" && repository.openCashSession.first()?.let { !it.cashless } != true) {
+            _importStatus.emit("Bar geht nur bei offener Kasse mit Barkasse. Nichts gebucht.")
+            return@launch
+        }
         repository.adjustMemberBalance(member, amount, reason, paymentType)
     }
 

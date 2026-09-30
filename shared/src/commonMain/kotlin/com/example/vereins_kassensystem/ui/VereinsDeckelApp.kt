@@ -22,6 +22,7 @@ import com.example.vereins_kassensystem.AppGraph
 import com.example.vereins_kassensystem.platform.LocalPlatform
 import com.example.vereins_kassensystem.ui.navigation.Destination
 import com.example.vereins_kassensystem.ui.navigation.NavLayout
+import com.example.vereins_kassensystem.ui.components.CompactWindowHeight
 import com.example.vereins_kassensystem.ui.navigation.VereinsDeckelNavigation
 import com.example.vereins_kassensystem.ui.screens.AnalyticsScreen
 import com.example.vereins_kassensystem.ui.screens.HistoryScreen
@@ -63,9 +64,15 @@ fun VereinsDeckelApp(graph: AppGraph) {
             ) {
                 // Breite, nicht Ausrichtung: Ein Tablet im Hochformat will die Leiste
                 // an der Seite, ein Telefon quer hat trotzdem keinen Platz dafür. Die
-                // Grenze ist die von WindowSizeClass.Compact.
+                // Grenze ist die von WindowSizeClass.Compact. Und die Höhe: Ein 8-Zoll-Tablet
+                // quer (Galaxy Tab Active3, 960 × 600 dp) hat für neun Einträge und die
+                // Anzeige des Abgleichs nicht Platz — dann steht die Verwaltung hinter „Mehr“.
                 BoxWithConstraints {
-                    val navLayout = if (maxWidth < 600.dp) NavLayout.BottomBar else NavLayout.Rail
+                    val navLayout = when {
+                        maxWidth < 600.dp -> NavLayout.BottomBar
+                        maxHeight < CompactWindowHeight -> NavLayout.CompactRail
+                        else -> NavLayout.Rail
+                    }
                     AppNavigation(graph, navLayout)
                 }
             }
@@ -93,12 +100,15 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
     // ein halb gefüllter Warenkorb den Abstecher in die Historie, und die Listen der
     // Verwaltung müssen nicht bei jedem Wechsel neu geladen werden.
     val repository = graph.repository
-    val salesViewModel: SalesViewModel = viewModel { SalesViewModel(repository) }
+    val salesViewModel: SalesViewModel = viewModel { SalesViewModel(repository, graph.settingsRepository) }
     val productViewModel: ProductViewModel = viewModel { ProductViewModel(repository) }
     val memberViewModel: MemberViewModel = viewModel { MemberViewModel(repository) }
     val cashViewModel: CashViewModel = viewModel { CashViewModel(repository) { graph.syncEngine.status.value.deviceLabel ?: graph.platform.description } }
     val analyticsViewModel: AnalyticsViewModel = viewModel { AnalyticsViewModel(repository) }
     val inventoryViewModel: InventoryViewModel = viewModel { InventoryViewModel(repository) }
+    // Bar gibt es nur, wenn eine Kasse mit Barkasse offen ist — auch beim Aufladen in der Mitgliederliste.
+    val cash by cashViewModel.state.collectAsState()
+    val cashDrawerOpen = cash.session?.let { !it.cashless } == true
 
     VereinsDeckelNavigation(
         layout = navLayout,
@@ -112,7 +122,7 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
             modifier = Modifier.fillMaxSize()
         ) {
             composable(Destination.Sales.route) {
-                SalesScreen(viewModel = salesViewModel)
+                SalesScreen(viewModel = salesViewModel, cashViewModel = cashViewModel)
             }
             composable(Destination.Dashboard.route) {
                 HomeScreen(
@@ -139,6 +149,7 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
             composable(Destination.Members.route) {
                 MemberManagementScreen(
                     viewModel = memberViewModel,
+                    cashDrawerOpen = cashDrawerOpen,
                     onMemberClick = { member ->
                         salesViewModel.selectMember(member)
                         navController.navigateToDestination(Destination.Sales)
