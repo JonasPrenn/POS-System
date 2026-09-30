@@ -27,6 +27,8 @@ iosApp/iosApp.xcodeproj/xcuserdata/
 iosApp/iosApp.xcodeproj/project.xcworkspace/xcuserdata/
 iosApp/build/
 
-# Server: lokale Betriebsgeheimnisse und Belegfotos
+# Server: lokale Betriebsgeheimnisse und Belegfotos. MEDIA_DIR ist ohne Vorgabe „media“, relativ
+# zum Arbeitsverzeichnis — verankert, denn das Paket server/…/media im Quellbaum gehört ins Repo.
 server/deploy/.env
-media/
+/media/
+/server/media/
