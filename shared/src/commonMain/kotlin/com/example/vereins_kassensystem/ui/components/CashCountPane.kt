@@ -31,8 +31,8 @@ import com.example.vereins_kassensystem.ui.theme.TouchTarget
 /** Ab dieser Breite steht das Tastenfeld neben den Kacheln statt darunter. */
 private val KeypadBesideWidth = 720.dp
 
-/** So schmal darf eine Kachel werden, bevor eine Spalte wegfällt. */
-private val TileMinWidth = 150.dp
+/** So schmal darf eine Kachel werden, bevor eine Spalte wegfällt: „100 €“, „× 12“ und „1.200,00 €“ passen gerade. */
+private val TileMinWidth = 115.dp
 
 /** Mehr Stück eines Werts liegen in keiner Lade. */
 private const val MaxDigits = 4
@@ -44,12 +44,15 @@ private const val MaxDigits = 4
  * oben nach unten durch, Stapel für Stapel, ohne im Kopf zu addieren.
  *
  * Breite, nicht Ausrichtung: Ist Platz, steht das Tastenfeld neben den Kacheln, sonst darunter.
+ * Ist das Fenster niedrig, verlangt der Dialog es daneben ([keypadBeside]) — übereinander passt
+ * dann beides nicht. Die Kacheln nehmen so viele Spalten, wie ihr Platz hergibt, zwei bis vier.
  */
 @Composable
 fun CashCountPane(
     count: CashCount,
     onCountChange: (CashCount) -> Unit,
     modifier: Modifier = Modifier,
+    keypadBeside: Boolean? = null,
 ) {
     var active by remember { mutableStateOf(CashCount.DENOMINATIONS.first()) }
 
@@ -72,15 +75,16 @@ fun CashCountPane(
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        if (maxWidth >= KeypadBesideWidth) {
-            // Vier Kacheln je Reihe: So passt die ganze Lade neben das Tastenfeld, ohne zu rollen —
-            // eine Kachel, die beim „Weiter“ unten aus dem Bild läuft, zählt niemand mit.
+        if (keypadBeside ?: (maxWidth >= KeypadBesideWidth)) {
+            // Die ganze Lade neben dem Tastenfeld, ohne zu rollen: Eine Kachel, die beim „Weiter“
+            // unten aus dem Bild läuft, zählt niemand mit.
+            val columns = columnsFor((maxWidth - Spacing.xl) * 2 / 3)
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
-                Box(modifier = Modifier.weight(2f)) { Tiles(count, active, columns = 4, onSelect = { active = it }) }
+                Box(modifier = Modifier.weight(2f)) { Tiles(count, active, columns, onSelect = { active = it }) }
                 Box(modifier = Modifier.weight(1f)) { keypad() }
             }
         } else {
-            val columns = (maxWidth / TileMinWidth).toInt().coerceIn(2, 4)
+            val columns = columnsFor(maxWidth)
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                 Tiles(count, active, columns, onSelect = { active = it })
                 keypad()
@@ -88,6 +92,8 @@ fun CashCountPane(
         }
     }
 }
+
+private fun columnsFor(width: androidx.compose.ui.unit.Dp): Int = (width / TileMinWidth).toInt().coerceIn(2, 4)
 
 /** Scheine und Münzen getrennt, wie sie in der Lade liegen. */
 @Composable

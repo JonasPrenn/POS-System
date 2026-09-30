@@ -2,6 +2,7 @@ package com.example.vereins_kassensystem.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -48,6 +51,15 @@ private val CountDialogMaxWidth = 920.dp
 
 /** Ohne Zählung reicht die Breite eines gewöhnlichen Dialogs. */
 private val PlainDialogMaxWidth = 560.dp
+
+/** Nebeneinander — Bedienung links, Zählen rechts — braucht es mindestens diese Fensterbreite. */
+private val SideBySideMinWidth = 840.dp
+
+/** Nebeneinander auf einem niedrigen, sehr breiten Fenster: nicht breiter als das. */
+private val SideBySideMaxWidth = 1100.dp
+
+/** Die linke Spalte nebeneinander: wer, womit, die Summe und die Knöpfe. */
+private val ControlsWidth = 280.dp
 
 /**
  * Kasse öffnen (Konzept 4.5) — aus dem Warenkorb heraus, denn ohne offene Kasse wird nicht
@@ -69,30 +81,17 @@ fun OpenCashDialog(
 
     CashDialogFrame(
         title = "Kasse öffnen",
-        wide = withDrawer,
+        counting = withDrawer,
+        summaryBesideButtons = true,
         onDismiss = onDismiss,
-        content = {
+        controls = { sideBySide ->
             WhoRow("Wer öffnet", by, members) { by = it }
             Spacer(Modifier.height(Spacing.md))
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                ModeTile(
-                    title = "Mit Barkasse",
-                    detail = "Das Wechselgeld wird gezählt.",
-                    selected = withDrawer,
-                    onClick = { withDrawer = true },
-                    modifier = Modifier.weight(1f)
-                )
-                ModeTile(
-                    title = "Ohne Barkasse",
-                    detail = "Kein Bargeld — nur Deckel und Karte.",
-                    selected = !withDrawer,
-                    onClick = { withDrawer = false },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Spacer(Modifier.height(Spacing.lg))
+            ModeChoice(withDrawer = withDrawer, onChange = { withDrawer = it }, stacked = sideBySide)
+        },
+        counter = { sideBySide ->
             if (withDrawer) {
-                CashCountPane(count = count, onCountChange = { count = it })
+                CashCountPane(count = count, onCountChange = { count = it }, keypadBeside = if (sideBySide) true else null)
             } else {
                 Text(
                     "An dieser Theke wird kein Bargeld genommen: „Bar“ ist im Verkauf aus, gezählt wird nichts.",
@@ -101,12 +100,13 @@ fun OpenCashDialog(
                 )
             }
         },
-        footer = {
+        summary = {
             if (withDrawer) {
                 Text("Wechselgeld gezählt", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 MoneyText(amount = count.total, style = MoneyLarge)
-                Spacer(Modifier.height(Spacing.md))
             }
+        },
+        buttons = { sideBySide ->
             DialogButtons(
                 confirm = when {
                     !withDrawer -> "Ohne Barkasse öffnen"
@@ -115,6 +115,7 @@ fun OpenCashDialog(
                     else -> "Öffnen"
                 },
                 enabled = by.isNotBlank(),
+                stacked = sideBySide,
                 onDismiss = onDismiss,
                 onConfirm = { onOpen(by, if (withDrawer) count.total else null) }
             )
@@ -140,16 +141,21 @@ fun CloseCashDialog(
     var note by remember { mutableStateOf("") }
     val difference = Money.cents(count.total - expected)
     val differs = difference != 0.0
+    // Bernstein: Aufmerksamkeit, kein Fehler — eine Differenz wird erklärt, nicht verweigert.
+    val differenceColor = if (differs) VereinsColors.warning else MaterialTheme.colorScheme.primary
 
     CashDialogFrame(
         title = "Kasse schließen",
-        wide = true,
+        counting = true,
         onDismiss = onDismiss,
-        content = {
+        controls = {
             WhoRow("Wer zählt", by, members) { by = it }
-            Spacer(Modifier.height(Spacing.lg))
-            CashCountPane(count = count, onCountChange = { count = it })
-            Spacer(Modifier.height(Spacing.lg))
+        },
+        counter = { sideBySide ->
+            CashCountPane(count = count, onCountChange = { count = it }, keypadBeside = if (sideBySide) true else null)
+        },
+        // Die Notiz kommt nach dem Zählen: Untereinander steht sie unter dem Tastenfeld, damit das ganz im Bild bleibt.
+        details = {
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
@@ -158,31 +164,24 @@ fun CloseCashDialog(
                 modifier = Modifier.fillMaxWidth()
             )
         },
-        footer = {
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xl), verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Text("Soll", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    MoneyText(amount = expected, style = MoneyMedium)
-                }
-                Column {
-                    Text("Gezählt", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    MoneyText(amount = count.total, style = MoneyLarge)
-                }
-                Column {
-                    Text("Differenz", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    // Bernstein: Aufmerksamkeit, kein Fehler — eine Differenz wird erklärt, nicht verweigert.
-                    MoneyText(
-                        amount = difference,
-                        style = MoneyMedium,
-                        signed = true,
-                        color = if (differs) VereinsColors.warning else MaterialTheme.colorScheme.primary
-                    )
+        summary = { sideBySide ->
+            if (sideBySide) {
+                SummaryLine("Soll", expected, MoneyMedium)
+                SummaryLine("Gezählt", count.total, MoneyLarge)
+                SummaryLine("Differenz", difference, MoneyMedium, signed = true, color = differenceColor)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xl), verticalAlignment = Alignment.Bottom) {
+                    SummaryColumn("Soll", expected, MoneyMedium)
+                    SummaryColumn("Gezählt", count.total, MoneyLarge)
+                    SummaryColumn("Differenz", difference, MoneyMedium, signed = true, color = differenceColor)
                 }
             }
-            Spacer(Modifier.height(Spacing.md))
+        },
+        buttons = { sideBySide ->
             DialogButtons(
                 confirm = "Schließen",
                 enabled = by.isNotBlank() && !(differs && note.isBlank()),
+                stacked = sideBySide,
                 onDismiss = onDismiss,
                 onConfirm = { onClose(count.total, by.trim(), note.trim().ifEmpty { null }) }
             )
@@ -206,6 +205,28 @@ internal fun WhoRow(label: String, name: String, members: List<Member>, onPicked
     if (picking) MemberSelectionDialog(members = members, onDismiss = { picking = false }, onMemberSelected = { onPicked(it.name) })
 }
 
+/** Mit oder ohne Barkasse: nebeneinander, oder untereinander, wenn die Spalte schmal ist. */
+@Composable
+private fun ModeChoice(withDrawer: Boolean, onChange: (Boolean) -> Unit, stacked: Boolean) {
+    val withTile: @Composable (Modifier) -> Unit = { modifier ->
+        ModeTile("Mit Barkasse", "Das Wechselgeld wird gezählt.", selected = withDrawer, onClick = { onChange(true) }, modifier = modifier)
+    }
+    val withoutTile: @Composable (Modifier) -> Unit = { modifier ->
+        ModeTile("Ohne Barkasse", "Kein Bargeld — nur Deckel und Karte.", selected = !withDrawer, onClick = { onChange(false) }, modifier = modifier)
+    }
+    if (stacked) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            withTile(Modifier.fillMaxWidth())
+            withoutTile(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            withTile(Modifier.weight(1f))
+            withoutTile(Modifier.weight(1f))
+        }
+    }
+}
+
 /**
  * Mit oder ohne Barkasse: zwei Flächen statt zweier Chips, denn das hier liegt im Verkaufsweg.
  * Die gewählte trägt den Rahmen wie ein gewähltes Feld — keine Füllung in Messing, das ist der Deckel.
@@ -217,9 +238,10 @@ private fun ModeTile(title: String, detail: String, selected: Boolean, onClick: 
         onClick = onClick,
         modifier = modifier.heightIn(min = TouchTarget.sales),
         shape = MaterialTheme.shapes.medium,
-        color = if (selected) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh,
+        // Beide als Fläche erkennbar, auch die nicht gewählte: In der Farbe des Dialogs sähe sie aus wie Text.
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
@@ -228,48 +250,135 @@ private fun ModeTile(title: String, detail: String, selected: Boolean, onClick: 
     }
 }
 
+/** Ein Betrag mit Beschriftung darüber, für die Summe unter der Zählung. */
 @Composable
-private fun DialogButtons(confirm: String, enabled: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onDismiss) { Text("Abbrechen") }
-        Spacer(Modifier.width(Spacing.sm))
+private fun SummaryColumn(label: String, amount: Double, style: TextStyle, signed: Boolean = false, color: Color = Color.Unspecified) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MoneyText(amount = amount, style = style, signed = signed, color = color)
+    }
+}
+
+/** Ein Betrag mit Beschriftung davor, für die schmale Spalte nebeneinander. */
+@Composable
+private fun SummaryLine(label: String, amount: Double, style: TextStyle, signed: Boolean = false, color: Color = Color.Unspecified) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        MoneyText(amount = amount, style = style, signed = signed, color = color)
+    }
+}
+
+@Composable
+private fun DialogButtons(confirm: String, enabled: Boolean, stacked: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    val confirmButton: @Composable (Modifier) -> Unit = { modifier ->
         Button(
             onClick = onConfirm,
             enabled = enabled,
-            modifier = Modifier.heightIn(min = TouchTarget.sales),
+            modifier = modifier.heightIn(min = TouchTarget.sales),
             shape = MaterialTheme.shapes.medium
         ) { Text(confirm, style = MaterialTheme.typography.labelLarge) }
+    }
+    if (stacked) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            confirmButton(Modifier.fillMaxWidth())
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
+        }
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+            Spacer(Modifier.width(Spacing.sm))
+            confirmButton(Modifier)
+        }
     }
 }
 
 /**
  * Ein eigener Rahmen im Aussehen des Material-Dialogs, wie beim Bezahlen: Der AlertDialog wird
- * nie breiter als 560 dp, und die Zählung braucht die Breite für das Tastenfeld daneben. Der
- * Inhalt rollt, Summe und Knöpfe bleiben stehen.
+ * nie breiter als 560 dp, und die Zählung braucht die Breite für das Tastenfeld daneben.
+ *
+ * Genug Höhe: alles untereinander, der Inhalt rollt, Summe und Knöpfe bleiben stehen. Wenig
+ * Höhe bei genug Breite (ein 8-Zoll-Tablet quer, 960 × 600 dp): nebeneinander — links wer,
+ * womit, die Summe und die Knöpfe, rechts Kacheln und Tastenfeld. So passt die ganze Lade,
+ * ohne dass etwas rollt.
  */
 @Composable
 private fun CashDialogFrame(
     title: String,
-    wide: Boolean,
+    counting: Boolean,
     onDismiss: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
-    footer: @Composable ColumnScope.() -> Unit,
+    controls: @Composable ColumnScope.(sideBySide: Boolean) -> Unit,
+    counter: @Composable (sideBySide: Boolean) -> Unit,
+    summary: @Composable ColumnScope.(sideBySide: Boolean) -> Unit,
+    buttons: @Composable ColumnScope.(sideBySide: Boolean) -> Unit,
+    details: (@Composable ColumnScope.(sideBySide: Boolean) -> Unit)? = null,
+    summaryBesideButtons: Boolean = false,
 ) {
+    val window = windowSizeDp()
+    val sideBySide = counting && window.height < CompactWindowHeight && window.width >= SideBySideMinWidth
+    val titleText: @Composable () -> Unit = {
+        Text(title, style = MaterialTheme.typography.headlineSmall, color = AlertDialogDefaults.titleContentColor)
+    }
+
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
+            // Mit Zählung schmale Ränder: Auf einem 8-Zoll-Tablet hoch zählt jede Zeile Höhe.
             modifier = Modifier
-                .padding(Spacing.xl)
-                .widthIn(max = if (wide) CountDialogMaxWidth else PlainDialogMaxWidth),
+                .padding(if (counting) Spacing.md else Spacing.xl)
+                .widthIn(max = when {
+                    sideBySide -> SideBySideMaxWidth
+                    counting -> CountDialogMaxWidth
+                    else -> PlainDialogMaxWidth
+                }),
             shape = AlertDialogDefaults.shape,
             color = AlertDialogDefaults.containerColor,
             tonalElevation = AlertDialogDefaults.TonalElevation
         ) {
-            Column(modifier = Modifier.padding(Spacing.xl)) {
-                Text(title, style = MaterialTheme.typography.headlineSmall, color = AlertDialogDefaults.titleContentColor)
-                Spacer(Modifier.height(Spacing.lg))
-                Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), content = content)
-                Spacer(Modifier.height(Spacing.lg))
-                footer()
+            if (sideBySide) {
+                // Rollen können beide Seiten nur noch, wenn das Fenster noch niedriger ist als ein 8-Zoll-Tablet quer.
+                Row(modifier = Modifier.padding(Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
+                    Column(modifier = Modifier.width(ControlsWidth).verticalScroll(rememberScrollState())) {
+                        titleText()
+                        Spacer(Modifier.height(Spacing.md))
+                        controls(true)
+                        details?.let {
+                            Spacer(Modifier.height(Spacing.md))
+                            it(true)
+                        }
+                        Spacer(Modifier.height(Spacing.lg))
+                        summary(true)
+                        Spacer(Modifier.height(Spacing.md))
+                        buttons(true)
+                    }
+                    Box(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) { counter(true) }
+                }
+            } else {
+                Column(modifier = Modifier.padding(if (counting) Spacing.lg else Spacing.xl)) {
+                    titleText()
+                    Spacer(Modifier.height(Spacing.md))
+                    Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                        controls(false)
+                        Spacer(Modifier.height(Spacing.lg))
+                        counter(false)
+                        details?.let {
+                            Spacer(Modifier.height(Spacing.lg))
+                            it(false)
+                        }
+                    }
+                    Spacer(Modifier.height(Spacing.md))
+                    if (summaryBesideButtons) {
+                        // Eine Summe passt neben die Knöpfe — das spart eine Zeile Höhe.
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Column(modifier = Modifier.weight(1f)) { summary(false) }
+                            Column { buttons(false) }
+                        }
+                    } else {
+                        summary(false)
+                        Spacer(Modifier.height(Spacing.md))
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                            Column { buttons(false) }
+                        }
+                    }
+                }
             }
         }
     }

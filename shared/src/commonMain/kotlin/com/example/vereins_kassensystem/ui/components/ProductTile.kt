@@ -93,8 +93,10 @@ fun ProductTile(
             pulseKey++
             onClick()
         },
+        // Kleiner als früher (Wunsch vom 30. September 2026): Auf einem 8-Zoll-Tablet quer passen
+        // so vier Kacheln in eine Reihe statt drei — und jede bleibt weit über Daumengröße.
         modifier = modifier
-            .heightIn(min = 112.dp)
+            .heightIn(min = 88.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .semantics {
                 contentDescription = buildString {
@@ -108,7 +110,7 @@ fun ProductTile(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
-        Column(modifier = Modifier.padding(Spacing.md)) {
+        Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(8.dp),
@@ -140,7 +142,7 @@ fun ProductTile(
                 }
             }
 
-            Spacer(Modifier.height(Spacing.sm))
+            Spacer(Modifier.height(Spacing.xs))
 
             Text(
                 text = product.name,
@@ -150,7 +152,7 @@ fun ProductTile(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(Spacing.sm))
+            Spacer(Modifier.height(Spacing.xs))
 
             if (product.hasVariants) {
                 Text(

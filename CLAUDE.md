@@ -58,7 +58,9 @@ Tabellenziffern, damit Zahlen in einer Liste nicht zittern. Sonst darf nichts um
 Rolle konkurrieren.
 
 **Daumen zuerst.** Alles auf dem Verkaufsweg ist mindestens 56dp groß und liegt in den
-unteren zwei Dritteln. Nichts Wichtiges versteckt sich hinter einer Schublade.
+unteren zwei Dritteln. Nichts Wichtiges versteckt sich hinter einer Schublade. Der Deckel
+bucht im Bezahldialog mit einem Tipp, ohne Bestätigung im zweiten Schritt (Entscheidung des
+Besitzers vom 30. September 2026).
 
 **Keine losen Werte.** Abstände kommen aus `Spacing`, Radien aus `Shapes`, Schriftgrade
 aus `Type.kt`, Beträge durch `Money`, Mengen durch `Quantity`, Zeit durch
@@ -75,7 +77,11 @@ Beide sollen leer bleiben.
 **Breite, nicht Ausrichtung.** Layoutentscheidungen hängen an `WindowSizeClass` oder an
 `GridCells.Adaptive`, nie an `Configuration.ORIENTATION_LANDSCAPE`. Ein Tablet im
 Hochformat und ein geteilter Bildschirm sind genau die Fälle, die Ausrichtung falsch
-beantwortet.
+beantwortet. Dazu die Höhe: Unter `CompactWindowHeight` (700 dp — ein 8-Zoll-Tablet quer, das
+Vereinsgerät Galaxy Tab Active3 hat 960 × 600 dp) steht die Verwaltung in der Leiste hinter
+„Mehr“, der Gesamtbetrag im Bezahldialog in der Titelzeile, und die Zähldialoge stellen
+Bedienung und Zählen nebeneinander. Gefragt wird die Fensterhöhe, nie die Ausrichtung. Wer
+Dialoge baut, prüft sie auf 960 × 600 dp (`adb shell wm size 1920x1200` bei Dichte 320).
 
 **Icons liegen im Repo.** `ui/icons/VdIcons.kt`, erzeugt von `docs/tools/gen_icons.py`.
 Nicht von Hand ändern — beim nächsten Lauf wäre es weg. Grund für das Selbermachen:

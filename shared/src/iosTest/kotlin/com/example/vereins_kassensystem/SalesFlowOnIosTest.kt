@@ -114,8 +114,8 @@ class SalesFlowOnIosTest {
             clickText("Maria Bauer")
             clickDescription(beer)
             clickText("Bezahlen")
+            // Ein Tipp auf den Deckel bucht — ohne zweiten Schritt.
             clickText("Deckel · Maria Bauer")
-            clickText("Abschließen")
             waitUntil("Deckel belastet", 10_000) {
                 runBlocking { abs(repository.allMembers.first().single().balance - 19.3) < 0.0001 }
             }

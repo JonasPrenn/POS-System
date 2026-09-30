@@ -22,6 +22,7 @@ import com.example.vereins_kassensystem.AppGraph
 import com.example.vereins_kassensystem.platform.LocalPlatform
 import com.example.vereins_kassensystem.ui.navigation.Destination
 import com.example.vereins_kassensystem.ui.navigation.NavLayout
+import com.example.vereins_kassensystem.ui.components.CompactWindowHeight
 import com.example.vereins_kassensystem.ui.navigation.VereinsDeckelNavigation
 import com.example.vereins_kassensystem.ui.screens.AnalyticsScreen
 import com.example.vereins_kassensystem.ui.screens.HistoryScreen
@@ -63,9 +64,15 @@ fun VereinsDeckelApp(graph: AppGraph) {
             ) {
                 // Breite, nicht Ausrichtung: Ein Tablet im Hochformat will die Leiste
                 // an der Seite, ein Telefon quer hat trotzdem keinen Platz dafür. Die
-                // Grenze ist die von WindowSizeClass.Compact.
+                // Grenze ist die von WindowSizeClass.Compact. Und die Höhe: Ein 8-Zoll-Tablet
+                // quer (Galaxy Tab Active3, 960 × 600 dp) hat für neun Einträge und die
+                // Anzeige des Abgleichs nicht Platz — dann steht die Verwaltung hinter „Mehr“.
                 BoxWithConstraints {
-                    val navLayout = if (maxWidth < 600.dp) NavLayout.BottomBar else NavLayout.Rail
+                    val navLayout = when {
+                        maxWidth < 600.dp -> NavLayout.BottomBar
+                        maxHeight < CompactWindowHeight -> NavLayout.CompactRail
+                        else -> NavLayout.Rail
+                    }
                     AppNavigation(graph, navLayout)
                 }
             }

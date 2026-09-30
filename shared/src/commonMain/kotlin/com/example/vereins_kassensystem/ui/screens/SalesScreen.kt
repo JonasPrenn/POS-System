@@ -349,11 +349,12 @@ private fun ProductPane(
             )
 
             else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 150.dp),
+                // Ab 120 dp je Kachel: vier in einer Reihe auf einem 8-Zoll-Tablet quer, mehr auf größeren.
+                columns = GridCells.Adaptive(minSize = 120.dp),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(Spacing.lg),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 items(products, key = { it.product.id }) { entry ->
                     ProductTile(product = entry.product, onClick = { onProductClick(entry) })

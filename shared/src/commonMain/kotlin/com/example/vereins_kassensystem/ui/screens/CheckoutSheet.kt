@@ -46,6 +46,8 @@ import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.displayName
 import com.example.vereins_kassensystem.data.entity.MemberCategory
 import com.example.vereins_kassensystem.ui.components.AmountInput
+import com.example.vereins_kassensystem.ui.components.CompactWindowHeight
+import com.example.vereins_kassensystem.ui.components.windowSizeDp
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.NumericKeypad
 import com.example.vereins_kassensystem.ui.components.PayButton
@@ -60,8 +62,11 @@ import com.example.vereins_kassensystem.ui.icons.VdIcons
 /** Ab dieser Fensterbreite steht im Bardialog das Tastenfeld neben den Beträgen (WindowSizeClass.Expanded). */
 private val WideCashBreakpoint = 840.dp
 
-/** Which payment route the user picked. Null while still choosing. */
-private enum class PayMode { Cash, Card, Balance }
+/**
+ * Which payment route the user picked. Null while still choosing. Den Deckel gibt es hier nicht:
+ * Er bucht mit einem Tipp, ohne zweiten Schritt (Wunsch vom 30. September 2026).
+ */
+private enum class PayMode { Cash, Card }
 
 /**
  * The checkout.
@@ -99,8 +104,11 @@ fun CheckoutDialog(
 
     // Bar im Querformat: Unter den Beträgen ist kein Platz mehr für das ganze Tastenfeld — auf
     // breiten Geräten steht es deshalb daneben. Gefragt wird die Breite des Fensters, nicht die Lage.
-    val windowWidth = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() }
-    val wideCash = mode == PayMode.Cash && windowWidth >= WideCashBreakpoint
+    val window = windowSizeDp()
+    val wideCash = mode == PayMode.Cash && window.width >= WideCashBreakpoint
+    // Wenig Höhe (8-Zoll-Tablet quer): Der Gesamtbetrag rückt in die Titelzeile und die Ränder
+    // werden schmaler — sonst fällt die unterste Reihe des Tastenfelds, die mit der Null, aus dem Bild.
+    val compactHeight = window.height < CompactWindowHeight
 
     val cashGivenValue = Money.cents(Money.parse(cashGiven) ?: 0.0)
     val change = Money.cents(cashGivenValue - total).coerceAtLeast(0.0)
@@ -113,13 +121,13 @@ fun CheckoutDialog(
             // Capped rather than fillMaxWidth: on a tablet an unbounded dialog stretches the
             // keypad into absurdly wide keys and pushes the change display off the bottom.
             modifier = Modifier
-                .padding(Spacing.xl)
+                .padding(if (compactHeight) Spacing.md else Spacing.xl)
                 .widthIn(max = if (wideCash) 880.dp else 520.dp),
             shape = AlertDialogDefaults.shape,
             color = AlertDialogDefaults.containerColor,
             tonalElevation = AlertDialogDefaults.TonalElevation
         ) {
-            Column(modifier = Modifier.padding(Spacing.xl)) {
+            Column(modifier = Modifier.padding(if (compactHeight) Spacing.lg else Spacing.xl)) {
                 CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.titleContentColor) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (mode != null) {
@@ -139,13 +147,17 @@ fun CheckoutDialog(
                                 null -> "Zahlung wählen"
                                 PayMode.Cash -> "Barzahlung"
                                 PayMode.Card -> "Kartenzahlung"
-                                PayMode.Balance -> "Vom Deckel"
                             },
-                            style = MaterialTheme.typography.headlineSmall
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.weight(1f)
                         )
+                        if (compactHeight) {
+                            // Eine Stufe kleiner als das Rückgeld: Das bleibt die größte Zahl im Bild, es wird vorgelesen.
+                            MoneyText(amount = total, style = MoneyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
                 }
-                Spacer(Modifier.height(Spacing.lg))
+                Spacer(Modifier.height(if (compactHeight) Spacing.md else Spacing.lg))
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)
@@ -155,8 +167,10 @@ fun CheckoutDialog(
                         LocalContentColor provides AlertDialogDefaults.textContentColor,
                         LocalTextStyle provides MaterialTheme.typography.bodyMedium
                     ) {
-                        TotalHeadline(total)
-                        Spacer(Modifier.height(Spacing.lg))
+                        if (!compactHeight) {
+                            TotalHeadline(total)
+                            Spacer(Modifier.height(Spacing.lg))
+                        }
 
                         when (mode) {
                             null -> PaymentChoice(
@@ -165,7 +179,8 @@ fun CheckoutDialog(
                                 topUpAmount = topUpAmount,
                                 selectedMember = selectedMember,
                                 categories = categories,
-                                onPick = { mode = it }
+                                onPick = { mode = it },
+                                onBookOnTab = { onCheckout("MEMBER_BALANCE") }
                             )
 
                             PayMode.Cash -> CashPane(
@@ -215,25 +230,15 @@ fun CheckoutDialog(
                                 )
                             }
 
-                            PayMode.Balance -> Text(
-                                text = "Der Betrag wird direkt vom Deckel des Mitglieds abgezogen.",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
                         }
                     }
                 }
                 if (mode != null) {
-                    Spacer(Modifier.height(Spacing.xl))
+                    Spacer(Modifier.height(if (compactHeight) Spacing.lg else Spacing.xl))
                     PayButton(
                         amount = total,
                         onClick = {
-                            onCheckout(
-                                when (mode) {
-                                    PayMode.Cash -> "CASH"
-                                    PayMode.Card -> "CARD"
-                                    else -> "MEMBER_BALANCE"
-                                }
-                            )
+                            onCheckout(if (mode == PayMode.Cash) "CASH" else "CARD")
                         },
                         enabled = mode != PayMode.Cash || cashCovers,
                         label = "Abschließen"
@@ -269,7 +274,8 @@ private fun PaymentChoice(
     topUpAmount: Double,
     selectedMember: Member?,
     categories: List<MemberCategory>,
-    onPick: (PayMode) -> Unit
+    onPick: (PayMode) -> Unit,
+    onBookOnTab: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -310,10 +316,12 @@ private fun PaymentChoice(
         // In Cent verglichen: Mit Rechenstaub in der Summe wäre ein genau reichendes Guthaben zu wenig.
         val canUseBalance = Money.cents(selectedMember.balance - cartTotal) >= limit && topUpAmount == 0.0
 
+        // So groß wie „Bar“ und „Karte“, und ein Tipp bucht: Die Bestätigung im zweiten Schritt ist
+        // weggefallen (Wunsch vom 30. September 2026). Der Betrag steht deshalb auf der Fläche selbst.
         Surface(
-            onClick = { if (canUseBalance) onPick(PayMode.Balance) },
+            onClick = onBookOnTab,
             enabled = canUseBalance,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
             shape = MaterialTheme.shapes.medium,
             color = if (canUseBalance) MaterialTheme.colorScheme.secondaryContainer
             else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -321,19 +329,21 @@ private fun PaymentChoice(
             else MaterialTheme.colorScheme.onSurfaceVariant
         ) {
             Row(
-                modifier = Modifier.padding(Spacing.lg),
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(VdIcons.AccountBalanceWallet, contentDescription = null)
+                Icon(VdIcons.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(Spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Deckel · ${selectedMember.displayName}", style = MaterialTheme.typography.titleMedium)
                     Text(
                         text = "Guthaben ${Money.format(selectedMember.balance)}",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
-                if (!canUseBalance) {
+                if (canUseBalance) {
+                    MoneyText(amount = cartTotal, style = MoneyMedium)
+                } else {
                     Icon(VdIcons.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
             }
