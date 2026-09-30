@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem
 
+import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.repository.AppRepository
@@ -47,7 +48,7 @@ class TillGateOnIosTest {
         try {
             val repository = AppRepository(db)
             repository.insertProduct(beer)
-            val sales = SalesViewModel(repository)
+            val sales = SalesViewModel(repository, SettingsRepository(MemorySettings()))
             val errors = mutableListOf<String>()
             val listening = launch(Dispatchers.Unconfined) { sales.checkoutError.collect { errors += it } }
             block(repository, sales, errors)

@@ -42,6 +42,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.displayName
 import com.example.vereins_kassensystem.data.entity.MemberCategory
@@ -287,6 +290,8 @@ private fun PaymentChoice(
             onClick = { onPick(PayMode.Cash) },
             modifier = Modifier.weight(1f),
             enabled = cashAllowed,
+            // Kasse ohne Barkasse: das Bar-Symbol durchgestrichen (Wunsch vom 30. September 2026).
+            struck = !cashAllowed,
             container = MaterialTheme.colorScheme.primaryContainer,
             content = MaterialTheme.colorScheme.onPrimaryContainer
         )
@@ -372,7 +377,8 @@ private fun PaymentTile(
     container: androidx.compose.ui.graphics.Color,
     content: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    struck: Boolean = false
 ) {
     Surface(
         onClick = onClick,
@@ -387,7 +393,20 @@ private fun PaymentTile(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+            val strike = LocalContentColor.current
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(28.dp)
+                    .then(
+                        // Ein Schrägstrich über dem Symbol, wie bei den „…_off“-Symbolen von Material.
+                        if (struck) Modifier.drawWithContent {
+                            drawContent()
+                            drawLine(strike, start = Offset(0f, 0f), end = Offset(size.width, size.height), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+                        } else Modifier
+                    )
+            )
             Spacer(Modifier.height(Spacing.sm))
             Text(label, style = MaterialTheme.typography.titleMedium)
         }

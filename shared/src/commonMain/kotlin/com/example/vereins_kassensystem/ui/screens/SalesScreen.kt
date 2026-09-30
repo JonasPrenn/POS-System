@@ -67,6 +67,10 @@ import com.example.vereins_kassensystem.ui.components.MemberAvatar
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.PayButton
 import com.example.vereins_kassensystem.ui.components.ProductTile
+import com.example.vereins_kassensystem.ui.components.TileAction
+import com.example.vereins_kassensystem.ui.components.TrailingChip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import com.example.vereins_kassensystem.ui.components.QuantityStepper
 import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.format.Money
@@ -104,6 +108,7 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
     val cashBlocked by viewModel.cashBlocked.collectAsState()
     val topUpAmount by viewModel.topUpAmount.collectAsState()
     val tipAmount by viewModel.tipAmount.collectAsState()
+    val hiddenIds by viewModel.hiddenProductIds.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
@@ -111,7 +116,15 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
     }
 
     var search by remember { mutableStateOf("") }
+    // Die Suche ist ein Symbol oben rechts und öffnet sich erst auf Antippen (Wunsch vom 30. September 2026).
+    var searchOpen by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
+    // „Ausgeblendet“: der letzte Chip, keine Kategorie. Ausgeblendetes steht nur dort — verkaufen lässt es sich trotzdem.
+    var showHidden by remember { mutableStateOf(false) }
+    val hiddenCount = remember(products, hiddenIds) { products.count { it.product.id in hiddenIds } }
+    // Wird die gewählte Kategorie leer oder ist nichts mehr ausgeblendet, zurück auf „Alle“.
+    LaunchedEffect(categories) { if (selectedCategory != null && selectedCategory !in categories) selectedCategory = null }
+    LaunchedEffect(hiddenCount) { if (hiddenCount == 0) showHidden = false }
     var variantFor by remember { mutableStateOf<ProductWithVariants?>(null) }
     var showCheckout by remember { mutableStateOf(false) }
     // Beim Öffnen des Bezahldialogs gefragt: Ein gerade gekoppeltes Terminal zählt beim nächsten Mal.
@@ -121,15 +134,40 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
     // Geht die Kasse zu, geht auch ein offener Bezahldialog zu — und kommt beim Öffnen nicht von selbst wieder.
     LaunchedEffect(cashOpen) { if (!cashOpen) showCheckout = false }
 
-    val visibleProducts = remember(products, search, selectedCategory) {
+    val visibleProducts = remember(products, search, selectedCategory, showHidden, hiddenIds) {
         products.filter { entry ->
-            val matchesCategory = selectedCategory == null || entry.product.category == selectedCategory
+            val hidden = entry.product.id in hiddenIds
+            val inView = if (showHidden) hidden
+            else !hidden && (selectedCategory == null || entry.product.category == selectedCategory)
             val matchesSearch = search.isBlank() ||
                 entry.product.name.contains(search, ignoreCase = true) ||
                 entry.product.category.contains(search, ignoreCase = true)
-            matchesCategory && matchesSearch
+            inView && matchesSearch
         }
     }
+    val productPaneState = ProductPaneState(
+        search = search,
+        onSearchChange = { search = it },
+        searchOpen = searchOpen,
+        onSearchOpenChange = { open ->
+            searchOpen = open
+            if (!open) search = ""
+        },
+        categories = categories,
+        selectedCategory = selectedCategory,
+        onSelectCategory = {
+            selectedCategory = it
+            showHidden = false
+        },
+        hiddenCount = hiddenCount,
+        showHidden = showHidden,
+        onShowHidden = {
+            showHidden = !showHidden
+            if (showHidden) selectedCategory = null
+        },
+        hiddenIds = hiddenIds,
+        onSetHidden = viewModel::setProductHidden
+    )
 
     val cartActions = CartActions(
         onIncrease = viewModel::increaseQuantity,
@@ -150,11 +188,7 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     ProductPane(
                         products = visibleProducts,
-                        categories = categories,
-                        search = search,
-                        onSearchChange = { search = it },
-                        selectedCategory = selectedCategory,
-                        onSelectCategory = { selectedCategory = it },
+                        state = productPaneState,
                         catalogueEmpty = products.isEmpty(),
                         onProductClick = { entry ->
                             if (entry.variants.isNotEmpty()) variantFor = entry
@@ -182,11 +216,7 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     ProductPane(
                         products = visibleProducts,
-                        categories = categories,
-                        search = search,
-                        onSearchChange = { search = it },
-                        selectedCategory = selectedCategory,
-                        onSelectCategory = { selectedCategory = it },
+                        state = productPaneState,
                         catalogueEmpty = products.isEmpty(),
                         onProductClick = { entry ->
                             if (entry.variants.isNotEmpty()) variantFor = entry
@@ -289,48 +319,76 @@ private data class CartActions(
     val onApplyDiscount: (String, Double, Double) -> Unit
 )
 
+/** Was das Produktraster über Suche, Kategorien und Ausgeblendetes wissen muss — in beiden Anordnungen gleich. */
+private class ProductPaneState(
+    val search: String,
+    val onSearchChange: (String) -> Unit,
+    val searchOpen: Boolean,
+    val onSearchOpenChange: (Boolean) -> Unit,
+    val categories: List<String>,
+    val selectedCategory: String?,
+    val onSelectCategory: (String?) -> Unit,
+    val hiddenCount: Int,
+    val showHidden: Boolean,
+    val onShowHidden: () -> Unit,
+    val hiddenIds: Set<String>,
+    val onSetHidden: (com.example.vereins_kassensystem.data.entity.Product, Boolean) -> Unit,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProductPane(
     products: List<ProductWithVariants>,
-    categories: List<String>,
-    search: String,
-    onSearchChange: (String) -> Unit,
-    selectedCategory: String?,
-    onSelectCategory: (String?) -> Unit,
+    state: ProductPaneState,
     catalogueEmpty: Boolean,
     onProductClick: (ProductWithVariants) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier) {
-        VdTopBar(title = "Verkauf")
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(state.searchOpen) { if (state.searchOpen) searchFocus.requestFocus() }
 
-        OutlinedTextField(
-            value = search,
-            onValueChange = onSearchChange,
-            placeholder = { Text("Produkt suchen") },
-            leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
-            trailingIcon = {
-                if (search.isNotEmpty()) {
-                    IconButton(onClick = { onSearchChange("") }) {
-                        Icon(VdIcons.Clear, contentDescription = "Suche löschen")
-                    }
+    Column(modifier = modifier) {
+        // Die Suche als Symbol oben rechts, gleich links neben dem Warenkorb: Das Suchfeld
+        // kostete eine ganze Zeile Höhe, die auf einem 8-Zoll-Tablet dem Raster fehlte.
+        VdTopBar(
+            title = "Verkauf",
+            actions = {
+                IconButton(onClick = { state.onSearchOpenChange(!state.searchOpen) }) {
+                    Icon(
+                        if (state.searchOpen) VdIcons.SearchOff else VdIcons.Search,
+                        contentDescription = if (state.searchOpen) "Suche schließen" else "Produkt suchen"
+                    )
                 }
-            },
-            singleLine = true,
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.lg)
+            }
         )
 
-        Spacer(Modifier.height(Spacing.md))
+        if (state.searchOpen) {
+            OutlinedTextField(
+                value = state.search,
+                onValueChange = state.onSearchChange,
+                placeholder = { Text("Produkt suchen") },
+                leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
+                trailingIcon = {
+                    IconButton(onClick = { state.onSearchOpenChange(false) }) {
+                        Icon(VdIcons.Clear, contentDescription = "Suche schließen")
+                    }
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg)
+                    .focusRequester(searchFocus)
+            )
+            Spacer(Modifier.height(Spacing.md))
+        }
 
         CategoryFilterRow(
-            categories = categories,
-            selected = selectedCategory,
-            onSelect = onSelectCategory,
-            modifier = Modifier.fillMaxWidth()
+            categories = state.categories,
+            selected = state.selectedCategory,
+            onSelect = state.onSelectCategory,
+            modifier = Modifier.fillMaxWidth(),
+            trailing = if (state.hiddenCount > 0) TrailingChip("Ausgeblendet · ${state.hiddenCount}", state.showHidden, state.onShowHidden) else null
         )
 
         Spacer(Modifier.height(Spacing.md))
@@ -340,6 +398,12 @@ private fun ProductPane(
                 icon = VdIcons.PointOfSale,
                 title = "Noch keine Produkte",
                 supportingText = "Lege unter Produkte dein Sortiment an, damit es hier erscheint."
+            )
+
+            products.isEmpty() && state.search.isBlank() && !state.showHidden && state.hiddenCount > 0 -> EmptyState(
+                icon = VdIcons.SearchOff,
+                title = "Alles ausgeblendet",
+                supportingText = "Unter „Ausgeblendet“ stehen sie noch — ein langer Druck blendet ein Produkt wieder ein."
             )
 
             products.isEmpty() -> EmptyState(
@@ -357,7 +421,13 @@ private fun ProductPane(
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 items(products, key = { it.product.id }) { entry ->
-                    ProductTile(product = entry.product, onClick = { onProductClick(entry) })
+                    val hidden = entry.product.id in state.hiddenIds
+                    ProductTile(
+                        product = entry.product,
+                        onClick = { onProductClick(entry) },
+                        // Langer Druck: aus- oder wieder einblenden, nur auf diesem Gerät.
+                        longPress = TileAction(if (hidden) "Einblenden" else "Ausblenden") { state.onSetHidden(entry.product, !hidden) }
+                    )
                 }
             }
         }

@@ -100,7 +100,7 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
     // ein halb gefüllter Warenkorb den Abstecher in die Historie, und die Listen der
     // Verwaltung müssen nicht bei jedem Wechsel neu geladen werden.
     val repository = graph.repository
-    val salesViewModel: SalesViewModel = viewModel { SalesViewModel(repository) }
+    val salesViewModel: SalesViewModel = viewModel { SalesViewModel(repository, graph.settingsRepository) }
     val productViewModel: ProductViewModel = viewModel { ProductViewModel(repository) }
     val memberViewModel: MemberViewModel = viewModel { MemberViewModel(repository) }
     val cashViewModel: CashViewModel = viewModel { CashViewModel(repository) { graph.syncEngine.status.value.deviceLabel ?: graph.platform.description } }

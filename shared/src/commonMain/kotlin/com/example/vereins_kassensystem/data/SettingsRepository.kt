@@ -37,7 +37,8 @@ class SettingsRepository(private val store: SettingsStore) {
         val autoBackupEnabled: Boolean,
         val sumUpAffiliateKey: String,
         val apiBaseUrl: String?,
-        val lastBackupAt: Long?
+        val lastBackupAt: Long?,
+        val hiddenProducts: Set<String>
     )
 
     private val snapshot = MutableStateFlow<Snapshot?>(null)
@@ -58,7 +59,8 @@ class SettingsRepository(private val store: SettingsStore) {
         autoBackupEnabled = store.getString(KEY_AUTO_BACKUP)?.toBoolean() ?: false,
         sumUpAffiliateKey = store.getSecret(KEY_SUMUP_AFFILIATE_KEY).orEmpty(),
         apiBaseUrl = store.getString(KEY_API_BASE_URL),
-        lastBackupAt = store.getString(KEY_LAST_BACKUP_AT)?.toLongOrNull()
+        lastBackupAt = store.getString(KEY_LAST_BACKUP_AT)?.toLongOrNull(),
+        hiddenProducts = store.getString(KEY_HIDDEN_PRODUCTS)?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
     )
 
     private val settings: Flow<Snapshot> = snapshot.onStart { current() }.filterNotNull()
@@ -135,6 +137,19 @@ class SettingsRepository(private val store: SettingsStore) {
     /** Der Schlüsselbund kennt kein Löschen; ein leerer Wert gilt als keiner. */
     suspend fun setDeviceToken(token: String?) = store.putSecret(KEY_DEVICE_TOKEN, token.orEmpty())
 
+    /**
+     * Im Verkauf ausgeblendete Produkte — nur auf diesem Gerät (Entscheidung vom 30. September
+     * 2026): Die Küche blendet die Getränke aus, die Theke das Essen. Deshalb eine Einstellung
+     * des Geräts und keine Spalte am Produkt; nichts davon geht über den Draht, und die
+     * Sicherung (die Datenbank) enthält es nicht.
+     */
+    val hiddenProducts: Flow<Set<String>> = settings.map { it.hiddenProducts }.distinctUntilChanged()
+
+    suspend fun setProductHidden(productId: String, hidden: Boolean) {
+        val next = current().hiddenProducts.let { if (hidden) it + productId else it - productId }
+        write({ store.putString(KEY_HIDDEN_PRODUCTS, next.joinToString(",")) }) { it.copy(hiddenProducts = next) }
+    }
+
     suspend fun setLastBackupAt(at: Long) =
         write({ store.putString(KEY_LAST_BACKUP_AT, at.toString()) }) { it.copy(lastBackupAt = at) }
 
@@ -168,5 +183,6 @@ class SettingsRepository(private val store: SettingsStore) {
         const val KEY_API_BASE_URL = "api_base_url"
         const val KEY_LAST_BACKUP_AT = "last_backup_at"
         const val KEY_DEVICE_TOKEN = "sync_device_token"
+        const val KEY_HIDDEN_PRODUCTS = "hidden_products"
     }
 }

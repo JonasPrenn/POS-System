@@ -116,20 +116,28 @@ fun VereinsDeckelNavigation(
                 Destination.primary.forEach { destination ->
                     RailItem(destination, current == destination) { onNavigate(destination) }
                 }
-                // Explicit width: HorizontalDivider fills max width by default, which
-                // stretches the rail's column across the whole screen and leaves the
-                // content pane nothing to occupy.
-                HorizontalDivider(
-                    modifier = Modifier
-                        .width(48.dp)
-                        .padding(vertical = Spacing.md),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
                 if (layout == NavLayout.Rail) {
+                    // Explicit width: HorizontalDivider fills max width by default, which
+                    // stretches the rail's column across the whole screen and leaves the
+                    // content pane nothing to occupy.
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .width(48.dp)
+                            .padding(vertical = Spacing.md),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
                     Destination.management.forEach { destination ->
                         RailItem(destination, current == destination) { onNavigate(destination) }
                     }
-                } else {
+                }
+                // Unten, immer im Blick: ob dieses Gerät gerade allein arbeitet.
+                Spacer(Modifier.weight(1f))
+                SyncStatusBadge(
+                    status = syncStatus,
+                    modifier = Modifier.padding(bottom = if (layout == NavLayout.Rail) Spacing.md else Spacing.sm)
+                )
+                if (layout == NavLayout.CompactRail) {
+                    // „Mehr“ ganz unten, unter der Anzeige des Abgleichs (Wunsch vom 30. September 2026).
                     NavigationRailItem(
                         selected = current?.group == DestinationGroup.Management,
                         onClick = { showMoreSheet = true },
@@ -141,10 +149,8 @@ fun VereinsDeckelNavigation(
                             indicatorColor = ClubTheme.accent
                         )
                     )
+                    Spacer(Modifier.height(Spacing.sm))
                 }
-                // Ganz unten, immer im Blick: ob dieses Gerät gerade allein arbeitet.
-                Spacer(Modifier.weight(1f))
-                SyncStatusBadge(status = syncStatus, modifier = Modifier.padding(bottom = Spacing.md))
             }
             Surface(
                 modifier = Modifier.weight(1f).fillMaxSize(),

@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vereins_kassensystem.data.Ledger
+import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.entity.*
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
@@ -43,7 +44,7 @@ data class CartItem(
     val hasDiscount: Boolean get() = discountPercent > 0.0 || fixedDiscount > 0.0
 }
 
-class SalesViewModel(private val repository: AppRepository) : ViewModel() {
+class SalesViewModel(private val repository: AppRepository, private val settings: SettingsRepository) : ViewModel() {
 
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
@@ -85,10 +86,22 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         cartItems.sumOf { it.lineTotal } + topUp + tip
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
-    /** Distinct product categories, for the filter above the sales grid. */
-    val productCategories: StateFlow<List<String>> = allProductsWithVariants
-        .map { products ->
-            products.map { it.product.category }
+    /** Im Verkauf ausgeblendet, nur auf diesem Gerät — stehen nur unter „Ausgeblendet“. */
+    val hiddenProductIds: StateFlow<Set<String>> = settings.hiddenProducts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun setProductHidden(product: Product, hidden: Boolean) = viewModelScope.launch {
+        settings.setProductHidden(product.id, hidden)
+    }
+
+    /**
+     * Distinct product categories, for the filter above the sales grid. Nur Kategorien mit
+     * wenigstens einem sichtbaren Produkt: Eine, deren Produkte alle ausgeblendet sind, zeigte
+     * sonst ein leeres Raster.
+     */
+    val productCategories: StateFlow<List<String>> = combine(allProductsWithVariants, hiddenProductIds) { products, hidden ->
+            products.filterNot { it.product.id in hidden }
+                .map { it.product.category }
                 .filter { it.isNotBlank() }
                 .distinct()
                 .sorted()

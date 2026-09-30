@@ -29,15 +29,18 @@ import com.example.vereins_kassensystem.ui.theme.categoryColor
  * same one the tiles use, so the filter and the grid teach each other.
  *
  * @param selected null means "Alle" — no filter.
+ * @param trailing ein Chip ganz am Ende, der keine Kategorie ist — im Verkauf „Ausgeblendet“.
+ *   Ist er gewählt, ist es weder „Alle“ noch eine Kategorie.
  */
 @Composable
 fun CategoryFilterRow(
     categories: List<String>,
     selected: String?,
     onSelect: (String?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailing: TrailingChip? = null
 ) {
-    if (categories.isEmpty()) return
+    if (categories.isEmpty() && trailing == null) return
 
     LazyRow(
         modifier = modifier,
@@ -46,7 +49,7 @@ fun CategoryFilterRow(
     ) {
         item {
             FilterChip(
-                selected = selected == null,
+                selected = selected == null && trailing?.selected != true,
                 onClick = { onSelect(null) },
                 label = { Text("Alle") },
                 shape = MaterialTheme.shapes.small
@@ -72,5 +75,20 @@ fun CategoryFilterRow(
                 )
             )
         }
+        // Immer der letzte: Er steht außerhalb der Kategorien.
+        if (trailing != null) {
+            // Ein Schlüssel, den keine Kategorie tragen kann: Sonst stießen „Ausgeblendet“ und eine gleichnamige Kategorie zusammen.
+            item(key = "\u0000trailing") {
+                FilterChip(
+                    selected = trailing.selected,
+                    onClick = trailing.onClick,
+                    label = { Text(trailing.label) },
+                    shape = MaterialTheme.shapes.small
+                )
+            }
+        }
     }
 }
+
+/** Der Chip am Ende der Reihe, der keine Kategorie ist. */
+data class TrailingChip(val label: String, val selected: Boolean, val onClick: () -> Unit)
