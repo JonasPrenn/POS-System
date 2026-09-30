@@ -202,9 +202,11 @@ fun CheckoutDialog(
                             )
 
                             PayMode.Card -> when {
-                                // Auf eine reine Aufladung gibt es kein Trinkgeld.
+                                // Das Terminal fragt auf einen Einkauf und, mit gewähltem Mitglied, auch auf eine Aufladung.
+                                tipOnTerminal && (cartTotal > 0.0 || selectedMember != null) ->
+                                    CardNote("Das Trinkgeld wählt der Gast am Kartenterminal. Gebucht wird, was SumUp meldet.")
+                                // Fragt das Terminal nicht, fragt die App — aber nicht auf eine reine Aufladung.
                                 cartTotal <= 0.0 -> CardNote("Aufladung per Karte — ohne Trinkgeld.")
-                                tipOnTerminal -> CardNote("Das Trinkgeld wählt der Gast am Kartenterminal. Gebucht wird, was SumUp meldet.")
                                 // Das Terminal fragt nicht selbst (oder ist noch nicht gekoppelt): Die App fragt, auf den Einkauf, nicht auf eine Aufladung.
                                 else -> TipPane(
                                     base = cartTotal,

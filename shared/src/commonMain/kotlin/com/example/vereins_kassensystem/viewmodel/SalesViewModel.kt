@@ -237,9 +237,11 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
      * Die Referenz entsteht vorab und geht an den Anbieter mit, damit sich die Zahlung
      * im SumUp-Konto dem Kassiervorgang zuordnen lässt.
      *
-     * Trinkgeld: Kann das Terminal selbst fragen und liegt Ware im Warenkorb, fragt es den
-     * Gast, und gebucht wird, was SumUp als Trinkgeld meldet. Sonst geht das in der App
-     * gewählte Trinkgeld getrennt mit. Auf eine reine Aufladung gibt es keins. Geht die
+     * Trinkgeld: Kann das Terminal selbst fragen und liegt Ware im Warenkorb oder ist ein
+     * Mitglied gewählt, fragt es den Gast, und gebucht wird, was SumUp als Trinkgeld meldet —
+     * mit gewähltem Mitglied auch auf eine reine Aufladung (Wunsch vom 30. September 2026; das
+     * Trinkgeld ist mit Karte bezahlt und belastet den Deckel nicht). Fragt das Terminal nicht
+     * selbst, geht das in der App gewählte Trinkgeld getrennt mit, und das nur auf Ware. Geht die
      * Zahlung nicht durch — abgelehnt, gestört oder abgebrochen —, ist das Trinkgeld vergessen
      * und die Kasse sagt, was war; sonst landete es beim nächsten Versuch bar oder auf dem Deckel.
      * Der Betrag ist auf Cent gerundet: Die Summe der Zeilen trägt sonst Rechenstaub.
@@ -254,7 +256,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
         }
         val reference = Ids.new()
         val goods = _cart.value.isNotEmpty()
-        val onTerminal = goods && payments.asksForTipOnTerminal()
+        val onTerminal = (goods || _selectedMemberId.value != null) && payments.asksForTipOnTerminal()
         val tip = if (goods && !onTerminal) Money.cents(_tipAmount.value) else 0.0
         val amount = Money.cents(_cart.value.sumOf { it.lineTotal } + _topUpAmount.value)
         when (val result = payments.charge(amount, reference, tip, onTerminal)) {

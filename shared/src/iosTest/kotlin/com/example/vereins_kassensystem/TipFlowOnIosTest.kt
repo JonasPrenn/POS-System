@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.example.vereins_kassensystem.data.Ledger
+import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.data.entity.Transaction
 import com.example.vereins_kassensystem.data.repository.AppRepository
@@ -157,6 +158,36 @@ class TipFlowOnIosTest {
         val tips = cash(repository).filter { it.productId == Ledger.TIP_REF }.map { it.price }.sorted()
         assertEquals(listOf(0.6, 0.8), tips, "Trinkgeld in bar, als eigene Zeile")
         assertEquals(setOf(3, 1, 2), cash(repository).filter { it.productId != Ledger.TIP_REF }.map { it.quantity }.toSet())
+    }
+
+    @Test
+    fun `with a member chosen the terminal also asks for a tip on a top up`() {
+        val terminal = Terminal(asksForTip = false)
+        withTill(terminal) { repository ->
+            val maria = Member(name = "Maria Bauer")
+            runBlocking { repository.insertMember(maria) }
+            clickText("Mitglied auswählen"); clickText("Maria Bauer")
+
+            // Kann das Terminal nicht selbst fragen, bleibt es bei der Aufladung ohne Trinkgeld — die App fragt dort nicht.
+            clickText("+10 €"); clickText("Bezahlen"); clickText("Karte")
+            waitForText("Aufladung per Karte — ohne Trinkgeld.")
+            clickText("Abschließen")
+            waitUntil("erste Aufladung", 10_000) { card(repository).size == 1 }
+            assertEquals(Charge(10.0, 0.0, tipOnTerminal = false), terminal.charges.last())
+
+            // Kann es fragen, fragt es auch hier; das Trinkgeld ist mit Karte bezahlt und belastet den Deckel nicht.
+            terminal.asksForTip = true
+            terminal.next = PaymentResult.Success("TX-3", tip = 1.0)
+            clickText("Mitglied auswählen"); clickText("Maria Bauer")
+            clickText("+10 €"); clickText("Bezahlen"); clickText("Karte")
+            waitForText("Das Trinkgeld wählt der Gast am Kartenterminal", substring = true)
+            clickText("Abschließen")
+            waitUntil("zweite Aufladung mit Trinkgeld", 10_000) { card(repository).size == 3 }
+            assertEquals(Charge(10.0, 0.0, tipOnTerminal = true), terminal.charges.last())
+            val lines = card(repository).map { "${it.productId == Ledger.TOPUP_REF} ${it.productName} ${it.price} ${it.memberId == maria.id}" }.toSet()
+            assertTrue("false Trinkgeld 1.0 true" in lines, lines.toString())
+            assertEquals(20.0, runBlocking { repository.getMember(maria.id)!!.balance }, 0.0001, "zweimal 10 € aufgeladen, das Trinkgeld nicht auf dem Deckel")
+        }
     }
 
     private fun card(repository: AppRepository): List<Transaction> = runBlocking { repository.allTransactions.first().filter { it.paymentType == "CARD" } }
