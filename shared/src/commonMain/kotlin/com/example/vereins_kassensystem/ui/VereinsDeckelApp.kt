@@ -99,6 +99,9 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
     val cashViewModel: CashViewModel = viewModel { CashViewModel(repository) { graph.syncEngine.status.value.deviceLabel ?: graph.platform.description } }
     val analyticsViewModel: AnalyticsViewModel = viewModel { AnalyticsViewModel(repository) }
     val inventoryViewModel: InventoryViewModel = viewModel { InventoryViewModel(repository) }
+    // Bar gibt es nur, wenn eine Kasse mit Barkasse offen ist — auch beim Aufladen in der Mitgliederliste.
+    val cash by cashViewModel.state.collectAsState()
+    val cashDrawerOpen = cash.session?.let { !it.cashless } == true
 
     VereinsDeckelNavigation(
         layout = navLayout,
@@ -112,7 +115,7 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
             modifier = Modifier.fillMaxSize()
         ) {
             composable(Destination.Sales.route) {
-                SalesScreen(viewModel = salesViewModel)
+                SalesScreen(viewModel = salesViewModel, cashViewModel = cashViewModel)
             }
             composable(Destination.Dashboard.route) {
                 HomeScreen(
@@ -139,6 +142,7 @@ private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
             composable(Destination.Members.route) {
                 MemberManagementScreen(
                     viewModel = memberViewModel,
+                    cashDrawerOpen = cashDrawerOpen,
                     onMemberClick = { member ->
                         salesViewModel.selectMember(member)
                         navController.navigateToDestination(Destination.Sales)

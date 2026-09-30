@@ -74,7 +74,7 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
     val allCategories: StateFlow<List<MemberCategory>> = repository.allCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** Bardienst ohne Barkasse (Konzept 4.5): Die Theke nimmt kein Bargeld — „Bar“ ist aus, und der Abschluss weist es ab. */
+    /** Kasse ohne Barkasse (Konzept 4.5): Die Theke nimmt kein Bargeld — „Bar“ ist aus, und der Abschluss weist es ab. */
     val cashBlocked: StateFlow<Boolean> = repository.openCashSession.map { it?.cashless == true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -243,8 +243,15 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
      * Zahlung nicht durch — abgelehnt, gestört oder abgebrochen —, ist das Trinkgeld vergessen
      * und die Kasse sagt, was war; sonst landete es beim nächsten Versuch bar oder auf dem Deckel.
      * Der Betrag ist auf Cent gerundet: Die Summe der Zeilen trägt sonst Rechenstaub.
+     *
+     * Ohne offene Kasse wird die Karte gar nicht erst belastet — geprüft wird vor dem Terminal,
+     * nicht erst vor der Buchung: Eine belastete Karte ohne Buchung ist der teuerste Fehler.
      */
     fun checkoutByCard(payments: PaymentProcessor) = viewModelScope.launch {
+        if (repository.openCashSession.first() == null) {
+            _checkoutError.emit(TILL_CLOSED)
+            return@launch
+        }
         val reference = Ids.new()
         val goods = _cart.value.isNotEmpty()
         val onTerminal = goods && payments.asksForTipOnTerminal()
@@ -276,9 +283,15 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
 
         if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return
 
-        // Frisch gelesen, nicht aus dem Zustand: Der Bardienst kann eben erst begonnen haben.
-        if (paymentType == "CASH" && repository.openCashSession.first()?.cashless == true) {
-            _checkoutError.emit("Bardienst ohne Barkasse: kein Bargeld an dieser Theke. Deckel oder Karte.")
+        // Frisch gelesen, nicht aus dem Zustand: Die Kasse kann eben erst geöffnet worden sein.
+        // Ohne offene Kasse wird nicht kassiert, auch nicht vom Deckel (Entscheidung vom 30. September 2026).
+        val session = repository.openCashSession.first()
+        if (session == null) {
+            _checkoutError.emit(TILL_CLOSED)
+            return
+        }
+        if (paymentType == "CASH" && session.cashless) {
+            _checkoutError.emit("Kasse ohne Barkasse: kein Bargeld an dieser Theke. Deckel oder Karte.")
             return
         }
 
@@ -319,5 +332,9 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
 
         clearCart()
         selectMember(null)
+    }
+
+    private companion object {
+        const val TILL_CLOSED = "Die Kasse ist zu. Erst im Warenkorb öffnen, dann kassieren."
     }
 }

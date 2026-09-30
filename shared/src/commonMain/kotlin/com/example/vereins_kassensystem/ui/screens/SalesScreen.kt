@@ -75,6 +75,10 @@ import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.balanceColor
 import com.example.vereins_kassensystem.viewmodel.CartItem
+import com.example.vereins_kassensystem.viewmodel.CashState
+import com.example.vereins_kassensystem.viewmodel.CashViewModel
+import com.example.vereins_kassensystem.ui.components.OpenCashDialog
+import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.viewmodel.SalesViewModel
 import com.example.vereins_kassensystem.ui.icons.VdIcons
 import com.example.vereins_kassensystem.platform.LocalPlatform
@@ -84,8 +88,11 @@ private val TwoPaneBreakpoint = 720.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SalesScreen(viewModel: SalesViewModel) {
+fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
     val payments = LocalPlatform.current.payments
+    // Ohne offene Kasse wird nicht kassiert: Statt „Bezahlen“ steht dann „Kasse öffnen“ im Warenkorb.
+    val cash by cashViewModel.state.collectAsState()
+    val cashOpen = cash.session != null
     val products by viewModel.allProductsWithVariants.collectAsState()
     val categories by viewModel.productCategories.collectAsState()
     val cart by viewModel.cart.collectAsState()
@@ -110,6 +117,9 @@ fun SalesScreen(viewModel: SalesViewModel) {
     // Beim Öffnen des Bezahldialogs gefragt: Ein gerade gekoppeltes Terminal zählt beim nächsten Mal.
     val tipOnTerminal by produceState(false, showCheckout, payments) { value = showCheckout && payments.asksForTipOnTerminal() }
     var showCartSheet by remember { mutableStateOf(false) }
+    var showOpenCash by remember { mutableStateOf(false) }
+    // Geht die Kasse zu, geht auch ein offener Bezahldialog zu — und kommt beim Öffnen nicht von selbst wieder.
+    LaunchedEffect(cashOpen) { if (!cashOpen) showCheckout = false }
 
     val visibleProducts = remember(products, search, selectedCategory) {
         products.filter { entry ->
@@ -162,6 +172,8 @@ fun SalesScreen(viewModel: SalesViewModel) {
                         memberCategories = memberCategories,
                         topUpAmount = topUpAmount,
                         actions = cartActions,
+                        cash = cash,
+                        onOpenCash = { showOpenCash = true },
                         onCheckout = { showCheckout = true },
                         modifier = Modifier.weight(1f).fillMaxHeight()
                     )
@@ -187,7 +199,9 @@ fun SalesScreen(viewModel: SalesViewModel) {
                     TotalBar(
                         total = total,
                         itemCount = itemCount,
+                        cashOpen = cashOpen,
                         onOpenCart = { showCartSheet = true },
+                        onOpenCash = { showOpenCash = true },
                         onCheckout = { showCheckout = true }
                     )
                 }
@@ -205,6 +219,11 @@ fun SalesScreen(viewModel: SalesViewModel) {
                     memberCategories = memberCategories,
                     topUpAmount = topUpAmount,
                     actions = cartActions,
+                    cash = cash,
+                    onOpenCash = {
+                        showCartSheet = false
+                        showOpenCash = true
+                    },
                     onCheckout = {
                         showCartSheet = false
                         showCheckout = true
@@ -225,7 +244,19 @@ fun SalesScreen(viewModel: SalesViewModel) {
             )
         }
 
-        if (showCheckout) {
+        if (showOpenCash) {
+            OpenCashDialog(
+                members = members,
+                onDismiss = { showOpenCash = false },
+                onOpen = { by, openingCount ->
+                    cashViewModel.open(by, openingCount)
+                    showOpenCash = false
+                }
+            )
+        }
+
+        // Im Bezahldialog geht nichts, solange die Kasse zu ist — er erscheint dann gar nicht erst.
+        if (showCheckout && cashOpen) {
             CheckoutDialog(
                 categories = memberCategories,
                 cartTotal = cart.sumOf { it.lineTotal },
@@ -342,6 +373,8 @@ private fun CartPane(
     memberCategories: List<com.example.vereins_kassensystem.data.entity.MemberCategory>,
     topUpAmount: Double,
     actions: CartActions,
+    cash: CashState,
+    onOpenCash: () -> Unit,
     onCheckout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -433,11 +466,23 @@ private fun CartPane(
 
         Spacer(Modifier.height(Spacing.md))
 
-        PayButton(
-            amount = total,
-            onClick = onCheckout,
-            enabled = cart.isNotEmpty() || topUpAmount > 0.0
-        )
+        val session = cash.session
+        if (session == null) {
+            ClosedTill(onOpenCash)
+        } else {
+            Text(
+                text = "Kasse offen · ${session.openedBy} · ${if (session.cashless) "ohne Barkasse" else "mit Barkasse"}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            PayButton(
+                amount = total,
+                onClick = onCheckout,
+                enabled = cart.isNotEmpty() || topUpAmount > 0.0
+            )
+        }
     }
 
     if (showMemberPicker) {
@@ -635,12 +680,38 @@ private fun MemberSection(
     }
 }
 
+/**
+ * Unten im Warenkorb, solange die Kasse zu ist: Statt „Bezahlen“ geht es hier zum Öffnen. Der
+ * Warenkorb lässt sich trotzdem füllen — wer die Kasse übernimmt, kann die erste Runde schon
+ * eintippen. Bernstein: Aufmerksamkeit, kein Fehler.
+ */
+@Composable
+private fun ClosedTill(onOpenCash: () -> Unit) {
+    Text(
+        text = "Die Kasse ist zu — erst öffnen, dann kassieren.",
+        style = MaterialTheme.typography.bodySmall,
+        color = VereinsColors.warning
+    )
+    Spacer(Modifier.height(Spacing.sm))
+    Button(
+        onClick = onOpenCash,
+        modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.sales),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Icon(VdIcons.PointOfSale, contentDescription = null)
+        Spacer(Modifier.width(Spacing.sm))
+        Text("Kasse öffnen", style = MaterialTheme.typography.labelLarge)
+    }
+}
+
 /** Phone layout: the total and the way into the cart, permanently under the thumb. */
 @Composable
 private fun TotalBar(
     total: Double,
     itemCount: Int,
+    cashOpen: Boolean,
     onOpenCart: () -> Unit,
+    onOpenCash: () -> Unit,
     onCheckout: () -> Unit
 ) {
     Surface(
@@ -668,13 +739,23 @@ private fun TotalBar(
                 MoneyText(amount = total, style = MoneyMedium)
             }
             Spacer(Modifier.width(Spacing.md))
-            Button(
-                onClick = onCheckout,
-                enabled = itemCount > 0 || total > 0.0,
-                modifier = Modifier.heightIn(min = 56.dp),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Text("Bezahlen", style = MaterialTheme.typography.labelLarge)
+            if (cashOpen) {
+                Button(
+                    onClick = onCheckout,
+                    enabled = itemCount > 0 || total > 0.0,
+                    modifier = Modifier.heightIn(min = 56.dp),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text("Bezahlen", style = MaterialTheme.typography.labelLarge)
+                }
+            } else {
+                Button(
+                    onClick = onOpenCash,
+                    modifier = Modifier.heightIn(min = TouchTarget.sales),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text("Kasse öffnen", style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
     }

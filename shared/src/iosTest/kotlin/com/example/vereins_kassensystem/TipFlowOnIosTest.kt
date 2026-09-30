@@ -69,7 +69,11 @@ class TipFlowOnIosTest {
         val db = openTestDatabase()
         val graph = AppGraph(TerminalPlatform(terminal)) { db }
         try {
-            runBlocking { graph.repository.insertProduct(Product(name = "Weißbier 0,5l", price = 4.2, category = "Getränke", servingSize = 0.5)) }
+            runBlocking {
+                graph.repository.insertProduct(Product(name = "Weißbier 0,5l", price = 4.2, category = "Getränke", servingSize = 0.5))
+                // Ohne offene Kasse wird nicht kassiert; wie sie geöffnet wird, zeigt der SalesFlowOnIosTest.
+                graph.repository.openCashSession(50.0, "Test", "Theke")
+            }
             setContent { VereinsDeckelApp(graph) }
             block(graph.repository)
         } finally {

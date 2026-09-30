@@ -30,13 +30,17 @@ import com.example.vereins_kassensystem.ui.icons.VdIcons
  *
  * State stays with the caller — this only reports edits, so the same pad drives the cash
  * field, a top-up and a manual amount without knowing about any of them.
+ *
+ * Mit [onNext] wird die Taste links unten zu „Weiter“: Beim Zählen der Lade gibt es kein
+ * Komma, wohl aber den nächsten Schein.
  */
 @Composable
 fun NumericKeypad(
     onDigit: (Char) -> Unit,
     onBackspace: () -> Unit,
     modifier: Modifier = Modifier,
-    onDecimalSeparator: (() -> Unit)? = null
+    onDecimalSeparator: (() -> Unit)? = null,
+    onNext: (() -> Unit)? = null
 ) {
     val rows = listOf(
         listOf("1", "2", "3"),
@@ -61,12 +65,18 @@ fun NumericKeypad(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            KeypadKey(
-                modifier = Modifier.weight(1f),
-                enabled = onDecimalSeparator != null,
-                onClick = { onDecimalSeparator?.invoke() }
-            ) {
-                Text(",", style = MaterialTheme.typography.headlineSmall)
+            if (onNext != null) {
+                KeypadKey(modifier = Modifier.weight(1f), onClick = onNext) {
+                    Text("Weiter", style = MaterialTheme.typography.titleMedium)
+                }
+            } else {
+                KeypadKey(
+                    modifier = Modifier.weight(1f),
+                    enabled = onDecimalSeparator != null,
+                    onClick = { onDecimalSeparator?.invoke() }
+                ) {
+                    Text(",", style = MaterialTheme.typography.headlineSmall)
+                }
             }
             KeypadKey(
                 modifier = Modifier.weight(1f),

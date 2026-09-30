@@ -82,7 +82,7 @@ fun CheckoutDialog(
     onDismiss: () -> Unit,
     onSetTipAmount: (Double) -> Unit,
     onCheckout: (String) -> Unit,
-    // Bardienst ohne Barkasse: „Bar“ bleibt sichtbar, aber aus — mit dem Grund darunter.
+    // Kasse ohne Barkasse: „Bar“ bleibt sichtbar, aber aus — mit dem Grund darunter.
     cashAllowed: Boolean = true,
     // Fragt das Kartenterminal selbst nach Trinkgeld, fragt die App nicht.
     tipOnTerminal: Boolean = false
@@ -293,7 +293,7 @@ private fun PaymentChoice(
     }
     if (!cashAllowed) {
         Text(
-            text = "Bardienst ohne Barkasse — an dieser Theke nur Deckel und Karte.",
+            text = "Kasse ohne Barkasse — an dieser Theke nur Deckel und Karte.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = Spacing.sm, start = Spacing.xs)

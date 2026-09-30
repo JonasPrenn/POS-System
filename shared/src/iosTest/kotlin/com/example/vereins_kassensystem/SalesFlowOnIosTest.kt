@@ -2,6 +2,9 @@ package com.example.vereins_kassensystem
 
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -21,7 +24,9 @@ import kotlinx.coroutines.test.setMain
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Bar und Deckel, einmal wirklich bedient — auf Kotlin/Native im iOS-Simulator.
@@ -29,8 +34,10 @@ import kotlin.test.assertNull
  * `RoomOnIosTest` zeigt, dass die Datenbank auf iOS bucht. Dieser Test zeigt, dass der Weg
  * dorthin hält: die echte Wurzel der Oberfläche ([VereinsDeckelApp]) mit Navigation,
  * ViewModels und Dialogen, darunter ein [AppGraph] mit einer Datenbank im Speicher.
- * Getippt wird, was ein Mitglied am Samstag tippt: Produkt, Bezahlen, Bar, Passend,
- * Abschließen — und dasselbe noch einmal auf Marias Deckel.
+ * Getippt wird, was ein Mitglied am Samstag tippt: zuerst die Kasse öffnen, im Warenkorb, und
+ * das Wechselgeld nach Stückelung zählen — vorher gibt es kein „Bezahlen“. Dann Produkt,
+ * Bezahlen, Bar, Passend, Abschließen, dasselbe noch einmal auf Marias Deckel, und am Ende die
+ * Kasse auf der Übersicht schließen, wieder gezählt.
  *
  * Nicht abgedeckt ist, was nur das Gerät kann: die Berührung durch UIKit hindurch, die
  * Tastatur, Kamera und Dateiauswahl. Die Szene hier hat kein Fenster.
@@ -65,8 +72,28 @@ class SalesFlowOnIosTest {
 
             setContent { VereinsDeckelApp(graph) }
 
-            // ---- Bar
+            // ---- Ohne offene Kasse wird nicht kassiert: Der Warenkorb füllt sich, aber statt „Bezahlen“ steht „Kasse öffnen“.
             clickDescription(beer)
+            waitForText("Die Kasse ist zu — erst öffnen, dann kassieren.")
+            assertTrue(onAllNodesWithText("Bezahlen").fetchSemanticsNodes().isEmpty(), "kein Bezahlen bei geschlossener Kasse")
+
+            // ---- Kasse öffnen, mit Barkasse: 2 × 50 €, 3 × 1 €, 5 × 10 ct = 103,50 €
+            clickText("Kasse öffnen")
+            inDialog("Wer öffnet: Mitglied wählen")
+            inDialog("Maria Bauer")
+            inDialog("50 €"); inDialog("2")
+            inDialog("1 €"); inDialog("3")
+            inDialog("10 ct"); inDialog("5")
+            waitForText("103,50 €")
+            inDialog("Öffnen")
+            waitUntil("Kasse offen", 10_000) { runBlocking { repository.openCashSession.first() != null } }
+            val opened = assertNotNull(repository.openCashSession.first())
+            assertEquals(103.5, opened.openingCount, 0.0001)
+            assertEquals("Maria Bauer", opened.openedBy)
+            assertEquals(false, opened.cashless)
+            waitForText("Kasse offen · Maria Bauer · mit Barkasse")
+
+            // ---- Bar
             clickText("Bezahlen")
             clickText("Bar")
             clickText("Passend")
@@ -98,6 +125,21 @@ class SalesFlowOnIosTest {
             assertEquals("Maria Bauer", tab.memberName)
             assertEquals(repository.allMembers.first().single().id, tab.memberId)
             waitForText("Nichts ausgewählt")
+
+            // ---- Kasse schließen, auf der Übersicht: Soll 103,50 € Wechselgeld + 4,20 € bar = 107,70 €,
+            // gezählt 1 × 100 €, 7 × 1 €, 1 × 50 ct, 1 × 20 ct. Der Deckel liegt nicht in der Lade.
+            clickText("Übersicht")
+            clickText("Kasse schließen")
+            inDialog("100 €"); inDialog("1")
+            inDialog("1 €"); inDialog("7")
+            inDialog("50 ct"); inDialog("1")
+            inDialog("20 ct"); inDialog("1")
+            waitUntil("gezählt wie Soll", 10_000) { onAllNodes(hasText("107,70 €") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().size == 2 }
+            inDialog("Schließen")
+            waitUntil("Kasse zu", 10_000) { runBlocking { repository.openCashSession.first() == null } }
+            val closed = db.syncDao().allCashSessions().single()
+            assertEquals(107.7, assertNotNull(closed.closingCount), 0.0001)
+            assertEquals("Maria Bauer", closed.closedBy)
         } finally {
             // Erst den Abgleich anhalten: Er beobachtet die Datenbank und überlebte sie sonst.
             graph.close()
@@ -108,6 +150,13 @@ class SalesFlowOnIosTest {
 
     private fun ComposeUiTest.waitForText(text: String) {
         waitUntil("'$text' sichtbar", 10_000) { onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** Tippt im obersten Dialog — die Ziffer „2“ steht sonst womöglich auch dahinter auf der Seite. */
+    private fun ComposeUiTest.inDialog(text: String) {
+        val inDialog = hasText(text) and hasAnyAncestor(isDialog())
+        waitUntil("'$text' im Dialog", 10_000) { onAllNodes(inDialog).fetchSemanticsNodes().isNotEmpty() }
+        onAllNodes(inDialog).onFirst().performClick()
     }
 
     private fun ComposeUiTest.clickText(text: String) {

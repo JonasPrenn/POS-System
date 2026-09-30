@@ -269,13 +269,17 @@ Das ist der Teil, den GoBD beziehungsweise BAO tatsächlich verlangen, und den h
 niemand hat.
 
 - **Schicht öffnen und schließen** am Tablet: Wechselgeld zählen, am Ende den Bestand
-  zählen. Das System weiß, was drin sein müsste (Anfangsbestand + Bareinnahmen −
+  zählen — Schein für Schein und Münze für Münze, von 100 € bis 1 Cent; die Summe rechnet
+  die Kasse. Das System weiß, was drin sein müsste (Anfangsbestand + Bareinnahmen −
   Barausgaben) und protokolliert die Differenz mit Namen des Schließenden. Keine
   Korrektur ohne Grund.
+- **Ohne offene Kasse wird nicht kassiert** (Entscheidung vom 30. September 2026): Geöffnet
+  wird im Warenkorb, solange sie zu ist, steht dort „Kasse öffnen“ statt „Bezahlen“. Bar
+  aufladen geht nur in eine offene Barkasse.
 - **Entnahme und Einlage** mit Grund (Bank, Bareinkauf, Wechselgeld), ebenfalls am Tablet.
-- **Bardienst ohne Barkasse:** Wer die Theke übernimmt, beginnt den Dienst auch ohne Lade —
+- **Kasse ohne Barkasse:** Wer die Theke übernimmt, öffnet die Kasse auch ohne Lade —
   dann nimmt die Theke kein Bargeld, nur Deckel und Karte, und es gibt nichts zu zählen. Wer
-  beginnt, zählt oder beendet, ist ein Mitglied aus der Liste, kein freier Name.
+  öffnet, zählt oder schließt, ist ein Mitglied aus der Liste, kein freier Name.
 - **Kassenbuch** im Web: chronologisch, alle Barbewegungen, jederzeit kassensturzfähig,
   nachträglich nicht änderbar — nur stornierbar mit Gegenbuchung. Export als PDF und CSV
   für den Rechnungsprüfer.

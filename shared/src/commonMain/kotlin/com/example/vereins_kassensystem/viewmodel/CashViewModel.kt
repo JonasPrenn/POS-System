@@ -34,8 +34,10 @@ data class CashState(
 }
 
 /**
- * Schicht öffnen, Geld entnehmen oder einlegen, Schicht schließen (Konzept 4.5). Der Verkauf
- * hängt nicht daran: Verkauft wird auch ohne offene Schicht — dann fehlt eben die Zählung.
+ * Kasse öffnen, Geld entnehmen oder einlegen, Kasse schließen (Konzept 4.5). Der Verkauf hängt
+ * daran: Ohne offene Kasse wird nicht kassiert — geöffnet wird im Warenkorb, geschlossen auf
+ * der Übersicht. Entscheidung des Besitzers vom 30. September 2026; vorher ging der Verkauf
+ * auch ohne Schicht, und dann fehlte am Abend die Zählung.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CashViewModel(private val repository: AppRepository, private val deviceLabel: suspend () -> String) : ViewModel() {
@@ -47,7 +49,7 @@ class CashViewModel(private val repository: AppRepository, private val deviceLab
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CashState())
 
-    /** Bardienst beginnen: mit Barkasse und gezähltem Wechselgeld, oder ohne ([openingCount] null) — dann nimmt die Theke kein Bargeld. */
+    /** Kasse öffnen: mit Barkasse und gezähltem Wechselgeld, oder ohne ([openingCount] null) — dann nimmt die Theke kein Bargeld. */
     fun open(by: String, openingCount: Double?) = viewModelScope.launch {
         repository.openCashSession(openingCount ?: 0.0, by, deviceLabel(), cashless = openingCount == null)
     }
