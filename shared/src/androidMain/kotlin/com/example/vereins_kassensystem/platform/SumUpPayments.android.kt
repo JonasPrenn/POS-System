@@ -3,12 +3,16 @@ package com.example.vereins_kassensystem.platform
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
+import android.os.Bundle
+import androidx.core.os.BundleCompat
+import com.sumup.checkout.core.models.TransactionInfo
 import com.sumup.merchant.reader.api.SumUpAPI
 import com.sumup.merchant.reader.api.SumUpLogin
 import com.sumup.merchant.reader.api.SumUpPayment
 import com.sumup.reader.sdk.api.SumUpState
 import kotlinx.coroutines.CompletableDeferred
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * Einmal beim Start der App, vor allem anderen. Liegt hier und nicht in der
@@ -30,7 +34,12 @@ fun initializeSumUp(application: Application) {
  * Die Brücke dazwischen ist [pending]: Der Aufruf legt ein unerfülltes Versprechen ab,
  * die Activity erfüllt es beim Eintreffen des Ergebnisses.
  *
- * Diese Klasse braucht deshalb eine Activity und nicht den Application-Context. Sie wird
+ * Trinkgeld: Fragt das Terminal selbst ([asksForTipOnTerminal]), bekommt SumUp
+ * `tipOnCardReader()`; sonst geht ein in der App gewähltes Trinkgeld über `tip()` getrennt
+ * mit. Was SumUp als Trinkgeld belastet hat, steht danach in der `TransactionInfo` — das
+ * bucht die Kasse. Was eine Antwort für den Kassier heißt, steht in [SumUpOutcome].
+ *
+ * Diese Klasse braucht eine Activity und nicht den Application-Context. Sie wird
  * in `MainActivity.onCreate` erzeugt und in `onDestroy` wieder gelöst, damit ein
  * Drehen des Geräts nicht die alte Activity am Leben hält.
  */
@@ -39,6 +48,9 @@ class SumUpPaymentProcessor : PaymentProcessor {
     private var activity: Activity? = null
     private var pending: CompletableDeferred<PaymentResult>? = null
     private var pendingLogin: CompletableDeferred<Result<Unit>>? = null
+
+    /** Das in der App gewählte Trinkgeld der laufenden Zahlung — falls SumUp keins zurückmeldet. */
+    private var requestedTip = 0.0
 
     fun attach(activity: Activity) {
         this.activity = activity
@@ -56,12 +68,20 @@ class SumUpPaymentProcessor : PaymentProcessor {
 
     override suspend fun isAvailable(): Boolean = SumUpAPI.isLoggedIn()
 
+    /**
+     * Wie das SDK es selbst entscheidet: ein Solo ab Firmware 3.3.12.1 oder ein Solo Lite ab
+     * 2.2.1.29, der mit diesem Gerät gekoppelt ist. Vor der ersten Kopplung weiß das SDK es noch
+     * nicht — dann bietet die App das Trinkgeld an.
+     */
+    override suspend fun asksForTipOnTerminal(): Boolean =
+        runCatching { SumUpAPI.isLoggedIn() && SumUpAPI.isTipOnCardReaderAvailable() }.getOrDefault(false)
+
     override suspend fun login(affiliateKey: String): Result<Unit> {
         val act = activity ?: return Result.failure(
             IllegalStateException("Keine Activity — SumUp braucht einen sichtbaren Bildschirm.")
         )
         if (affiliateKey.isBlank()) {
-            return Result.failure(IllegalArgumentException("Kein Affiliate-Key hinterlegt."))
+            return Result.failure(IllegalArgumentException("Kein SumUp-Schlüssel hinterlegt."))
         }
         val deferred = CompletableDeferred<Result<Unit>>()
         pendingLogin = deferred
@@ -69,18 +89,24 @@ class SumUpPaymentProcessor : PaymentProcessor {
         return deferred.await()
     }
 
-    override suspend fun charge(amount: Double, reference: String): PaymentResult {
-        val act = activity ?: return PaymentResult.Failed("Kein sichtbarer Bildschirm.")
-        if (!SumUpAPI.isLoggedIn()) return PaymentResult.Failed("Nicht bei SumUp angemeldet.")
+    override suspend fun charge(amount: Double, reference: String, tip: Double, tipOnTerminal: Boolean): PaymentResult {
+        val act = activity ?: return PaymentResult.Failed("Kartenzahlung nicht möglich: kein sichtbarer Bildschirm. Nichts gebucht, bitte noch einmal.")
+        if (!SumUpAPI.isLoggedIn()) return PaymentResult.Failed(SumUpOutcome.NOT_LOGGED_IN)
 
         val payment = SumUpPayment.builder()
-            .total(BigDecimal.valueOf(amount))
+            .total(cents(amount))
             .currency(SumUpPayment.Currency.EUR)
             // Geht als Referenz an SumUp mit, damit sich eine Zahlung im SumUp-Konto
             // später einem Kassiervorgang zuordnen lässt.
             .foreignTransactionId(reference)
             .skipSuccessScreen()
+            .apply {
+                // Das Terminal fragt den Gast — oder das in der App gewählte Trinkgeld steht
+                // getrennt auf dem SumUp-Beleg. `tip()` nimmt SumUp nur ohne `tipOnCardReader()`.
+                if (tipOnTerminal) tipOnCardReader() else if (tip > 0.0) tip(cents(tip))
+            }
             .build()
+        requestedTip = if (tipOnTerminal) 0.0 else tip
 
         val deferred = CompletableDeferred<PaymentResult>()
         pending = deferred
@@ -92,28 +118,29 @@ class SumUpPaymentProcessor : PaymentProcessor {
     fun handleActivityResult(requestCode: Int, data: Intent?): Boolean = when (requestCode) {
         REQUEST_CHECKOUT -> {
             val extras = data?.extras
-            val code = extras?.getInt(SumUpAPI.Response.RESULT_CODE, -1) ?: -1
-            val message = extras?.getString(SumUpAPI.Response.MESSAGE)
-            val txCode = extras?.getString(SumUpAPI.Response.TX_CODE)
-
             pending?.complete(
-                when (code) {
-                    SumUpAPI.Response.ResultCode.SUCCESSFUL -> PaymentResult.Success(txCode)
-                    // Ein Abbruch durch den Kassier ist kein Fehler und bekommt keine
-                    // rote Meldung — er wollte es sich anders überlegen.
-                    SumUpAPI.Response.ResultCode.ERROR_TRANSACTION_FAILED ->
-                        PaymentResult.Failed(message ?: "Zahlung fehlgeschlagen.")
-                    else -> PaymentResult.Cancelled
-                }
+                // Ohne Antwort hat der Kassier den SumUp-Bildschirm mit „Zurück“ verlassen.
+                if (extras == null) PaymentResult.Cancelled
+                else SumUpOutcome.checkout(
+                    code = extras.getInt(SumUpAPI.Response.RESULT_CODE, -1),
+                    message = extras.getString(SumUpAPI.Response.MESSAGE),
+                    transactionCode = extras.getString(SumUpAPI.Response.TX_CODE),
+                    reportedTip = tipOf(extras),
+                    requestedTip = requestedTip,
+                )
             )
             pending = null
             true
         }
 
         REQUEST_LOGIN -> {
+            val extras = data?.extras
             pendingLogin?.complete(
-                if (SumUpAPI.isLoggedIn()) Result.success(Unit)
-                else Result.failure(IllegalStateException("Anmeldung nicht abgeschlossen."))
+                SumUpOutcome.login(
+                    loggedIn = SumUpAPI.isLoggedIn(),
+                    code = extras?.getInt(SumUpAPI.Response.RESULT_CODE, -1),
+                    message = extras?.getString(SumUpAPI.Response.MESSAGE),
+                )
             )
             pendingLogin = null
             true
@@ -121,6 +148,13 @@ class SumUpPaymentProcessor : PaymentProcessor {
 
         else -> false
     }
+
+    /** Was SumUp als Trinkgeld belastet hat, laut der mitgelieferten `TransactionInfo`. */
+    private fun tipOf(extras: Bundle): Double? = runCatching {
+        BundleCompat.getParcelable(extras, SumUpAPI.Response.TX_INFO, TransactionInfo::class.java)?.tipAmount
+    }.getOrNull()
+
+    private fun cents(amount: Double): BigDecimal = BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP)
 
     private companion object {
         const val REQUEST_LOGIN = 1000

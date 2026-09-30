@@ -236,43 +236,64 @@ class SalesViewModel(private val repository: AppRepository) : ViewModel() {
      * ohne dass die Buchung folgt, ist der teuerste Fehler, den diese App machen kann.
      * Die Referenz entsteht vorab und geht an den Anbieter mit, damit sich die Zahlung
      * im SumUp-Konto dem Kassiervorgang zuordnen lässt.
+     *
+     * Trinkgeld: Kann das Terminal selbst fragen und liegt Ware im Warenkorb, fragt es den
+     * Gast, und gebucht wird, was SumUp als Trinkgeld meldet. Sonst geht das in der App
+     * gewählte Trinkgeld getrennt mit. Auf eine reine Aufladung gibt es keins. Geht die
+     * Zahlung nicht durch — abgelehnt, gestört oder abgebrochen —, ist das Trinkgeld vergessen
+     * und die Kasse sagt, was war; sonst landete es beim nächsten Versuch bar oder auf dem Deckel.
+     * Der Betrag ist auf Cent gerundet: Die Summe der Zeilen trägt sonst Rechenstaub.
      */
     fun checkoutByCard(payments: PaymentProcessor) = viewModelScope.launch {
         val reference = Ids.new()
-        when (val result = payments.charge(totalAmount.value, reference)) {
-            is PaymentResult.Success -> checkout("CARD", reference)
-            PaymentResult.Cancelled -> Unit
-            is PaymentResult.Failed -> _checkoutError.emit(result.message)
+        val goods = _cart.value.isNotEmpty()
+        val onTerminal = goods && payments.asksForTipOnTerminal()
+        val tip = if (goods && !onTerminal) Money.cents(_tipAmount.value) else 0.0
+        val amount = Money.cents(_cart.value.sumOf { it.lineTotal } + _topUpAmount.value)
+        when (val result = payments.charge(amount, reference, tip, onTerminal)) {
+            is PaymentResult.Success -> book("CARD", reference, Money.cents(result.tip))
+            PaymentResult.Cancelled -> {
+                _tipAmount.value = 0.0
+                _checkoutError.emit("Kartenzahlung abgebrochen — nichts gebucht.")
+            }
+            is PaymentResult.Failed -> {
+                _tipAmount.value = 0.0
+                _checkoutError.emit(result.message)
+            }
         }
     }
 
     fun checkout(paymentType: String = "CASH", transactionGroupId: String = Ids.new()) = viewModelScope.launch {
+        book(paymentType, transactionGroupId, _tipAmount.value)
+    }
+
+    /** Prüft und bucht einen Kassiervorgang; [currentTip] ist das Trinkgeld, das tatsächlich gegeben wurde. */
+    private suspend fun book(paymentType: String, transactionGroupId: String, currentTip: Double) {
         val currentCart = _cart.value
         val currentTopUp = _topUpAmount.value
-        val currentTip = _tipAmount.value
         // Frisch gelesen statt aus dem Zustand: Der Saldo soll der von jetzt sein.
         val member = _selectedMemberId.value?.let { repository.getMember(it) }
 
-        if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return@launch
+        if (currentCart.isEmpty() && currentTopUp <= 0.0 && currentTip <= 0.0) return
 
         // Frisch gelesen, nicht aus dem Zustand: Der Bardienst kann eben erst begonnen haben.
         if (paymentType == "CASH" && repository.openCashSession.first()?.cashless == true) {
             _checkoutError.emit("Bardienst ohne Barkasse: kein Bargeld an dieser Theke. Deckel oder Karte.")
-            return@launch
+            return
         }
 
         if (paymentType == Ledger.MEMBER_BALANCE && member != null) {
             // Die Sperre kommt aus der Verwaltung und gilt vor dem Limit: Sie steht mit Grund da.
             if (member.isBlocked) {
                 _checkoutError.emit("Deckel gesperrt: ${member.blockedReason}. Bar oder Karte geht.")
-                return@launch
+                return
             }
             val limit = member.categoryId?.let { repository.getCategoryById(it) }?.negativeBalanceLimit ?: 0.0
             // Was der Deckel wirklich trägt: die Positionen nach Rabatt, plus Trinkgeld.
             val charge = currentCart.sumOf { it.lineTotal } + currentTip
             if (Money.cents(member.balance - charge) < limit) {
                 _checkoutError.emit("Guthaben nicht ausreichend. Limit: ${Money.format(limit)}")
-                return@launch
+                return
             }
         }
 
