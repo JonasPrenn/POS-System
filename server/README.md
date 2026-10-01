@@ -337,6 +337,42 @@ nie anders war, entsteht keine Zeile (siehe oben, Koppeln). Die Sperre kennen Ap
 kompatibel (Entscheidung des Besitzers vom 1. Oktober 2026, CLAUDE.md). Wer verlangen will,
 dass jedes Tablet die Sperre kennt, setzt 1.3.0.
 
+## Deckel für Mitglieder: online aufladen
+
+Unter `/konto/<kürzel>` (beim ersten Verein auch `/konto`) sehen Mitglieder am PC und Handy
+ihren Deckel und laden ihn auf (`web/Portal.kt`, `web/PagesPortal.kt`, V15). Angemeldet wird mit
+einem Link an die E-Mail-Adresse aus dem Profil (Abrechnung), ohne Passwort: höchstens drei
+Links je Viertelstunde und Adresse, jeder gilt 30 Minuten und einmal, und erst ein Tipp auf der
+Seite meldet an — ein Virenscanner, der Links in Mails vorab öffnet, verbraucht ihn nicht. Die
+Sitzung hält 30 Tage, ihr Cookie gilt nur unter `/konto/<kürzel>`.
+
+Bezahlt wird auf der Seite von SumUp (Hosted Checkout), auf das SumUp-Konto des Vereins: Karte,
+Apple Pay, Google Pay — und EPS, sobald SumUp es freischaltet; welche Zahlungsarten erscheinen,
+entscheidet SumUp. Gebucht wird erst, wenn SumUp auf Nachfrage „bezahlt“ sagt und Referenz,
+Betrag, Währung und Händlercode zur Aufladung passen, als gewöhnliche Aufladung mit Zahlungsart
+Karte (`Writes.bookTab`), die jede App kennt. Die Buchung trägt die id der Aufladung: Wie oft
+SumUp auch Bescheid gibt, gebucht wird einmal. Die Benachrichtigung kommt an
+`/v1/online/sumup/<id des Vereins>` und wird nie geglaubt, nur zum Nachfragen genommen; ist SumUp
+gerade weg, antwortet der Dienst 503 und SumUp versucht es später. Was trotzdem offen bleibt,
+fragt der Dienst alle fünf Minuten nach; nach zwei Tagen gilt es als abgebrochen.
+
+**Einrichten, je Verein:**
+1. Beim SumUp-Support Online-Zahlungen sowie Apple Pay, Google Pay (und EPS) für das Konto
+   freischalten lassen — bei Vereinen geht das nur dort, mit dem Händlercode.
+2. In SumUp unter Einstellungen → Für Entwickler → API-Schlüssel einen Schlüssel anlegen. Das
+   ist nicht der Schlüssel fürs Terminal (`sumup_affiliate_key`), und anders als der kommt er nie
+   auf die Tablets.
+3. In der Verwaltung unter Einstellungen → Online aufladen Schlüssel, Händlercode und Beträge
+   eintragen, einschalten, speichern: Der Dienst prüft beides bei SumUp und zeigt, welche
+   Zahlungsarten freigeschaltet sind. Der E-Mail-Versand muss eingerichtet sein.
+4. In der Systemverwaltung die **Adresse von außen** eintragen (etwa `https://deckel.example.at`),
+   wenn sie sich nicht von selbst richtig ergibt — daraus entstehen Anmeldelinks, die Rückkehr vom
+   Bezahlen und die Adresse für SumUps Benachrichtigung. Die Verwaltung zeigt den Link für Mitglieder.
+
+Zum Ausprobieren ohne echtes Geld legt man in SumUp ein Testkonto (Sandbox) an und nimmt dessen
+API-Schlüssel. Die Gebühr trägt der Verein; einen Aufschlag für die Zahlungsart verbietet in
+Österreich § 56 Abs. 3 ZaDiG 2018.
+
 ## Was wo steht
 
 | Datei | Inhalt |
@@ -347,6 +383,8 @@ dass jedes Tablet die Sperre kennt, setzt 1.3.0.
 | `sync/SyncStore.kt` | Ziehen, Schieben, Konfliktregeln (Kapitel 4) |
 | `sync/Values.kt` | Zahlenformate nach 5.4: Geld als Zeichenkette, Zeit als ISO 8601 |
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
+| `payments/OnlinePayments.kt` | Online bezahlen lassen: die Schnittstelle und SumUp (Checkout-API mit Bezahlseite bei SumUp, `SumUpClientTest` prüft sie gegen die Beispiele der Dokumentation) |
+| `src/main/resources/db/migration/V15__online_aufladen.sql` | Anmeldelinks und Sitzungen der Mitglieder, jede Online-Aufladung vom Anlegen bis zur Buchung — nicht synchronisiert |
 | `tenancy/` | Die Vereine: `TenantDirectory` (welcher Verein für Token, Code, Anmeldung; anlegen, umbenennen, Mindestversion), `SystemStore` (die Systemdatenbank), `Databases` (Datenbanken daneben anlegen), `Tenant` (Kürzel, der Verein der Anfrage) |
 | `src/main/resources/db/system/V1__system.sql` | Die Systemdatenbank: Vereine, Gerätewege, Systemeinstellungen, Hauptadmins mit Sitzungen und Protokoll |
 | `src/main/resources/db/migration/V14__testanmeldung.sql` | `web_sessions.via` — wer bei einer Testanmeldung wirklich davorsitzt |

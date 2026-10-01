@@ -5,6 +5,7 @@ import com.example.vereins_kassensystem.server.db.Database
 import com.example.vereins_kassensystem.server.devices.DevicePrincipal
 import com.example.vereins_kassensystem.server.devices.DeviceStore
 import com.example.vereins_kassensystem.server.media.ReceiptStore
+import com.example.vereins_kassensystem.server.payments.OnlinePayments
 import com.example.vereins_kassensystem.server.sync.SyncStore
 import com.example.vereins_kassensystem.server.web.Mailbox
 import com.example.vereins_kassensystem.server.web.Mailer
@@ -42,6 +43,7 @@ class Tenant internal constructor(
     updates: Updates,
     mailer: Mailer,
     mailbox: Mailbox,
+    payments: OnlinePayments,
     val directory: TenantDirectory,
 ) {
     /** Kürzel und Name ändern sich, wenn der Verein es will; die Datenbank bleibt dieselbe. */
@@ -52,7 +54,7 @@ class Tenant internal constructor(
     val devices = DeviceStore(db, config.pairingCodeTtl)
     val sync = SyncStore(db)
     val receipts = ReceiptStore(if (info.mediaDir.isEmpty()) config.mediaDir else config.mediaDir.resolve(info.mediaDir))
-    val web = TenantWeb(config, db, devices, receipts, mailer, mailbox, updates, this)
+    val web = TenantWeb(config, db, devices, receipts, mailer, mailbox, updates, this, payments)
 
     override fun toString() = "Verein ${info.slug}"
 }

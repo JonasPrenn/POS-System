@@ -5,6 +5,7 @@ import com.example.vereins_kassensystem.server.db.Database
 import com.example.vereins_kassensystem.server.devices.DeviceStore
 import com.example.vereins_kassensystem.server.devices.Tokens
 import com.example.vereins_kassensystem.server.media.ReceiptStore
+import com.example.vereins_kassensystem.server.payments.OnlinePayments
 import com.example.vereins_kassensystem.server.tenancy.Kuerzel
 import com.example.vereins_kassensystem.server.tenancy.Tenant
 import com.example.vereins_kassensystem.server.tenancy.TenantContext
@@ -68,6 +69,8 @@ interface Web {
     val books: Books
     val intake: MailIntake
     val cash: Cash
+    /** Der Deckel für Mitglieder: Anmeldelinks und Online-Aufladung (/konto). */
+    val portal: Portal
     /** Für den ganzen Server, nicht je Verein — bedient wird er in der Systemverwaltung. */
     val updates: Updates
 }
@@ -75,6 +78,7 @@ interface Web {
 class TenantWeb(
     override val config: ServerConfig, db: Database, override val devices: DeviceStore, override val receipts: ReceiptStore,
     override val mailer: Mailer, override val mailbox: Mailbox, override val updates: Updates, override val tenant: Tenant,
+    payments: OnlinePayments,
 ) : Web {
     override val accounts = Accounts(db) { LocalDate.now(config.zone) }
     override val audit = AuditLog(db)
@@ -89,6 +93,7 @@ class TenantWeb(
     override val books = Books(db, config.zone)
     override val intake = MailIntake(db, receipts, purchases, settings, mailbox, config.zone)
     override val cash = Cash(db, config.zone)
+    override val portal = Portal(db, settings, reads, writes, mailer, payments)
 
     init {
         // Was die Verwaltung schon weiß, steht beim Start auch für die Tablets bereit.
@@ -115,6 +120,7 @@ class CurrentWeb(override val config: ServerConfig, override val updates: Update
     override val books get() = current.books
     override val intake get() = current.intake
     override val cash get() = current.cash
+    override val portal get() = current.portal
 }
 
 internal const val COOKIE = "vd_session"
@@ -141,7 +147,7 @@ internal fun sessionCookie(name: String, value: String, path: String, config: Se
  */
 private const val CSP = "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
-private val SecurityHeaders = createRouteScopedPlugin("VerwaltungHeaders") {
+internal val SecurityHeaders = createRouteScopedPlugin("VerwaltungHeaders") {
     onCall { call ->
         call.response.header("Content-Security-Policy", CSP)
         call.response.header("X-Content-Type-Options", "nosniff")

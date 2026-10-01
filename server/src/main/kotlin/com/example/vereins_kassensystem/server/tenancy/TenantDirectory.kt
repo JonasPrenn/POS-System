@@ -7,6 +7,8 @@ import com.example.vereins_kassensystem.server.db.queryOne
 import com.example.vereins_kassensystem.server.devices.PairingFailed
 import com.example.vereins_kassensystem.server.devices.Registration
 import com.example.vereins_kassensystem.server.devices.Tokens
+import com.example.vereins_kassensystem.server.payments.OnlinePayments
+import com.example.vereins_kassensystem.server.payments.SumUp
 import com.example.vereins_kassensystem.server.web.AccountProblem
 import com.example.vereins_kassensystem.server.web.Accounts
 import com.example.vereins_kassensystem.server.web.ImapMailbox
@@ -43,6 +45,7 @@ class TenantDirectory private constructor(
     val updates: Updates,
     private val mailer: Mailer,
     private val mailbox: Mailbox,
+    private val payments: OnlinePayments,
 ) : AutoCloseable {
 
     private val tenants = ConcurrentHashMap<UUID, Tenant>()
@@ -127,7 +130,7 @@ class TenantDirectory private constructor(
         val tenant = try {
             Accounts(db).create(adminLogin, adminName, Role.ADMIN, adminPassword)
             system.insert(info)
-            Tenant(info, db, config, updates, mailer, mailbox, this)
+            Tenant(info, db, config, updates, mailer, mailbox, payments, this)
         } catch (e: Exception) {
             db.close()
             throw e
@@ -178,6 +181,24 @@ class TenantDirectory private constructor(
         for (tenant in all()) tenant.web.settings.mirrorMinAppVersion(version)
     }
 
+    // ------------------------------------------------------- Adresse von außen
+
+    /**
+     * Unter welcher Adresse Mitglieder und Zahlungsanbieter den Server erreichen, etwa
+     * https://deckel.example.at — für Anmeldelinks, die Rückkehr vom Bezahlen und die Benachrichtigung
+     * des Anbieters. Leer: aus der Anfrage abgeleitet. Gesetzt in der Systemverwaltung.
+     */
+    val publicUrl: String? get() = system?.let { runCatching { it.setting(PUBLIC_URL) }.getOrNull() }?.takeIf { it.isNotBlank() }
+
+    fun setPublicUrl(text: String) {
+        val system = system ?: throw AccountProblem(NO_SYSTEM)
+        val url = text.trim().trimEnd('/')
+        if (url.isNotEmpty() && !Regex("""https://[A-Za-z0-9.-]+(:\d+)?(/[A-Za-z0-9._~/-]*)?""").matches(url)) {
+            throw AccountProblem("Die Adresse beginnt mit https:// und enthält nur den Rechnernamen, etwa https://deckel.example.at.")
+        }
+        system.putSetting(PUBLIC_URL, url)
+    }
+
     override fun close() {
         for (tenant in tenants.values) if (!tenant.info.isDefault) runCatching { tenant.db.close() }
         system?.db?.let { runCatching { it.close() } }
@@ -186,11 +207,11 @@ class TenantDirectory private constructor(
     private fun load(first: Database) {
         val known = system?.tenants().orEmpty()
         val firstInfo = known.firstOrNull { it.isDefault } ?: firstTenant(first).also { info -> system?.insert(info) }
-        default = Tenant(firstInfo, first, config, updates, mailer, mailbox, this).also { tenants[it.id] = it }
+        default = Tenant(firstInfo, first, config, updates, mailer, mailbox, payments, this).also { tenants[it.id] = it }
         for (info in known.filterNot { it.isDefault }) {
             try {
                 val db = checkNotNull(databases).open(info.dbName, Database.MIGRATIONS_VEREIN, POOL_PER_VEREIN)
-                tenants[info.id] = Tenant(info, db, config, updates, mailer, mailbox, this)
+                tenants[info.id] = Tenant(info, db, config, updates, mailer, mailbox, payments, this)
             } catch (e: Exception) {
                 // Ein Verein, dessen Datenbank fehlt, hält die anderen nicht auf.
                 log.error("Verein {}: Datenbank {} nicht verfügbar", info.slug, info.dbName, e)
@@ -214,6 +235,7 @@ class TenantDirectory private constructor(
     companion object {
         private val log = LoggerFactory.getLogger(TenantDirectory::class.java)
 
+        const val PUBLIC_URL = "public_url"
         const val MIN_APP_VERSION = VereinSettings.MIN_APP_VERSION
         const val NO_MINIMUM = VereinSettings.NO_MIN_APP_VERSION
         private const val POOL_PER_VEREIN = 4
@@ -226,7 +248,10 @@ class TenantDirectory private constructor(
          * Öffnet die Systemdatenbank (legt sie beim ersten Start an) und alle Vereine. [first] ist
          * die Datenbank aus DATABASE_URL, schon migriert; ohne [databases] gibt es nur sie.
          */
-        fun open(config: ServerConfig, first: Database, databases: Databases?, mailer: Mailer = SmtpMailer, mailbox: Mailbox = ImapMailbox): TenantDirectory {
+        fun open(
+            config: ServerConfig, first: Database, databases: Databases?,
+            mailer: Mailer = SmtpMailer, mailbox: Mailbox = ImapMailbox, payments: OnlinePayments = SumUp(),
+        ): TenantDirectory {
             val updates = Updates(config.updatesDir, config.version, config.versionDate)
             var problem: String? = null
             val system = if (databases == null) null else try {
@@ -236,7 +261,7 @@ class TenantDirectory private constructor(
                 problem = generateSequence<Throwable>(e) { it.cause }.last().message?.lineSequence()?.firstOrNull() ?: e.toString()
                 null
             }
-            return TenantDirectory(config, databases, system, problem ?: if (databases == null) "Keine Systemdatenbank eingerichtet." else null, updates, mailer, mailbox)
+            return TenantDirectory(config, databases, system, problem ?: if (databases == null) "Keine Systemdatenbank eingerichtet." else null, updates, mailer, mailbox, payments)
                 .also { it.load(first) }
         }
     }

@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.server.http
 import com.example.vereins_kassensystem.server.ServerConfig
 import com.example.vereins_kassensystem.server.devices.Tokens
 import com.example.vereins_kassensystem.server.tenancy.TenantDirectory
+import com.example.vereins_kassensystem.server.web.portalRoutes
 import com.example.vereins_kassensystem.server.web.webRoutes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -62,11 +63,19 @@ fun Application.module(config: ServerConfig, directory: TenantDirectory, pollMai
     routing {
         apiRoutes(directory)
         webRoutes(directory)
+        portalRoutes(directory)
         // Der Posteingang jedes Vereins: alle zehn Minuten, solange der Abruf eingeschaltet ist — ein Fehler steht in den Einstellungen, nicht im Log allein.
         if (pollMailbox) launch(Dispatchers.IO) {
             while (isActive) {
                 delay(10 * 60 * 1000L)
                 for (tenant in directory.all()) runCatching { if (tenant.web.settings.load().imap.enabled) tenant.web.intake.poll() }
+            }
+        }
+        // Online-Aufladungen, deren Benachrichtigung nicht ankam: alle fünf Minuten beim Anbieter nachfragen.
+        if (pollMailbox) launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(5 * 60 * 1000L)
+                for (tenant in directory.all()) runCatching { tenant.web.portal.sweep() }
             }
         }
     }

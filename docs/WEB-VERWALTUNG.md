@@ -370,7 +370,7 @@ Kandidaten aus dem Vergleich mit Vereins- und Kassensoftware, mit Einschätzung:
 
 | Kandidat | Einschätzung |
 |---|---|
-| **Mitgliederportal** (eigenen Deckel sehen, Auszug laden, Aufladen per QR-Überweisung) | Hoher Nutzen, geringes Risiko, sobald Abrechnung und Zahlungsimport stehen. Verringert die Rückfragen beim Kassier. Phase 5. *Gewünscht am 1. Oktober 2026: das eigene Konto am PC und Telefon aufladen, mit Anmeldung, über einen Zahlungsanbieter (Apple Pay, Google Pay, PayPal) — je Verein mit eigenem Händlerkonto, deshalb nach den Vereinen (4.8).* |
+| **Mitgliederportal** (eigenen Deckel sehen, Auszug laden, Aufladen per QR-Überweisung) | Hoher Nutzen, geringes Risiko, sobald Abrechnung und Zahlungsimport stehen. Verringert die Rückfragen beim Kassier. Phase 5. *Gebaut am 1. Oktober 2026: Deckel sehen und online aufladen unter `/konto/<kürzel>`, angemeldet per Link an die Adresse aus dem Profil, bezahlt bei SumUp mit Karte, Apple Pay, Google Pay (EPS vorbereitet, kein PayPal — Entscheidung des Besitzers nach dem Vergleich der Anbieter). Offen: den Auszug als PDF laden.* |
 | **E-Bon am Tablet** (QR-Code oder Bondrucker) | Nötig, sobald die Belegerteilungspflicht gilt (2.1) — dann für jede Bar- und Kartenzahlung an Gäste. Klein, wenn die Buchung ohnehin da ist. |
 | **RKSV-Anbindung** (Signatur, Datenerfassungsprotokoll) | Folgt aus 2.1. Wenn ja, vor der Abrechnung, nicht danach. |
 | **Dienstplan** (wer steht wann an der Theke) | Sinnvoll, weil Schichten (4.5) ohnehin Personen haben. Klein. |

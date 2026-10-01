@@ -3,6 +3,7 @@ package com.example.vereins_kassensystem.server.web
 import com.example.vereins_kassensystem.AppVersion
 import kotlinx.html.pre
 import com.example.vereins_kassensystem.server.devices.DeviceRecord
+import com.example.vereins_kassensystem.server.payments.PaymentProblem
 import io.ktor.http.encodeURLParameter
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
@@ -147,7 +148,10 @@ internal fun Route.systemPages(web: Web) {
     }
 
     get("/einstellungen") {
-        call.guarded(web, Area.SETTINGS) { ctx -> call.html { settingsPage(ctx, web, call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"]) } }
+        call.guarded(web, Area.SETTINGS) { ctx ->
+            val link = portalLink(call.publicBase(web.directory), web.tenant)
+            call.html { settingsPage(ctx, web, call.request.queryParameters["hinweis"], call.request.queryParameters["fehler"], link) }
+        }
     }
     post("/einstellungen") {
         call.guardedPost(web, Area.SETTINGS) { ctx, form ->
@@ -174,6 +178,24 @@ internal fun Route.systemPages(web: Web) {
                         val before = web.tenant.info.slug
                         web.directory.rename(web.tenant, slugText = form["kuerzel"].orEmpty())
                         if (web.tenant.info.slug != before) web.audit.record(ctx.user, "settings.save", detail = "Kürzel: $before → ${web.tenant.info.slug}")
+                    }
+                    "online" -> {
+                        val online = ctx.verein.online
+                        val enabled = form["aktiv"] == "1"
+                        val remove = form["schluessel_entfernen"] == "1"
+                        val key = if (remove) "" else form["schluessel"]?.trim()?.takeIf { it.isNotEmpty() } ?: online.apiKey
+                        val merchant = form["haendler"].orEmpty().trim()
+                        if (enabled && !ctx.verein.smtp.configured) throw AccountProblem("Für die Anmeldelinks braucht es den E-Mail-Versand — unten bei E-Mail-Versand eintragen.")
+                        // Geprüft wird bei SumUp selbst: Stimmt der Schlüssel, passt der Händlercode, und was ist freigeschaltet?
+                        val methods = if (key.isNotBlank() && merchant.isNotBlank()) {
+                            try { web.portal.check(key, merchant) } catch (e: PaymentProblem) { throw AccountProblem(e.message ?: "SumUp lehnt ab.") }
+                        } else null
+                        if (enabled && methods == null) throw AccountProblem("Zum Einschalten braucht es den API-Schlüssel und den Händlercode von SumUp.")
+                        web.settings.saveOnline(
+                            enabled, form["schluessel"], remove, merchant, form["betraege"].orEmpty(),
+                            form["min"]?.toIntOrNull() ?: VereinSettings.DEFAULT_MIN, form["max"]?.toIntOrNull() ?: VereinSettings.DEFAULT_MAX, methods,
+                        )
+                        web.audit.record(ctx.user, "settings.save", detail = "Online aufladen: ${if (enabled) "an" else "aus"}${if (remove) ", Schlüssel entfernt" else ""}")
                     }
                     "tablets" -> { web.settings.saveTablets(form["sumup"], form["sumup_entfernen"] == "1", form["sicherung"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "Tablets: SumUp-Schlüssel und Sicherung") }
                     "imap" -> { web.settings.saveImap(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 993, form["benutzer"].orEmpty(), form["passwort"], form["ordner"].orEmpty(), form["aktiv"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Empfang") }
@@ -417,7 +439,61 @@ private fun FlowContent.kuerzelPanel(ctx: PageContext) = panel {
 
 private val MONTHS = listOf("Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember")
 
-private fun HTML.settingsPage(ctx: PageContext, web: Web, notice: String?, problem: String?) =
+/**
+ * Online aufladen: das SumUp-Konto des Vereins (API-Schlüssel und Händlercode, nicht der Schlüssel
+ * fürs Terminal), die Beträge, und wo Mitglieder ihren Deckel finden. Welche Zahlungsarten auf der
+ * Bezahlseite stehen, entscheidet SumUp — die Seite zeigt, was beim letzten Prüfen freigeschaltet war.
+ */
+private fun FlowContent.onlinePanel(ctx: PageContext, web: Web, link: String) = panel {
+    val online = ctx.verein.online
+    postForm(ctx, "$BASE/einstellungen", "panel-body") {
+        hiddenInput(name = "teil") { value = "online" }
+        div("row-between") {
+            h2("title-m") { +"Online aufladen" }
+            when {
+                online.usable -> chip("eingeschaltet", "ok", "check")
+                online.configured -> chip("aus", "neutral")
+                else -> chip("nicht eingerichtet", "neutral")
+            }
+        }
+        p("muted") { +"Mitglieder laden ihren Deckel am PC oder Handy auf. Angemeldet wird mit einem Link an die E-Mail-Adresse aus dem Profil; bezahlt auf der Seite von SumUp, auf das SumUp-Konto des Vereins. Gebucht wird eine Aufladung mit Karte — die Tablets sehen sie beim nächsten Abgleich." }
+        div("field") { span { +"Hier finden Mitglieder ihren Deckel — etwa als QR-Code an der Bude" }; span("copy") { +link } }
+        if (online.configured) p("muted") {
+            +"Auf der Bezahlseite: ${(listOf("Karte") + online.methods.map(Portal::methodLabel)).joinToString(", ")}."
+            val missing = listOf("apple_pay" to "Apple Pay", "google_pay" to "Google Pay", "eps" to "EPS").filter { it.first !in online.methods }.map { it.second }
+            if (missing.isNotEmpty()) +" ${missing.joinToString(" und ")} ${if (missing.size == 1) "erscheint" else "erscheinen"}, sobald der SumUp-Support ${if (missing.size == 1) "es" else "sie"} für das Konto freischaltet; danach hier einmal speichern."
+        }
+        div("form-grid") {
+            label("field") { span { +(if (online.apiKey.isNotEmpty()) "SumUp API-Schlüssel (leer: bleibt)" else "SumUp API-Schlüssel") }; input(InputType.password, name = "schluessel") { attributes["autocomplete"] = "off" } }
+            label("field") { span { +"Händlercode, etwa MC4XYZ8B" }; input(InputType.text, name = "haendler") { value = online.merchantCode; attributes["autocomplete"] = "off" } }
+            label("field") { span { +"Beträge zum Antippen, in €" }; input(InputType.text, name = "betraege") { value = online.presets.joinToString(", ") } }
+            label("field") { span { +"Kleinster und größter Betrag, in €" }; div("row") { input(InputType.number, name = "min") { value = "${online.min}"; attributes["min"] = "1" }; input(InputType.number, name = "max") { value = "${online.max}"; attributes["min"] = "1" } } }
+        }
+        if (online.apiKey.isNotEmpty()) label("check") { input(InputType.checkBox, name = "schluessel_entfernen") { value = "1" }; span { +"Schlüssel entfernen — dann geht online nichts mehr" } }
+        label("check") { input(InputType.checkBox, name = "aktiv") { value = "1"; checked = online.enabled }; span { +"Mitglieder können online aufladen" } }
+        p("cap") { +"Den API-Schlüssel legt man in SumUp unter Einstellungen, Für Entwickler, API-Schlüssel an. Für einen Verein schaltet der SumUp-Support Online-Zahlungen frei. Zum Ausprobieren ohne echtes Geld gibt es bei SumUp ein Testkonto." }
+        div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern und bei SumUp prüfen" } }
+    }
+    val recent = web.portal.recent(8)
+    if (recent.isNotEmpty()) table("t t-tight") {
+        tbody {
+            for (t in recent) tr {
+                td { twoLine(t.memberName, listOf(ctx.friendly(t.createdAt), t.detail).filter { it.isNotBlank() }.joinToString(" · ")) }
+                td("num") { span("money-s") { +euro(t.amount.toDouble()) } }
+                td("num") {
+                    when (t.status) {
+                        "PAID" -> if (t.detail.startsWith("Bezahlt, aber nicht gebucht")) chip("von Hand buchen", "warn", "alert") else chip("gebucht", "ok", "check")
+                        "PENDING" -> chip("offen", "neutral")
+                        "EXPIRED" -> chip("abgebrochen", "neutral")
+                        else -> chip("nicht bezahlt", "neutral")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun HTML.settingsPage(ctx: PageContext, web: Web, notice: String?, problem: String?, portalLink: String) =
     shell(ctx, Area.SETTINGS, "Einstellungen", "Name, Farbe und Rechnungsjahr der Verbindung — und was die Tablets von hier bekommen") {
         flash(notice, problem)
         panel {
@@ -456,6 +532,7 @@ private fun HTML.settingsPage(ctx: PageContext, web: Web, notice: String?, probl
                 div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
             }
         }
+        onlinePanel(ctx, web, portalLink)
         panel {
             postForm(ctx, "$BASE/einstellungen", "panel-body") {
                 hiddenInput(name = "teil") { value = "bank" }

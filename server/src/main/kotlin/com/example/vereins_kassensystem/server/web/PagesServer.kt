@@ -114,6 +114,11 @@ internal fun Route.serverPages(directory: TenantDirectory) = route("/system") {
                         if (directory.minAppVersion == TenantDirectory.NO_MINIMUM) "Gespeichert: Alle Versionen der App dürfen kassieren."
                         else "Gespeichert: Tablets unter ${directory.minAppVersion} sperren sich beim nächsten Abgleich."
                     }
+                    "adresse" -> {
+                        directory.setPublicUrl(form["adresse"].orEmpty())
+                        system.audit.record(ctx.user, "settings.save", detail = "Adresse von außen: ${directory.publicUrl ?: "aus der Anfrage"}")
+                        "Gespeichert."
+                    }
                     "update" -> {
                         when (form["aktion"]) {
                             "pruefen" -> { directory.updates.request("check"); system.audit.record(ctx.user, "update.check", detail = "Suche angestoßen") }
@@ -192,7 +197,7 @@ internal fun Route.serverPages(directory: TenantDirectory) = route("/system") {
 
 // ------------------------------------------------------------------ Seiten
 
-private fun HTML.serverShell(ctx: PageContext, title: String, subtitle: String, content: FlowContent.() -> Unit) = document(title, vereinsfarbe = false) {
+private fun HTML.serverShell(ctx: PageContext, title: String, subtitle: String, content: FlowContent.() -> Unit) = document(title, farbe = null) {
     div("app") {
         nav("side") {
             attributes["aria-label"] = "Systemverwaltung"
@@ -308,6 +313,15 @@ private fun HTML.serverPage(ctx: PageContext, directory: TenantDirectory, system
                         div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
                     }
                 }
+                panel {
+                    postForm(ctx, SYSTEM_BASE, "panel-body stack-tight") {
+                        hiddenInput(name = "teil") { value = "adresse" }
+                        h2("title-m") { +"Adresse von außen" }
+                        p("muted") { +"Unter dieser Adresse erreichen Mitglieder ihren Deckel und SumUp den Server — für Anmeldelinks, die Rückkehr vom Bezahlen und die Bestätigung einer Zahlung. Leer: aus der Anfrage abgeleitet, was hinter einem Proxy meist stimmt." }
+                        label("field") { span { +"Adresse, etwa https://deckel.example.at" }; input(InputType.url, name = "adresse") { value = directory.publicUrl.orEmpty(); attributes["autocomplete"] = "off" } }
+                        div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+                    }
+                }
                 updatesPanel(ctx.session.csrf, SYSTEM_BASE, directory.updates)
                 panel {
                     panelHead("Hauptadmins") {
@@ -346,7 +360,7 @@ private fun HTML.serverPage(ctx: PageContext, directory: TenantDirectory, system
         }
     }
 
-private fun HTML.unavailablePage(problem: String?) = document("Systemverwaltung", vereinsfarbe = false) {
+private fun HTML.unavailablePage(problem: String?) = document("Systemverwaltung", farbe = null) {
     div("gate") {
         panel("gate-card") {
             div("brand") {
@@ -360,7 +374,7 @@ private fun HTML.unavailablePage(problem: String?) = document("Systemverwaltung"
     }
 }
 
-private fun HTML.systemSetupPage(problem: String?, name: String = "", login: String = "") = document("Systemverwaltung einrichten", vereinsfarbe = false) {
+private fun HTML.systemSetupPage(problem: String?, name: String = "", login: String = "") = document("Systemverwaltung einrichten", farbe = null) {
     div("gate") {
         panel("gate-card") {
             div("brand") {
