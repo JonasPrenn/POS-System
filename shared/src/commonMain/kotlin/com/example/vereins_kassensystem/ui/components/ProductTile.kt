@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.Product
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
@@ -131,7 +132,8 @@ fun ProductTile(
             },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        contentColor = MaterialTheme.colorScheme.onSurface
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = hairline()
     ) {
         Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -152,7 +154,7 @@ fun ProductTile(
                 )
                 if (isLowStock) {
                     Surface(
-                        shape = MaterialTheme.shapes.extraSmall,
+                        shape = Pill,
                         color = VereinsColors.warningContainer,
                         contentColor = VereinsColors.onWarningContainer
                     ) {
@@ -180,8 +182,8 @@ fun ProductTile(
             if (product.hasVariants) {
                 Text(
                     text = "Varianten",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = accent
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
                 MoneyText(

@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +41,8 @@ import com.example.vereins_kassensystem.data.CashCount
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.ui.theme.moneyButtonColors
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.MoneyLarge
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -57,6 +60,9 @@ private val SideBySideMinWidth = 840.dp
 
 /** Nebeneinander auf einem niedrigen, sehr breiten Fenster: nicht breiter als das. */
 private val SideBySideMaxWidth = 1100.dp
+
+/** Darunter stehen Soll, Gezählt und Differenz untereinander statt nebeneinander. */
+private val NarrowSummaryWidth = 600.dp
 
 /** Die linke Spalte nebeneinander: wer, womit, die Summe und die Knöpfe. */
 private val ControlsWidth = 280.dp
@@ -115,6 +121,7 @@ fun OpenCashDialog(
                     else -> "Öffnen"
                 },
                 enabled = by.isNotBlank(),
+                hint = if (by.isBlank()) "Erst oben wählen, wer öffnet." else null,
                 stacked = sideBySide,
                 onDismiss = onDismiss,
                 onConfirm = { onOpen(by, if (withDrawer) count.total else null) }
@@ -140,9 +147,13 @@ fun CloseCashDialog(
     var count by remember { mutableStateOf(CashCount()) }
     var note by remember { mutableStateOf("") }
     val difference = Money.cents(count.total - expected)
-    val differs = difference != 0.0
+    // Vor der ersten Eingabe ist nichts gezählt — dann gibt es auch keine Differenz zu erklären.
+    // Eine eingetippte 0 zählt als gezählt: Eine leere Lade muss sich schließen lassen.
+    var touched by remember { mutableStateOf(false) }
+    val counted = touched || expected == 0.0
+    val differs = counted && difference != 0.0
     // Bernstein: Aufmerksamkeit, kein Fehler — eine Differenz wird erklärt, nicht verweigert.
-    val differenceColor = if (differs) VereinsColors.warning else MaterialTheme.colorScheme.primary
+    val differenceColor = if (differs) VereinsColors.warning else VereinsColors.money
 
     CashDialogFrame(
         title = "Kasse schließen",
@@ -152,20 +163,28 @@ fun CloseCashDialog(
             WhoRow("Wer zählt", by, members) { by = it }
         },
         counter = { sideBySide ->
-            CashCountPane(count = count, onCountChange = { count = it }, keypadBeside = if (sideBySide) true else null)
+            CashCountPane(count = count, onCountChange = { count = it; touched = true }, keypadBeside = if (sideBySide) true else null)
         },
         // Die Notiz kommt nach dem Zählen: Untereinander steht sie unter dem Tastenfeld, damit das ganz im Bild bleibt.
         details = {
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
-                label = { Text(if (differs) "Grund für die Differenz" else "Notiz") },
+                label = { Text(if (differs) "Grund für die Differenz" else "Notiz (freiwillig)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
         },
         summary = { sideBySide ->
-            if (sideBySide) {
+            if (!counted) {
+                SummaryLine("Soll in der Lade", expected, MoneyMedium)
+                Text(
+                    "Zähle die Lade rechts, Schein für Schein. Die Differenz steht hier, sobald gezählt ist.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (sideBySide || windowSizeDp().width < NarrowSummaryWidth) {
+                // Untereinander auch am Telefon: Nebeneinander fiel dort die Differenz rechts aus dem Bild.
                 SummaryLine("Soll", expected, MoneyMedium)
                 SummaryLine("Gezählt", count.total, MoneyLarge)
                 SummaryLine("Differenz", difference, MoneyMedium, signed = true, color = differenceColor)
@@ -180,7 +199,13 @@ fun CloseCashDialog(
         buttons = { sideBySide ->
             DialogButtons(
                 confirm = "Schließen",
-                enabled = by.isNotBlank() && !(differs && note.isBlank()),
+                enabled = by.isNotBlank() && counted && !(differs && note.isBlank()),
+                hint = when {
+                    by.isBlank() -> "Erst oben wählen, wer zählt."
+                    !counted -> "Noch nichts gezählt."
+                    differs && note.isBlank() -> "Die Zählung weicht ab — bitte einen Grund eintragen."
+                    else -> null
+                },
                 stacked = sideBySide,
                 onDismiss = onDismiss,
                 onConfirm = { onClose(count.total, by.trim(), note.trim().ifEmpty { null }) }
@@ -196,7 +221,7 @@ internal fun WhoRow(label: String, name: String, members: List<Member>, onPicked
     OutlinedButton(
         onClick = { picking = true },
         modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.sales),
-        shape = MaterialTheme.shapes.small
+        shape = Pill
     ) {
         Icon(VdIcons.Groups, contentDescription = null)
         Spacer(Modifier.width(Spacing.sm))
@@ -238,14 +263,19 @@ private fun ModeTile(title: String, detail: String, selected: Boolean, onClick: 
         onClick = onClick,
         modifier = modifier.heightIn(min = TouchTarget.sales),
         shape = MaterialTheme.shapes.medium,
-        // Beide als Fläche erkennbar, auch die nicht gewählte: In der Farbe des Dialogs sähe sie aus wie Text.
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        // Beide als Fläche erkennbar, auch die nicht gewählte: weiß mit Rand, gewählt mit Tintenlinie.
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = if (selected) selectedOutline() else hairline(MaterialTheme.colorScheme.outline)
     ) {
-        Column(modifier = Modifier.padding(Spacing.md)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(detail, style = MaterialTheme.typography.bodySmall)
+        // Ein Radioknopf vorne: Dass genau eins von beiden gilt, soll man sehen, nicht aus der Rahmenstärke erraten.
+        Row(modifier = Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = selected, onClick = null)
+            Spacer(Modifier.width(Spacing.sm))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -269,13 +299,31 @@ private fun SummaryLine(label: String, amount: Double, style: TextStyle, signed:
 }
 
 @Composable
-private fun DialogButtons(confirm: String, enabled: Boolean, stacked: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+private fun DialogButtons(
+    confirm: String,
+    enabled: Boolean,
+    stacked: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    /** Warum der Knopf noch nicht geht. Ein grauer Knopf ohne Grund lässt raten. */
+    hint: String? = null
+) {
+    if (hint != null) {
+        Text(
+            hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = VereinsColors.warning,
+            modifier = Modifier.padding(bottom = Spacing.sm)
+        )
+    }
     val confirmButton: @Composable (Modifier) -> Unit = { modifier ->
         Button(
             onClick = onConfirm,
             enabled = enabled,
             modifier = modifier.heightIn(min = TouchTarget.sales),
-            shape = MaterialTheme.shapes.medium
+            shape = Pill,
+            // Kasse öffnen und schließen heißt Bargeld zählen: Das ist Geld, also grün.
+            colors = moneyButtonColors()
         ) { Text(confirm, style = MaterialTheme.typography.labelLarge) }
     }
     if (stacked) {
@@ -340,12 +388,13 @@ private fun CashDialogFrame(
                         titleText()
                         Spacer(Modifier.height(Spacing.md))
                         controls(true)
+                        Spacer(Modifier.height(Spacing.lg))
+                        summary(true)
+                        // Die Notiz nach der Summe: erst zählen, dann sehen, ob es etwas zu erklären gibt.
                         details?.let {
                             Spacer(Modifier.height(Spacing.md))
                             it(true)
                         }
-                        Spacer(Modifier.height(Spacing.lg))
-                        summary(true)
                         Spacer(Modifier.height(Spacing.md))
                         buttons(true)
                     }

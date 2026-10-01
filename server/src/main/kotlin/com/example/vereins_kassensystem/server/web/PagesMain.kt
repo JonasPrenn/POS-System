@@ -338,7 +338,7 @@ internal fun Route.mainPages(web: Web) {
 // --------------------------------------------------------------- Übersicht
 
 private fun FlowContent.legend(revenue: Revenue) = div("legend cap") {
-    span { span("dot bg-primary"); +"Bar "; span("tnum") { +euro(revenue.cash) } }
+    span { span("dot bg-money"); +"Bar "; span("tnum") { +euro(revenue.cash) } }
     span { span("dot bg-tertiary"); +"Karte "; span("tnum") { +euro(revenue.card) } }
     span { span("dot bg-secondary"); +"Deckel "; span("tnum") { +euro(revenue.tab) } }
 }
@@ -357,7 +357,7 @@ private fun FlowContent.weekChart(ctx: PageContext, week: List<DayRevenue>) {
         if (day.revenue.total <= 0) {
             sb.append("""<rect class="f-hair" x="${x.svg()}" y="45" width="${w.svg()}" height="1"/>""")
         } else {
-            for ((value, fill) in listOf(day.revenue.cash to "f-primary", day.revenue.card to "f-tertiary", day.revenue.tab to "f-secondary")) {
+            for ((value, fill) in listOf(day.revenue.cash to "f-money", day.revenue.card to "f-tertiary", day.revenue.tab to "f-secondary")) {
                 val h = value / max * 44
                 if (h <= 0) continue
                 y -= h
@@ -398,8 +398,8 @@ private fun HTML.overviewPage(
     panel {
         div("figures") {
             figure("Umsatz heute") {
-                span("money-l c-primary") { +euro(today.total) }
-                bar(listOf(today.cash to "f-primary", today.card to "f-tertiary", today.tab to "f-secondary").map { (v, f) -> (if (today.total > 0) v / today.total * 100 else 0.0) to f }, "Aufteilung nach Zahlart")
+                span("money-l c-money") { +euro(today.total) }
+                bar(listOf(today.cash to "f-money", today.card to "f-tertiary", today.tab to "f-secondary").map { (v, f) -> (if (today.total > 0) v / today.total * 100 else 0.0) to f }, "Aufteilung nach Zahlart")
                 legend(today)
             }
             figure("Letzte sieben Tage") {
@@ -659,7 +659,7 @@ private fun FlowContent.memberActions(ctx: PageContext, m: MemberLine, categorie
             button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" }
         }
     }
-    dialog("$BASE/mitglieder/${m.id}/loeschen", "btn btn-quiet", "Löschen", "Mitglied löschen") {
+    dialog("$BASE/mitglieder/${m.id}/loeschen", "btn btn-danger", "Löschen", "Mitglied löschen") {
         postForm(ctx, "$BASE/mitglieder/${m.id}/loeschen", "stack-tight") {
             p { +"${m.displayName} verschwindet von den Tablets und aus dieser Liste; das Profil mit Adresse und E-Mail wird gelöscht. Die Buchungen bleiben mit dem Namen, weil sie aufbewahrt werden müssen." }
             if (kotlin.math.abs(m.balance) >= 0.005) div("note note-warn") { icon("alert", "m"); span { +"Der Deckel steht auf ${euro(m.balance)}. Erst ausgleichen, dann löschen." } }
@@ -777,8 +777,8 @@ private fun HTML.reportsPage(ctx: PageContext, year: Int, years: List<Int>, mont
         panel {
             div("figures") {
                 figure("Umsatz der Bude") {
-                    span("money-l c-primary") { +euro(total.total) }
-                    bar(listOf(total.cash to "f-primary", total.card to "f-tertiary", total.tab to "f-secondary").map { (v, f) -> (if (total.total > 0) v / total.total * 100 else 0.0) to f }, "Aufteilung nach Zahlart")
+                    span("money-l c-money") { +euro(total.total) }
+                    bar(listOf(total.cash to "f-money", total.card to "f-tertiary", total.tab to "f-secondary").map { (v, f) -> (if (total.total > 0) v / total.total * 100 else 0.0) to f }, "Aufteilung nach Zahlart")
                     legend(total)
                 }
                 figure("Aufladungen") {

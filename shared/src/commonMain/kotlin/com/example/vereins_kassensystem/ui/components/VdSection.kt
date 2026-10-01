@@ -40,14 +40,15 @@ fun VdSection(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     iconTint: Color = ClubTheme.accent,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     contentSpacing: Dp = Spacing.md,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = containerColor
+        color = containerColor,
+        border = hairline()
     ) {
         Column(modifier = Modifier.padding(Spacing.lg)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

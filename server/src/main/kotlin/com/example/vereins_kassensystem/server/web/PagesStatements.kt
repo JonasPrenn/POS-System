@@ -274,7 +274,7 @@ private fun HTML.statementsPage(
                 figure("Offen") { span("money-m${if (overdue > 0) " c-warning" else ""}") { +euro(open.sumOf { it.amount }) }; span("cap") { +"${count(open.size, "Abrechnung", "Abrechnungen")}${if (overdue > 0) " · $overdue überfällig" else ""}" } }
                 if (run != null) {
                     figure(run.label) { span("money-m") { +euro(run.amount) }; span("cap") { +"${run.count} Auszüge · ${run.sent} versandt · Stichtag ${ctx.dayShort(run.to)}" } }
-                    figure("Davon bezahlt") { span("money-m c-primary") { +euro(run.paidAmount) }; span("cap") { +"${run.paid} von ${run.count} · Zahlungsziel ${ctx.dayShort(run.dueDate)}" } }
+                    figure("Davon bezahlt") { span("money-m c-money") { +euro(run.paidAmount) }; span("cap") { +"${run.paid} von ${run.count} · Zahlungsziel ${ctx.dayShort(run.dueDate)}" } }
                 } else figure("Noch kein Lauf") { span("title-s") { +"Rechts den ersten anlegen" }; span("cap") { +"Vorschau zeigt, wer abgerechnet würde" } }
                 figure("Bankumsätze ohne Zuordnung") { span("money-m${if (bank.isNotEmpty()) " c-warning" else ""}") { +"${bank.size}" }; span("cap") { +"aus eingelesenen Kontoauszügen" } }
             }

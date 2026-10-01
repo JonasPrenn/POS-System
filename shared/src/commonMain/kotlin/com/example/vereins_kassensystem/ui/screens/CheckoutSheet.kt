@@ -1,6 +1,7 @@
 package com.example.vereins_kassensystem.ui.screens
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.AlertDialogDefaults
@@ -25,7 +26,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +48,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.displayName
 import com.example.vereins_kassensystem.data.entity.MemberCategory
+import com.example.vereins_kassensystem.ui.components.selectedOutline
+import com.example.vereins_kassensystem.ui.components.hairline
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
+import com.example.vereins_kassensystem.ui.components.FilterPill
 import com.example.vereins_kassensystem.ui.components.AmountInput
 import com.example.vereins_kassensystem.ui.components.CompactWindowHeight
 import com.example.vereins_kassensystem.ui.components.windowSizeDp
@@ -55,6 +59,7 @@ import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.NumericKeypad
 import com.example.vereins_kassensystem.ui.components.PayButton
 import com.example.vereins_kassensystem.ui.format.Money
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.MoneyLarge
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -236,6 +241,13 @@ fun CheckoutDialog(
                         }
                     }
                 }
+                if (mode == null) {
+                    // Ein sichtbarer Ausweg: Neben den Dialog zu tippen, weiß an der Theke niemand.
+                    Spacer(Modifier.height(Spacing.md))
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                        TextButton(onClick = onDismiss) { Text("Abbrechen") }
+                    }
+                }
                 if (mode != null) {
                     Spacer(Modifier.height(if (compactHeight) Spacing.lg else Spacing.xl))
                     PayButton(
@@ -257,14 +269,14 @@ private fun TotalHeadline(total: Double) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Column(
             modifier = Modifier.padding(Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Gesamtbetrag", style = MaterialTheme.typography.labelMedium)
+            Text("Gesamtbetrag", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             MoneyText(amount = total, style = MoneyLarge)
         }
     }
@@ -292,16 +304,14 @@ private fun PaymentChoice(
             enabled = cashAllowed,
             // Kasse ohne Barkasse: das Bar-Symbol durchgestrichen (Wunsch vom 30. September 2026).
             struck = !cashAllowed,
-            container = MaterialTheme.colorScheme.primaryContainer,
-            content = MaterialTheme.colorScheme.onPrimaryContainer
+            mark = VereinsColors.money
         )
         PaymentTile(
             label = "Karte",
             icon = VdIcons.CreditCard,
             onClick = { onPick(PayMode.Card) },
             modifier = Modifier.weight(1f),
-            container = MaterialTheme.colorScheme.tertiaryContainer,
-            content = MaterialTheme.colorScheme.onTertiaryContainer
+            mark = MaterialTheme.colorScheme.tertiary
         )
     }
     if (!cashAllowed) {
@@ -329,7 +339,7 @@ private fun PaymentChoice(
             modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
             shape = MaterialTheme.shapes.medium,
             color = if (canUseBalance) MaterialTheme.colorScheme.secondaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerHigh,
+            else MaterialTheme.colorScheme.surfaceContainer,
             contentColor = if (canUseBalance) MaterialTheme.colorScheme.onSecondaryContainer
             else MaterialTheme.colorScheme.onSurfaceVariant
         ) {
@@ -374,8 +384,8 @@ private fun PaymentTile(
     label: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    container: androidx.compose.ui.graphics.Color,
-    content: androidx.compose.ui.graphics.Color,
+    /** Die Farbe des Zeichens: Grün für Bar, Blau für Karte. Die Fläche selbst bleibt weiß. */
+    mark: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     struck: Boolean = false
@@ -385,8 +395,9 @@ private fun PaymentTile(
         enabled = enabled,
         modifier = modifier.heightIn(min = 96.dp),
         shape = MaterialTheme.shapes.medium,
-        color = if (enabled) container else MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = if (enabled) content else MaterialTheme.colorScheme.onSurfaceVariant
+        color = if (enabled) MaterialTheme.colorScheme.surfaceContainerLowest else MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        border = if (enabled) hairline() else null
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -397,6 +408,7 @@ private fun PaymentTile(
             Icon(
                 icon,
                 contentDescription = null,
+                tint = if (enabled) mark else LocalContentColor.current,
                 modifier = Modifier
                     .size(28.dp)
                     .then(
@@ -449,9 +461,11 @@ private fun CashPane(
                 )
                 Surface(
                     modifier = Modifier.weight(1.2f),
+                    // Rückgeld ist Bargeld, das über die Theke geht: grün, nicht Messing.
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    // Grün erst, wenn wirklich Rückgeld fällig ist — vorher ist es kein Geld, nur eine Null.
+                    color = if (change > 0.0) VereinsColors.moneyContainer else MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = if (change > 0.0) VereinsColors.onMoneyContainer else MaterialTheme.colorScheme.onSurfaceVariant
                 ) {
                     Column(modifier = Modifier.padding(Spacing.md)) {
                         Text("Rückgeld", style = MaterialTheme.typography.labelMedium)
@@ -479,7 +493,7 @@ private fun CashPane(
                     modifier = Modifier
                         .weight(1.2f)
                         .heightIn(min = TouchTarget.min),
-                    shape = MaterialTheme.shapes.small
+                    shape = Pill
                 ) {
                     Text("Rückgeld als Trinkgeld", textAlign = TextAlign.Center)
                 }
@@ -490,7 +504,7 @@ private fun CashPane(
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 QuickCash("Passend", onPassend)
                 listOf(5, 10, 20, 50).forEach { note ->
-                    QuickCash("$note") { onNote(note) }
+                    QuickCash("$note €") { onNote(note) }
                 }
             }
         }
@@ -531,9 +545,9 @@ private fun AmountField(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
-        // Eine Stufe heller als der Dialog, damit das Feld als antippbar zu erkennen ist.
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        border = if (active) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+        // Weiß mit Rand wie ein Eingabefeld; das aktive Feld trägt die Tintenlinie.
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = if (active) selectedOutline() else hairline(MaterialTheme.colorScheme.outline)
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             Text(label, style = MaterialTheme.typography.labelMedium)
@@ -558,8 +572,9 @@ private fun androidx.compose.foundation.layout.RowScope.QuickCash(
         modifier = Modifier
             .weight(1f)
             .heightIn(min = TouchTarget.min),
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest
+        shape = Pill,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = hairline()
     ) {
         Column(
             verticalArrangement = Arrangement.Center,
@@ -588,20 +603,18 @@ private fun TipPane(
         Text("Trinkgeld", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(Spacing.sm))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            FilterChip(
+            FilterPill(
                 selected = tipAmount == 0.0,
                 onClick = { onSetTipAmount(0.0) },
-                label = { Text("Kein") },
-                shape = MaterialTheme.shapes.small
+                label = { Text("Kein") }
             )
             listOf(0.05, 0.10, 0.15).forEach { percent ->
                 // Rounded up to the next 50 cents — nobody hands over 1,37 € of tip.
                 val tip = ceil(base * percent * 2) / 2.0
-                FilterChip(
+                FilterPill(
                     selected = tipAmount == tip,
                     onClick = { onSetTipAmount(tip) },
-                    label = { Text("${(percent * 100).toInt()} % · ${Money.format(tip)}") },
-                    shape = MaterialTheme.shapes.small
+                    label = { Text("${(percent * 100).toInt()} % · ${Money.format(tip)}") }
                 )
             }
         }

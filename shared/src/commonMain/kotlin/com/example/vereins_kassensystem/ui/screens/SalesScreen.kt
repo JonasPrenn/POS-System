@@ -1,15 +1,30 @@
 package com.example.vereins_kassensystem.ui.screens
 
 import androidx.compose.runtime.produceState
+import com.example.vereins_kassensystem.ui.components.CompactWindowHeight
+import com.example.vereins_kassensystem.ui.components.windowSizeDp
+import com.example.vereins_kassensystem.ui.components.vdSegmentedColors
+import com.example.vereins_kassensystem.ui.components.FilterPill
+import com.example.vereins_kassensystem.ui.components.searchFieldColors
+import com.example.vereins_kassensystem.ui.components.hairline
+import com.example.vereins_kassensystem.ui.theme.MoneyLarge
 import com.example.vereins_kassensystem.ui.components.MemberSelectionDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +39,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +53,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -58,6 +77,8 @@ import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.dao.ProductWithVariants
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.displayName
+import com.example.vereins_kassensystem.ui.theme.moneyButtonColors
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.data.entity.matches
 import com.example.vereins_kassensystem.data.entity.ProductVariant
@@ -90,7 +111,17 @@ import com.example.vereins_kassensystem.platform.LocalPlatform
 /** Below this the cart cannot sit beside the grid without squeezing both. */
 private val TwoPaneBreakpoint = 720.dp
 
+/**
+ * Darunter auch bei genug Breite nur eine Spalte: Ein Telefon quer (gut 400 dp hoch) hätte neben
+ * dem Raster keinen Platz für Bestellung, Mitglied, Summe und Knopf — „Bezahlen“ fiel aus dem Bild.
+ */
+private val TwoPaneMinHeight = 480.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
+
+/** So viel der Bildschirmhöhe nimmt die Bestellung als Schublade: genug für Liste, Summe und Knopf, oben bleibt der Rand zum Wegwischen. */
+private const val CartSheetHeight = 0.9f
+
 @Composable
 fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
     val payments = LocalPlatform.current.payments
@@ -180,9 +211,13 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
         onApplyDiscount = { lineId, percent, fixed -> viewModel.applyDiscount(lineId, percent, fixed) }
     )
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    // Die Flächen reichen unter Status- und Gestenleiste; jede Spalte rückt ihren Inhalt selbst ein.
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0)
+    ) { padding ->
         BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(padding)) {
-            val twoPane = maxWidth >= TwoPaneBreakpoint
+            val twoPane = maxWidth >= TwoPaneBreakpoint && maxHeight >= TwoPaneMinHeight
 
             if (twoPane) {
                 Row(modifier = Modifier.fillMaxSize()) {
@@ -195,8 +230,9 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
                             else viewModel.addToCart(entry.product)
                         },
                         modifier = Modifier.weight(1.7f).fillMaxHeight()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
                     )
-                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    VerticalDivider(color = VereinsColors.hairline)
                     CartPane(
                         cart = cart,
                         total = total,
@@ -209,7 +245,8 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
                         cash = cash,
                         onOpenCash = { showOpenCash = true },
                         onCheckout = { showCheckout = true },
-                        modifier = Modifier.weight(1f).fillMaxHeight()
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        edgeToEdge = true
                     )
                 }
             } else {
@@ -223,6 +260,7 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
                             else viewModel.addToCart(entry.product)
                         },
                         modifier = Modifier.weight(1f).fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
                     )
                     // Always present, not only once something is in the cart: a bar that
                     // appears and disappears moves everything under the thumb.
@@ -239,7 +277,13 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
         }
 
         if (showCartSheet) {
-            ModalBottomSheet(onDismissRequest = { showCartSheet = false }) {
+            // Ganz offen, nicht halb: Halb offen lagen Summe und „Bezahlen“ unter dem Bildschirmrand
+            // (Telefon, Tablet hochkant). Die Bestellung bekommt eine feste Höhe, damit ihre Liste rollt
+            // und Summe und Knopf immer unten stehen.
+            ModalBottomSheet(
+                onDismissRequest = { showCartSheet = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ) {
                 CartPane(
                     cart = cart,
                     total = total,
@@ -258,7 +302,7 @@ fun SalesScreen(viewModel: SalesViewModel, cashViewModel: CashViewModel) {
                         showCartSheet = false
                         showCheckout = true
                     },
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp)
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight(CartSheetHeight)
                 )
             }
         }
@@ -367,6 +411,8 @@ private fun ProductPane(
                 value = state.search,
                 onValueChange = state.onSearchChange,
                 placeholder = { Text("Produkt suchen") },
+                shape = Pill,
+                colors = searchFieldColors(),
                 leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
                 trailingIcon = {
                     IconButton(onClick = { state.onSearchOpenChange(false) }) {
@@ -374,7 +420,6 @@ private fun ProductPane(
                     }
                 },
                 singleLine = true,
-                shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Spacing.lg)
@@ -447,15 +492,26 @@ private fun CartPane(
     cash: CashState,
     onOpenCash: () -> Unit,
     onCheckout: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Am Tablet: weiß bis unter die Systemleisten, der Inhalt rückt ein. In der Schublade nicht. */
+    edgeToEdge: Boolean = false
 ) {
     var showMemberPicker by remember { mutableStateOf(false) }
     var showManualDialog by remember { mutableStateOf(false) }
     var discountFor by remember { mutableStateOf<CartItem?>(null) }
 
+    // Sehr niedriges Fenster (Telefon quer) und keine eigene Spalte: Dann rollt die ganze Bestellung,
+    // statt dass die Liste auf null schrumpft und der Knopf unten aus dem Bild fällt.
+    val scrollWhole = !edgeToEdge && windowSizeDp().height < TwoPaneMinHeight
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .then(if (scrollWhole) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+            .then(
+                if (edgeToEdge) Modifier.windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.End)
+                ) else Modifier
+            )
             .padding(Spacing.lg)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -464,16 +520,26 @@ private fun CartPane(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f)
             )
-            FilledTonalIconButton(onClick = { showManualDialog = true }) {
+            // Neutral, nicht Messing: Ein freier Betrag ist kein Deckel. Leeren zeigt sein Rot nur
+            // am Zeichen — eine rote Fläche, die immer da steht, würde Rot abnutzen.
+            FilledTonalIconButton(
+                onClick = { showManualDialog = true },
+                modifier = Modifier.size(TouchTarget.sales),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
                 Icon(VdIcons.Add, contentDescription = "Manueller Betrag")
             }
             Spacer(Modifier.width(Spacing.sm))
             FilledTonalIconButton(
                 onClick = actions.onClear,
+                modifier = Modifier.size(TouchTarget.sales),
                 enabled = cart.isNotEmpty() || topUpAmount > 0.0,
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
                 Icon(VdIcons.DeleteSweep, contentDescription = "Bestellung leeren")
@@ -487,8 +553,20 @@ private fun CartPane(
                 icon = VdIcons.ShoppingCartCheckout,
                 title = "Nichts ausgewählt",
                 supportingText = "Tippe links auf ein Produkt.",
-                modifier = Modifier.weight(1f)
+                modifier = if (scrollWhole) Modifier else Modifier.weight(1f)
             )
+        } else if (scrollWhole) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                cart.forEach { item ->
+                    CartLine(
+                        item = item,
+                        onIncrease = { actions.onIncrease(item.lineId) },
+                        onDecrease = { actions.onDecrease(item.lineId) },
+                        onDiscount = { discountFor = item }
+                    )
+                }
+                if (topUpAmount > 0.0) TopUpLine(amount = topUpAmount, onRemove = { actions.onSetTopUp(0.0) })
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -521,18 +599,20 @@ private fun CartPane(
         )
 
         Spacer(Modifier.height(Spacing.md))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(color = VereinsColors.hairline)
         Spacer(Modifier.height(Spacing.md))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Die Summe ist das Lauteste im Warenkorb: rechtsbündig, groß, direkt über dem Knopf.
+        Row(verticalAlignment = Alignment.Bottom) {
             Column(modifier = Modifier.weight(1f)) {
+                Text("Summe", style = MaterialTheme.typography.titleMedium)
                 Text(
                     text = if (itemCount == 1) "1 Position" else "$itemCount Positionen",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                MoneyText(amount = total, style = MoneyMedium)
             }
+            MoneyText(amount = total, style = MoneyLarge)
         }
 
         Spacer(Modifier.height(Spacing.md))
@@ -595,7 +675,8 @@ private fun CartLine(
 ) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = hairline(),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -619,7 +700,7 @@ private fun CartLine(
                         Text(
                             text = "Rabatt",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = VereinsColors.money
                         )
                     }
                 }
@@ -677,8 +758,8 @@ private fun MemberSection(
     if (selectedMember == null) {
         OutlinedButton(
             onClick = onPick,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            shape = MaterialTheme.shapes.small
+            modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.sales),
+            shape = Pill
         ) {
             Icon(VdIcons.PersonAdd, contentDescription = null)
             Spacer(Modifier.width(Spacing.sm))
@@ -688,10 +769,15 @@ private fun MemberSection(
     }
 
     val limit = memberCategories.find { it.id == selectedMember.categoryId }?.negativeBalanceLimit ?: 0.0
+    // Niedriges Fenster (Galaxy Tab Active3 quer, 600 dp): Die vier Aufladebeträge liegen hinter
+    // „Aufladen“, sonst blieben für die Bestellung kaum zwei Zeilen. Mit genug Höhe stehen sie offen.
+    val compact = windowSizeDp().height < CompactWindowHeight
+    var showTopUp by remember(selectedMember.id, compact) { mutableStateOf(!compact) }
 
+    // Ein gewähltes Mitglied ist sein Deckel — Messing, leicht getönt.
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
@@ -715,7 +801,24 @@ private fun MemberSection(
                         )
                     }
                 }
-                IconButton(onClick = onClear) {
+                if (compact) {
+                    Surface(
+                        onClick = { showTopUp = !showTopUp },
+                        modifier = Modifier.heightIn(min = TouchTarget.min),
+                        shape = Pill,
+                        color = if (showTopUp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceContainerLowest,
+                        contentColor = if (showTopUp) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSecondaryContainer,
+                        border = if (showTopUp) null else hairline(MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = Spacing.md),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Aufladen", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+                IconButton(onClick = onClear, modifier = Modifier.size(TouchTarget.min)) {
                     Icon(
                         VdIcons.PersonRemove,
                         contentDescription = "Mitglied entfernen",
@@ -724,25 +827,31 @@ private fun MemberSection(
                 }
             }
 
-            Spacer(Modifier.height(Spacing.sm))
+            if (showTopUp) {
+                Spacer(Modifier.height(Spacing.sm))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                listOf(5.0, 10.0, 20.0, 50.0).forEach { amount ->
-                    Surface(
-                        onClick = { onTopUp(amount) },
-                        modifier = Modifier.weight(1f).heightIn(min = 44.dp),
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ) {
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    listOf(5.0, 10.0, 20.0, 50.0).forEach { amount ->
+                        Surface(
+                            onClick = {
+                                onTopUp(amount)
+                                if (compact) showTopUp = false
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = TouchTarget.sales),
+                            shape = Pill,
+                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            border = hairline(MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
                         ) {
-                            Text(
-                                text = "+${amount.toInt()} €",
-                                style = MaterialTheme.typography.labelLarge
-                            )
+                            Column(
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "+${amount.toInt()} €",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
                         }
                     }
                 }
@@ -765,9 +874,10 @@ private fun ClosedTill(onOpenCash: () -> Unit) {
     )
     Spacer(Modifier.height(Spacing.sm))
     Button(
+        colors = moneyButtonColors(),
         onClick = onOpenCash,
         modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.sales),
-        shape = MaterialTheme.shapes.medium
+        shape = Pill
     ) {
         Icon(VdIcons.PointOfSale, contentDescription = null)
         Spacer(Modifier.width(Spacing.sm))
@@ -785,47 +895,50 @@ private fun TotalBar(
     onOpenCash: () -> Unit,
     onCheckout: () -> Unit
 ) {
-    Surface(
-        tonalElevation = 3.dp,
-        shadowElevation = 8.dp,
-        color = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
+    // Weiß mit Haarlinie oben, wie die Spalte am Tablet — kein Schatten, nichts schwebt.
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column {
+            HorizontalDivider(color = VereinsColors.hairline)
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onOpenCart)
-                    .padding(vertical = Spacing.xs)
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                    .padding(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (itemCount == 1) "1 Position" else "$itemCount Positionen",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                MoneyText(amount = total, style = MoneyMedium)
-            }
-            Spacer(Modifier.width(Spacing.md))
-            if (cashOpen) {
-                Button(
-                    onClick = onCheckout,
-                    enabled = itemCount > 0 || total > 0.0,
-                    modifier = Modifier.heightIn(min = 56.dp),
-                    shape = MaterialTheme.shapes.medium
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onOpenCart)
+                        .padding(vertical = Spacing.xs)
                 ) {
-                    Text("Bezahlen", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = if (itemCount == 1) "1 Position" else "$itemCount Positionen",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    MoneyText(amount = total, style = MoneyMedium)
                 }
-            } else {
-                Button(
-                    onClick = onOpenCash,
-                    modifier = Modifier.heightIn(min = TouchTarget.sales),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Text("Kasse öffnen", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(Spacing.md))
+                if (cashOpen) {
+                    Button(
+                        colors = moneyButtonColors(),
+                        onClick = onCheckout,
+                        enabled = itemCount > 0 || total > 0.0,
+                        modifier = Modifier.heightIn(min = 56.dp),
+                        shape = Pill
+                    ) {
+                        Text("Bezahlen", style = MaterialTheme.typography.labelLarge)
+                    }
+                } else {
+                    Button(
+                        colors = moneyButtonColors(),
+                        onClick = onOpenCash,
+                        modifier = Modifier.heightIn(min = TouchTarget.sales),
+                        shape = Pill
+                    ) {
+                        Text("Kasse öffnen", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
         }
@@ -848,7 +961,7 @@ fun VariantSelectionDialog(
                         onClick = { onVariantSelected(variant) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                         shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        color = MaterialTheme.colorScheme.surfaceContainer
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = Spacing.lg),
@@ -918,49 +1031,106 @@ fun ManualItemDialog(
     )
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun DiscountDialog(
     cartItem: CartItem,
     onDismiss: () -> Unit,
     onConfirm: (Double, Double) -> Unit
 ) {
-    var percent by remember { mutableStateOf(if (cartItem.discountPercent > 0) cartItem.discountPercent.toString() else "") }
-    var fixed by remember { mutableStateOf(if (cartItem.fixedDiscount > 0) Money.formatPlain(cartItem.fixedDiscount) else "") }
+    // Eine Art Rabatt auf einmal: Prozent oder Betrag. Zwei Felder nebeneinander ließen offen,
+    // was gilt, wenn beide gefüllt sind.
+    val base = cartItem.variant?.price ?: cartItem.product.price
+    var byPercent by remember { mutableStateOf(cartItem.fixedDiscount <= 0.0) }
+    var input by remember {
+        mutableStateOf(
+            when {
+                cartItem.discountPercent > 0 -> Money.formatPlain(cartItem.discountPercent).removeSuffix(",00")
+                cartItem.fixedDiscount > 0 -> Money.formatPlain(cartItem.fixedDiscount)
+                else -> ""
+            }
+        )
+    }
+    val value = Money.parse(input) ?: 0.0
+    val valid = value > 0.0 && (if (byPercent) value <= 100.0 else value <= base)
+    val newPrice = if (byPercent) base * (1.0 - value / 100.0) else base - value
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Rabatt") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                Text(cartItem.displayName, style = MaterialTheme.typography.bodyLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(cartItem.displayName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                    MoneyText(amount = base, style = MoneySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                // Ein Umschalter, keine Pillen: Er wählt die Art, die Pillen darunter den Wert.
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    listOf(true to "Prozent", false to "Betrag").forEachIndexed { index, (percent, label) ->
+                        SegmentedButton(
+                            selected = byPercent == percent,
+                            onClick = { byPercent = percent; input = "" },
+                            shape = SegmentedButtonDefaults.itemShape(index, 2),
+                            colors = vdSegmentedColors(),
+                            label = { Text(label) }
+                        )
+                    }
+                }
+                // Die üblichen Fälle mit einem Tipp; „Aufs Haus“ ist der Rabatt, den man an der Theke wirklich gibt.
+                // Umbrechen statt quetschen: Am Telefon passen nicht alle vier in eine Zeile.
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    if (byPercent) {
+                        listOf("10", "20", "50").forEach { p ->
+                            FilterPill(label = "$p %", selected = input == p, onClick = { input = p })
+                        }
+                        FilterPill(label = "Aufs Haus", selected = input == "100", onClick = { input = "100" })
+                    } else {
+                        listOf(0.5, 1.0, 2.0).filter { it <= base }.forEach { a ->
+                            val text = Money.formatPlain(a)
+                            FilterPill(label = Money.format(a), selected = input == text, onClick = { input = text })
+                        }
+                    }
+                }
                 OutlinedTextField(
-                    value = percent,
-                    onValueChange = { percent = it },
-                    label = { Text("Prozent (%)") },
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text(if (byPercent) "Anderer Wert (%)" else "Anderer Betrag (€)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     shape = MaterialTheme.shapes.small,
+                    isError = input.isNotBlank() && !valid,
+                    supportingText = if (input.isNotBlank() && !valid) {
+                        { Text(if (byPercent) "Zwischen 0 und 100 %." else "Höchstens ${Money.format(base)}.") }
+                    } else null,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = fixed,
-                    onValueChange = { fixed = it },
-                    label = { Text("Fixbetrag (€)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (valid) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Neuer Preis", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                        MoneyText(amount = newPrice, style = MoneyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                onConfirm(Money.parse(percent) ?: 0.0, Money.parse(fixed) ?: 0.0)
-            }) { Text("Anwenden") }
+            Button(
+                onClick = { if (byPercent) onConfirm(value, 0.0) else onConfirm(0.0, value) },
+                enabled = valid,
+                shape = Pill
+            ) { Text("Anwenden") }
         },
         dismissButton = {
-            TextButton(onClick = { onConfirm(0.0, 0.0) }) {
-                Text("Entfernen", color = MaterialTheme.colorScheme.error)
+            Row {
+                // Entfernen nur, wo es etwas zu entfernen gibt — und in Rot, weil es etwas zurücknimmt.
+                if (cartItem.hasDiscount) {
+                    TextButton(onClick = { onConfirm(0.0, 0.0) }) {
+                        Text("Rabatt entfernen", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text("Abbrechen") }
             }
         }
     )

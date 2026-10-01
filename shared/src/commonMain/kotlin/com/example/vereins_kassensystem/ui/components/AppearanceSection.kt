@@ -7,6 +7,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.example.vereins_kassensystem.ui.components.vdSegmentedColors
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
 import com.example.vereins_kassensystem.ui.icons.VdIcons
 
@@ -38,6 +39,7 @@ fun AppearanceSection(
             options.forEachIndexed { index, (mode, label) ->
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                    colors = vdSegmentedColors(),
                     selected = themeMode == mode,
                     onClick = { onThemeModeChange(mode) },
                     label = { Text(label) }

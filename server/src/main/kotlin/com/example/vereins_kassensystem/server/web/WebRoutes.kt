@@ -335,12 +335,12 @@ private fun Route.assets(web: Web) {
     get("/assets/verein.css") {
         val accent = web.settings.load().accent
         call.response.header("Cache-Control", "no-cache")
-        call.respondText(":root { --accent: $accent; --on-accent: ${VereinSettings.readableOn(accent)}; }\n", ContentType.Text.CSS)
+        call.respondText(VereinSettings.accentSheet(accent), ContentType.Text.CSS)
     }
     get("/assets/icon.svg") {
         call.response.header("Cache-Control", oneHour.cacheControl.toString())
         call.respondText(
-            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#146B4C"/><g fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8M6 14.8l12-5.6"/></g></svg>""",
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#141414"/><g fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8M6 14.8l12-5.6"/></g></svg>""",
             ContentType.Image.SVG
         )
     }

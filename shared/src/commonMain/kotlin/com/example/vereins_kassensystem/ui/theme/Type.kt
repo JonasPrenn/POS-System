@@ -14,7 +14,11 @@ import androidx.compose.ui.unit.sp
  * render three different ways across screens.
  *
  * The platform font stays: it covers umlauts and Eszett at every weight, ships nothing,
- * and honours the reader's own font-size setting.
+ * and honours the reader's own font-size setting (Entscheidung des Besitzers, 1. Oktober 2026).
+ *
+ * Seit dem Kassen-Standard ohne Materials Laufweite: Fließtext und Beschriftungen stehen auf 0,
+ * nur große Grade ziehen leicht zusammen. Überschriften sind fett, nicht halbfett — der Rang
+ * kommt aus dem Gewicht, damit die Skala mit wenigen Größen auskommt.
  */
 private val Sans = FontFamily.Default
 
@@ -51,19 +55,19 @@ val Typography = Typography(
         fontFamily = Sans,
         fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
-        lineHeight = 36.sp,
-        letterSpacing = 0.sp
+        lineHeight = 34.sp,
+        letterSpacing = (-0.3).sp
     ),
     headlineSmall = TextStyle(
         fontFamily = Sans,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
-        lineHeight = 32.sp,
-        letterSpacing = 0.sp
+        lineHeight = 30.sp,
+        letterSpacing = (-0.2).sp
     ),
     titleLarge = TextStyle(
         fontFamily = Sans,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 22.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.sp
@@ -73,56 +77,56 @@ val Typography = Typography(
         fontWeight = FontWeight.SemiBold,
         fontSize = 17.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.sp
     ),
     titleSmall = TextStyle(
         fontFamily = Sans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = Sans,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.15.sp
+        letterSpacing = 0.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = Sans,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.2.sp
+        letterSpacing = 0.sp
     ),
     bodySmall = TextStyle(
         fontFamily = Sans,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.3.sp
+        letterSpacing = 0.sp
     ),
     labelLarge = TextStyle(
         fontFamily = Sans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.sp
     ),
     labelMedium = TextStyle(
         fontFamily = Sans,
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+        letterSpacing = 0.sp
     ),
     labelSmall = TextStyle(
         fontFamily = Sans,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.6.sp
+        letterSpacing = 0.sp
     )
 )
 
@@ -139,7 +143,7 @@ private const val TabularFigures = "tnum"
 
 val MoneyLarge = TextStyle(
     fontFamily = Sans,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.ExtraBold,
     fontSize = 32.sp,
     lineHeight = 38.sp,
     letterSpacing = (-0.5).sp,
@@ -167,7 +171,7 @@ val MoneySmall = TextStyle(
 /** For the checkout total and the change display, where the number is the whole screen. */
 val MoneyDisplay = TextStyle(
     fontFamily = Sans,
-    fontWeight = FontWeight.Bold,
+    fontWeight = FontWeight.ExtraBold,
     fontSize = 44.sp,
     lineHeight = 52.sp,
     letterSpacing = (-1).sp,

@@ -22,12 +22,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.components.vdSegmentedColors
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MoneyStatTile
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.RowBadge
 import com.example.vereins_kassensystem.ui.components.VdListRow
 import com.example.vereins_kassensystem.ui.components.VdTopBar
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.viewmodel.AnalyticsViewModel
 import com.example.vereins_kassensystem.viewmodel.DateRange
@@ -51,6 +53,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     DateRange.entries.forEachIndexed { index, entry ->
                         SegmentedButton(
                             shape = SegmentedButtonDefaults.itemShape(index, DateRange.entries.size),
+                            colors = vdSegmentedColors(),
                             selected = range == entry,
                             onClick = { viewModel.setDateRange(entry) },
                             label = {
@@ -75,16 +78,14 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         label = "Umsatz",
                         amount = summary.totalSales,
                         icon = VdIcons.Assessment,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        contentColor = VereinsColors.money,
                         modifier = Modifier.weight(1f)
                     )
                     MoneyStatTile(
                         label = "Trinkgeld",
                         amount = summary.totalTips,
                         icon = VdIcons.Favorite,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -102,8 +103,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         label = "Karte",
                         amount = summary.cardSales,
                         icon = VdIcons.CreditCard,
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.weight(1f)
                     )
                 }

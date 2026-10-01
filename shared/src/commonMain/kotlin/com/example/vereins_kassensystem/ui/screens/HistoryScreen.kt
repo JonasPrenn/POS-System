@@ -34,10 +34,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.Transaction
+import com.example.vereins_kassensystem.ui.components.hairline
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.format.Money
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -92,7 +94,8 @@ private fun TransactionGroupItem(items: List<Transaction>) {
         onClick = { expanded = !expanded },
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = hairline()
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             val isBalanceMovement = items.all { it.productCategory == "Guthaben" }
@@ -170,7 +173,7 @@ private fun TransactionGroupItem(items: List<Transaction>) {
 }
 
 /**
- * Payment type as an icon on its own colour: cash pine, card harbor, the Deckel brass —
+ * Payment type as an icon on its own colour: cash green, card blue, the Deckel brass —
  * the same three the rest of the app uses for those ideas.
  */
 @Composable
@@ -211,8 +214,8 @@ private fun PaymentBadge(paymentType: String, isBalanceMovement: Boolean = false
         }
         else -> {
             icon = VdIcons.Payments
-            container = MaterialTheme.colorScheme.primaryContainer
-            content = MaterialTheme.colorScheme.onPrimaryContainer
+            container = VereinsColors.moneyContainer
+            content = VereinsColors.onMoneyContainer
         }
     }
 

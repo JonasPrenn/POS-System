@@ -21,6 +21,7 @@ import com.example.vereins_kassensystem.ui.components.ServerSection
 import com.example.vereins_kassensystem.ui.components.VdSection
 import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.ClubIdentity
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
@@ -133,7 +134,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = TouchTarget.min),
-                    shape = MaterialTheme.shapes.small,
+                    shape = Pill,
                     enabled = editedKey != sumUpKey
                 ) {
                     Icon(VdIcons.Save, contentDescription = null)
@@ -158,7 +159,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = TouchTarget.min),
-                    shape = MaterialTheme.shapes.small
+                    shape = Pill
                 ) {
                     Icon(VdIcons.Login, contentDescription = null)
                     Spacer(Modifier.width(Spacing.sm))
@@ -211,7 +212,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = TouchTarget.min),
-                    shape = MaterialTheme.shapes.small
+                    shape = Pill
                 ) {
                     Icon(VdIcons.Folder, contentDescription = null)
                     Spacer(Modifier.width(Spacing.sm))
@@ -239,7 +240,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = TouchTarget.min),
-                        shape = MaterialTheme.shapes.small,
+                        shape = Pill,
                         enabled = backupDestination != null
                     ) {
                         Icon(VdIcons.CloudUpload, contentDescription = null)
@@ -254,7 +255,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = TouchTarget.min),
-                        shape = MaterialTheme.shapes.small
+                        shape = Pill
                     ) {
                         Icon(VdIcons.CloudDownload, contentDescription = null)
                         Spacer(Modifier.width(Spacing.sm))

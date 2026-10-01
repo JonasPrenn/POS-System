@@ -20,15 +20,15 @@ import kotlin.math.absoluteValue
  */
 data class CategoryAccent(val light: Color, val dark: Color)
 
+// Bewusst ohne Grün, Blau, Messing, Bernstein und Rot: Diese fünf tragen Bedeutung, und ein
+// grüner Punkt an „Getränke“ läse sich als Geld. Die Kategorie bekommt Farben, die nichts sagen.
 private val CategoryAccents = listOf(
-    CategoryAccent(Color(0xFF146B4C), Color(0xFF8ED8B6)), // pine
-    CategoryAccent(Color(0xFF2B5C87), Color(0xFF9BCBFA)), // harbor
-    CategoryAccent(Color(0xFF7A5314), Color(0xFFE9C68A)), // brass
-    CategoryAccent(Color(0xFFA03E00), Color(0xFFFFB77C)), // ember
-    CategoryAccent(Color(0xFF6A3A63), Color(0xFFE2B3DA)), // plum
-    CategoryAccent(Color(0xFF4A6316), Color(0xFFBFD68A)), // moss
-    CategoryAccent(Color(0xFF16606B), Color(0xFF86D3DE)), // teal
-    CategoryAccent(Color(0xFF8A4038), Color(0xFFF5B5AC))  // clay
+    CategoryAccent(Color(0xFF7A3F72), Color(0xFFE2B3DA)), // pflaume
+    CategoryAccent(Color(0xFF0E6F7A), Color(0xFF86D3DE)), // petrol
+    CategoryAccent(Color(0xFF5E48B5), Color(0xFFBDB2F0)), // violett
+    CategoryAccent(Color(0xFFA3326F), Color(0xFFF2A9CF)), // magenta
+    CategoryAccent(Color(0xFF5A5F6B), Color(0xFFB7BCC7)), // schiefer
+    CategoryAccent(Color(0xFF4A4F8C), Color(0xFFB4B8E8))  // tinte-blau
 )
 
 /**

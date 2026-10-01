@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.Spacing
 
 /**
@@ -66,7 +67,7 @@ fun EmptyState(
             FilledTonalButton(
                 onClick = onAction,
                 modifier = Modifier.padding(top = Spacing.xl),
-                shape = MaterialTheme.shapes.small
+                shape = Pill
             ) {
                 Text(actionLabel)
             }

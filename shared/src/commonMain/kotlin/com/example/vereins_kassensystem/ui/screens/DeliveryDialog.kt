@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +39,9 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.vereins_kassensystem.data.entity.ContainerType
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.StockTracking
+import com.example.vereins_kassensystem.ui.theme.TouchTarget
+import com.example.vereins_kassensystem.ui.components.hairline
+import com.example.vereins_kassensystem.ui.components.FilterPill
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
@@ -152,16 +154,27 @@ fun DeliveryDialog(
 
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(
+                            // Sieht aus wie ein Auswahlfeld, weil es eins ist: Rahmen, Text links, Pfeil rechts.
+                            Surface(
                                 onClick = { pickerFor = draft.key },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).heightIn(min = TouchTarget.sales),
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                border = hairline(MaterialTheme.colorScheme.outline)
                             ) {
-                                Text(
-                                    text = item?.name ?: "Artikel wählen",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = if (item == null) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = Spacing.lg),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = item?.name ?: "Artikel wählen",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = if (item == null) MaterialTheme.colorScheme.onSurfaceVariant
+                                        else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Icon(VdIcons.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                             IconButton(
                                 onClick = { lines.remove(draft) },
@@ -174,14 +187,13 @@ fun DeliveryDialog(
                         if (item?.tracking == StockTracking.CONTAINER && itemTypes.isNotEmpty()) {
                             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                                 itemTypes.forEach { type ->
-                                    FilterChip(
+                                    FilterPill(
                                         selected = draft.containerTypeId == type.id,
                                         onClick = {
                                             val i = lines.indexOf(draft)
                                             if (i != -1) lines[i] = draft.copy(containerTypeId = type.id)
                                         },
-                                        label = { Text(type.label) },
-                                        shape = MaterialTheme.shapes.small
+                                        label = { Text(type.label) }
                                     )
                                 }
                             }
@@ -237,7 +249,7 @@ fun DeliveryDialog(
                 item {
                     Surface(
                         shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        color = MaterialTheme.colorScheme.surfaceContainer,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(Spacing.md)) {

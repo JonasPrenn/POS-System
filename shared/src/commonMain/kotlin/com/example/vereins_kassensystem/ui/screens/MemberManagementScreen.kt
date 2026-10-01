@@ -4,11 +4,20 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
+import com.example.vereins_kassensystem.ui.components.vdSegmentedColors
+import com.example.vereins_kassensystem.ui.components.searchFieldColors
+import com.example.vereins_kassensystem.ui.theme.Pill
+import com.example.vereins_kassensystem.ui.components.FilterPill
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MemberChip
 import com.example.vereins_kassensystem.ui.components.RowMenuItem
@@ -93,6 +102,8 @@ fun MemberManagementScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
+                shape = Pill,
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
                 onClick = { showAddDialog = true },
                 icon = { Icon(VdIcons.Add, contentDescription = null) },
                 text = { Text("Neu") }
@@ -108,6 +119,8 @@ fun MemberManagementScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Mitglied suchen") },
+                shape = Pill,
+                colors = searchFieldColors(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
@@ -120,7 +133,6 @@ fun MemberManagementScreen(
                     }
                 },
                 singleLine = true,
-                shape = MaterialTheme.shapes.small
             )
 
             when {
@@ -231,8 +243,9 @@ fun MemberItem(
                     icon = VdIcons.AddCard,
                     contentDescription = "Guthaben aufladen für ${member.name}",
                     onClick = { onTopUp(member) },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    // Aufladen gehört zum Deckel: Messing.
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 VdRowMenu(
                     items = listOf(
@@ -385,18 +398,20 @@ fun TopUpDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    TopUpKind.entries.forEach { option ->
-                        FilterChip(
+                // Ein Umschalter für die Art, Pillen für die Beträge — sonst sehen beide gleich aus.
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    TopUpKind.entries.forEachIndexed { index, option ->
+                        SegmentedButton(
                             selected = kind == option,
                             onClick = {
                                 // Swap in the matching default reason unless it was edited.
                                 if (reason == kind.defaultReason) reason = option.defaultReason
                                 kind = option
                             },
-                            label = { Text(option.label) },
+                            shape = SegmentedButtonDefaults.itemShape(index, TopUpKind.entries.size),
+                            colors = vdSegmentedColors(),
                             enabled = option != TopUpKind.CASH || cashAllowed,
-                            shape = MaterialTheme.shapes.small
+                            label = { Text(option.label) }
                         )
                     }
                 }
@@ -411,11 +426,10 @@ fun TopUpDialog(
                 if (kind.isPayment) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         listOf(5, 10, 20, 50).forEach { preset ->
-                            FilterChip(
+                            FilterPill(
                                 selected = amount == preset.toString(),
                                 onClick = { amount = preset.toString() },
-                                label = { Text("$preset €") },
-                                shape = MaterialTheme.shapes.small
+                                label = { Text("$preset €") }
                             )
                         }
                     }
@@ -460,15 +474,21 @@ fun TopUpDialog(
                     Text(
                         text = "Neues Guthaben: ${Money.format(member.balance + parsed)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
         },
         confirmButton = {
+            // Aufladen gehört zum Deckel: Messing, wie „Aufladen“ in der Verwaltung.
             Button(
                 onClick = { onConfirm(parsed ?: 0.0, reason.trim(), kind.paymentType) },
-                enabled = amountValid && reasonValid && (kind != TopUpKind.CASH || cashAllowed)
+                enabled = amountValid && reasonValid && (kind != TopUpKind.CASH || cashAllowed),
+                shape = Pill,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary
+                )
             ) {
                 Text(if (kind == TopUpKind.CORRECTION) "Korrigieren" else "Aufladen")
             }

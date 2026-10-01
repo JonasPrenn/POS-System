@@ -23,6 +23,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
+import com.example.vereins_kassensystem.ui.theme.Pill
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
+import com.example.vereins_kassensystem.ui.theme.moneyButtonColors
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.icons.VdIcons
@@ -60,7 +63,8 @@ fun PayButton(
             .fillMaxWidth()
             .heightIn(min = TouchTarget.sales),
         enabled = enabled && state == PayState.Idle,
-        shape = MaterialTheme.shapes.medium
+        shape = Pill,
+        colors = moneyButtonColors()
     ) {
         AnimatedContent(
             targetState = state,
@@ -80,7 +84,7 @@ fun PayButton(
                 PayState.Processing -> CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = VereinsColors.onMoney
                 )
 
                 PayState.Done -> Row(
