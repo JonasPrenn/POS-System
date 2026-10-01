@@ -465,27 +465,51 @@ class VereinSettings(private val db: Database, private val fallbackName: () -> S
             return digits.fold(0) { acc, ch -> (acc * 10 + (ch - '0')) % 97 } == 1
         }
 
-        /** Pine40 — die Farbe des Produkts, solange der Verein keine eigene gewählt hat. */
-        const val DEFAULT_ACCENT = "#146B4C"
+        /** Tinte — die Farbe des Produkts, solange der Verein keine eigene gewählt hat (bis 1.3.0 Tannengrün). */
+        const val DEFAULT_ACCENT = "#141414"
         private val HEX = Regex("#[0-9a-fA-F]{6}")
 
         /** Dieselben Vorschläge wie in der App (ClubIdentity.kt). */
         val PRESETS = listOf(
-            "Standard (Pine)" to "#146B4C", "Vereinsgrün" to "#2E7D32", "Rot" to "#C62828", "Bordeaux" to "#8E1538",
+            "Standard (Tinte)" to "#141414", "Vereinsgrün" to "#2E7D32", "Rot" to "#C62828", "Bordeaux" to "#8E1538",
             "Blau" to "#1565C0", "Türkis" to "#00838F", "Violett" to "#6A1B9A", "Gold" to "#F9A825",
-            "Orange" to "#EF6C00", "Schwarz" to "#2B2B2B",
+            "Orange" to "#EF6C00", "Schwarz" to "#2B2B2B", "Tannengrün" to "#146B4C",
         )
 
         /** Weiß oder fast Schwarz — was auf der Farbe besser lesbar ist (wie contrastingOn() in der App). */
-        fun readableOn(hex: String): String {
+        fun readableOn(hex: String): String =
+            if (contrast("#FFFFFF", hex) >= contrast(INK, hex)) "#FFFFFF" else INK
+
+        /**
+         * Das Blatt mit der Vereinsfarbe. Wäre sie auf dem Grund praktisch unsichtbar — Tinte oder
+         * Schwarz im dunklen Thema —, nimmt sie dort die Schriftfarbe des Grunds, wie visibleAccent()
+         * in der App. Sonst bleibt sie, wie der Verein sie gewählt hat.
+         */
+        fun accentSheet(accent: String): String {
+            val dark = if (contrast(accent, NIGHT) < VISIBLE) PAPER else accent
+            val light = if (contrast(accent, STONE) < VISIBLE) INK else accent
+            return ":root { --accent: $light; --on-accent: ${readableOn(light)}; }\n" +
+                "@media (prefers-color-scheme: dark) { :root { --accent: $dark; --on-accent: ${readableOn(dark)}; } }\n"
+        }
+
+        private const val INK = "#141414"
+        private const val PAPER = "#F2F1EC"
+        private const val STONE = "#F4F3EF"
+        private const val NIGHT = "#121211"
+        private const val VISIBLE = 1.5
+
+        private fun luminance(hex: String): Double {
             fun channel(i: Int): Double {
                 val v = hex.substring(i, i + 2).toInt(16) / 255.0
                 return if (v <= 0.03928) v / 12.92 else Math.pow((v + 0.055) / 1.055, 2.4)
             }
-            val l = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
-            val onWhite = 1.05 / (l + 0.05)
-            val onInk = (l + 0.05) / (0.0091 + 0.05)   // Leuchtdichte von #16190F
-            return if (onWhite >= onInk) "#FFFFFF" else "#16190F"
+            return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
+        }
+
+        /** WCAG-Kontrast zweier Farben, 1 bis 21. */
+        fun contrast(a: String, b: String): Double {
+            val (hi, lo) = listOf(luminance(a), luminance(b)).sortedDescending()
+            return (hi + 0.05) / (lo + 0.05)
         }
     }
 }

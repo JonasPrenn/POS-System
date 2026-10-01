@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.components.FilterPill
 import com.example.vereins_kassensystem.data.entity.ContainerType
 import com.example.vereins_kassensystem.data.entity.StockItem
 import com.example.vereins_kassensystem.data.entity.StockTracking
@@ -79,17 +79,15 @@ fun StockItemDialog(
                 item {
                     Text("Wie wird gezählt?", style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        FilterChip(
+                        FilterPill(
                             selected = tracking == StockTracking.SIMPLE,
                             onClick = { tracking = StockTracking.SIMPLE; if (unit == "l") unit = "Stk" },
-                            label = { Text("Stückzahl") },
-                            shape = MaterialTheme.shapes.small
+                            label = { Text("Stückzahl") }
                         )
-                        FilterChip(
+                        FilterPill(
                             selected = tracking == StockTracking.CONTAINER,
                             onClick = { tracking = StockTracking.CONTAINER; if (unit == "Stk") unit = "l" },
-                            label = { Text("Gebinde / Fass") },
-                            shape = MaterialTheme.shapes.small
+                            label = { Text("Gebinde / Fass") }
                         )
                     }
                 }

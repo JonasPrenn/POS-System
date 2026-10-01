@@ -44,7 +44,8 @@ class MemberLine(val id: UUID, val name: String, val nickname: String, val categ
             balance < limit -> "c-error"
             balance < 0 && (limit == 0.0 || balance <= limit * 0.75) -> "c-warning"
             balance < 0 -> "c-muted"
-            else -> "c-primary"
+            balance == 0.0 -> ""
+            else -> "c-money"
         }
 }
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.components.hairline
 import com.example.vereins_kassensystem.ui.components.CashSection
 import com.example.vereins_kassensystem.ui.components.MoneyStatTile
 import com.example.vereins_kassensystem.ui.components.MoneyText
@@ -32,6 +33,7 @@ import com.example.vereins_kassensystem.ui.components.StatTile
 import com.example.vereins_kassensystem.ui.components.VdListRow
 import com.example.vereins_kassensystem.ui.components.VdTopBar
 import com.example.vereins_kassensystem.ui.components.WarningBanner
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.ui.theme.ClubTheme
 import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -92,8 +94,7 @@ fun HomeScreen(
                         label = "Umsatz heute",
                         amount = summary.totalSales,
                         icon = VdIcons.Payments,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        contentColor = VereinsColors.money,
                         modifier = Modifier.weight(1f)
                     )
                     StatTile(
@@ -195,7 +196,7 @@ private fun StatIcon(icon: ImageVector) {
     Surface(
         modifier = Modifier.size(36.dp),
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Column(
             verticalArrangement = Arrangement.Center,
@@ -222,7 +223,8 @@ private fun QuickAction(
         onClick = onClick,
         modifier = modifier.heightIn(min = TouchTarget.sales),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = hairline()
     ) {
         Row(
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),

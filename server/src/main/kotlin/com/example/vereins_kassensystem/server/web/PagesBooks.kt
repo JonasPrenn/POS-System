@@ -146,7 +146,7 @@ private fun HTML.booksPage(ctx: PageContext, choice: YearChoice, books: YearBook
                                 if (lines.isEmpty()) continue
                                 for (l in lines) tr {
                                     td("fill") { twoLine(l.name, "$areaName · ${l.code}") }
-                                    money(l.amount, "money-s${if (income) " c-primary" else ""}")
+                                    money(l.amount, "money-s${if (income) " c-money" else ""}")
                                     money(l.previous, "tnum c-muted", "num hide-sm")
                                 }
                             }
@@ -159,7 +159,7 @@ private fun HTML.booksPage(ctx: PageContext, choice: YearChoice, books: YearBook
                         val result = books.income - books.expense
                         tr("sum") {
                             td { +(if (result >= 0) "Überschuss" else "Abgang") }
-                            money(result, "money-m${if (result >= 0) " c-primary" else " c-warning"}")
+                            money(result, "money-m${if (result >= 0) " c-money" else " c-warning"}")
                             money(books.incomePrevious - books.expensePrevious, "tnum c-muted", "num hide-sm")
                         }
                     }

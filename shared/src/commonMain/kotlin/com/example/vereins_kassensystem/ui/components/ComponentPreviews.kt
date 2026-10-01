@@ -16,6 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.Product
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.ui.theme.MoneyLarge
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
@@ -61,8 +62,7 @@ private fun Gallery() {
                     label = "Umsatz heute",
                     amount = 1284.50,
                     icon = VdIcons.Payments,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    contentColor = VereinsColors.money,
                     modifier = Modifier.weight(1f)
                 )
                 StatTile(
@@ -116,8 +116,7 @@ private fun Gallery() {
                             icon = VdIcons.AddCard,
                             contentDescription = "Aufladen",
                             onClick = {},
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            contentColor = MaterialTheme.colorScheme.secondary
                         )
                         VdRowMenu(
                             items = listOf(

@@ -467,14 +467,16 @@ class WebTest {
     fun `the club colour arrives as a stylesheet and not as inline style`() = serverTest(insecureCookies = true) { _ ->
         val browser = browser()
         browser.setUpAdmin(); browser.signIn()
-        assertContains(browser.page("/verwaltung/assets/verein.css"), "#146B4C")
+        val standard = browser.page("/verwaltung/assets/verein.css")
+        assertContains(standard, "--accent: #141414")
+        assertContains(standard, "--accent: #F2F1EC", message = "Tinte verschwände im dunklen Thema; dort nimmt sie die Schriftfarbe")
         assertTrue(browser.get("/verwaltung/assets/app.css").bodyAsText().contains("--primary"))
 
         val settings = browser.page("/verwaltung/einstellungen")
         browser.form("/verwaltung/einstellungen", "_csrf" to csrfOf(settings), "name" to "K.Ö.St.V. Beispiel", "farbe" to "#F9A825", "monat" to "10")
         val css = browser.page("/verwaltung/assets/verein.css")
         assertContains(css, "--accent: #F9A825")
-        assertContains(css, "--on-accent: #16190F", message = "auf Gold liest sich dunkle Schrift besser")
+        assertContains(css, "--on-accent: #141414", message = "auf Gold liest sich dunkle Schrift besser")
         assertContains(browser.page("/verwaltung"), "K.Ö.St.V. Beispiel")
         assertContains(browser.page("/verwaltung/berichte"), "Rechnungsjahr")
         val refused = browser.form("/verwaltung/einstellungen", "_csrf" to csrfOf(settings), "name" to "x", "farbe" to "red; background: url(x)", "monat" to "1")

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -31,6 +30,9 @@ import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.platform.VdDate
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.ui.theme.moneyButtonColors
+import com.example.vereins_kassensystem.ui.theme.Pill
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.ui.theme.MoneyMedium
 import com.example.vereins_kassensystem.ui.theme.MoneySmall
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -66,7 +68,7 @@ fun CashSection(
                 OutlinedButton(
                     onClick = onGoToSales,
                     modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
-                    shape = MaterialTheme.shapes.small
+                    shape = Pill
                 ) { Text("Zum Verkauf") }
             }
             session.cashless -> {
@@ -81,9 +83,10 @@ fun CashSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Button(
+                    colors = moneyButtonColors(),
                     onClick = { dialog = CashDialog.End },
                     modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
-                    shape = MaterialTheme.shapes.small
+                    shape = Pill
                 ) { Text("Kasse schließen") }
             }
             else -> {
@@ -99,19 +102,20 @@ fun CashSection(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Bar seit Beginn", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        MoneyText(amount = state.cashIn, style = MoneySmall, color = MaterialTheme.colorScheme.primary)
+                        MoneyText(amount = state.cashIn, style = MoneySmall, color = VereinsColors.money)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     OutlinedButton(
                         onClick = { dialog = CashDialog.Move },
                         modifier = Modifier.weight(1f).heightIn(min = TouchTarget.min),
-                        shape = MaterialTheme.shapes.small
+                        shape = Pill
                     ) { Text("Entnahme · Einlage") }
                     Button(
+                        colors = moneyButtonColors(),
                         onClick = { dialog = CashDialog.Close },
                         modifier = Modifier.weight(1f).heightIn(min = TouchTarget.min),
-                        shape = MaterialTheme.shapes.small
+                        shape = Pill
                     ) { Text("Kasse schließen") }
                 }
             }
@@ -154,7 +158,7 @@ private fun EndDialog(members: List<Member>, defaultBy: String, onDismiss: () ->
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Notiz") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(by, note.trim().ifEmpty { null }) }, enabled = by.isNotBlank()) { Text("Schließen") } },
+        confirmButton = { Button(onClick = { onConfirm(by, note.trim().ifEmpty { null }) }, enabled = by.isNotBlank(), colors = moneyButtonColors()) { Text("Schließen") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
     )
 }
@@ -173,8 +177,8 @@ private fun MovementDialog(members: List<Member>, defaultBy: String, onDismiss: 
         text = {
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(selected = kind == CashMovementKind.WITHDRAWAL, onClick = { kind = CashMovementKind.WITHDRAWAL }, label = { Text("Entnahme") })
-                    FilterChip(selected = kind == CashMovementKind.DEPOSIT, onClick = { kind = CashMovementKind.DEPOSIT }, label = { Text("Einlage") })
+                    FilterPill(selected = kind == CashMovementKind.WITHDRAWAL, onClick = { kind = CashMovementKind.WITHDRAWAL }, label = { Text("Entnahme") })
+                    FilterPill(selected = kind == CashMovementKind.DEPOSIT, onClick = { kind = CashMovementKind.DEPOSIT }, label = { Text("Einlage") })
                 }
                 Spacer(Modifier.height(Spacing.lg))
                 OutlinedTextField(
@@ -193,6 +197,7 @@ private fun MovementDialog(members: List<Member>, defaultBy: String, onDismiss: 
         },
         confirmButton = {
             Button(
+                colors = moneyButtonColors(),
                 onClick = { onConfirm(kind, parsed ?: 0.0, reason.trim(), by.trim()) },
                 enabled = parsed != null && parsed > 0 && reason.isNotBlank() && by.isNotBlank()
             ) { Text("Buchen") }

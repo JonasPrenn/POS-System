@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.RowMenuItem
@@ -49,6 +50,8 @@ fun MemberCategoryManagementScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
+                shape = Pill,
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
                 onClick = { showAddDialog = true },
                 icon = { Icon(VdIcons.Add, contentDescription = null) },
                 text = { Text("Neu") }
@@ -69,7 +72,7 @@ fun MemberCategoryManagementScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(Spacing.lg),
+                contentPadding = PaddingValues(start = Spacing.lg, top = Spacing.lg, end = Spacing.lg, bottom = Spacing.fabClearance),
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 items(categories, key = { it.id }) { category ->
@@ -130,8 +133,8 @@ fun CategoryItem(
             Surface(
                 modifier = Modifier.size(40.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                contentColor = MaterialTheme.colorScheme.onSurface
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(

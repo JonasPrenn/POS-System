@@ -35,3 +35,10 @@ server/deploy/.env
 
 # Python (Werkzeuge unter docs/tools)
 __pycache__/
+
+# Impeccable: Prüfaufnahmen, Entscheidungsseite und lokale Einstellungen bleiben auf dem Rechner
+.impeccable/review/
+.impeccable/decision/
+.impeccable/build/
+.impeccable/questions/
+.impeccable/config.local.json

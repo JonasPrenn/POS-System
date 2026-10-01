@@ -110,7 +110,7 @@ fun Route.portalRoutes(directory: TenantDirectory) {
             val tenant = call.tenantOf(directory) ?: return@get call.respond(HttpStatusCode.NotFound)
             val accent = tenant.web.settings.load().accent
             call.response.header("Cache-Control", "no-cache")
-            call.respondText(":root { --accent: $accent; --on-accent: ${VereinSettings.readableOn(accent)}; }\n", ContentType.Text.CSS)
+            call.respondText(VereinSettings.accentSheet(accent), ContentType.Text.CSS)
         }
 
         // Der Link aus der Mail: Erst ein Klick hier meldet an. So verbraucht ein Virenscanner, der
@@ -318,7 +318,7 @@ private fun HTML.portalAccount(
                             attributes["min"] = "${online.min}"; attributes["max"] = "${online.max}"; attributes["step"] = "1"; attributes["inputmode"] = "numeric"
                         }
                     }
-                    button(type = ButtonType.submit, classes = "btn btn-primary btn-big") { +"Weiter zur Bezahlung" }
+                    button(type = ButtonType.submit, classes = "btn btn-money btn-big") { +"Weiter zur Bezahlung" }
                     p("cap") { +"Bezahlt wird auf der Seite von SumUp: ${methodsOf(online)}." }
                 }
                 val lines = statements[m.id].orEmpty()
@@ -347,10 +347,10 @@ private fun HTML.portalPay(tenant: Tenant, values: VereinSettings.Values, topUp:
             div("panel-body") {
                 div {
                     span("label-m") { +"Auf den Deckel von ${topUp.memberName}" }
-                    span("money-l c-primary") { +euro(topUp.amount.toDouble()) }
+                    span("money-l c-money") { +euro(topUp.amount.toDouble()) }
                 }
                 p("muted") { +"Bezahlt wird auf der Seite von SumUp — ${methodsOf(values.online)}. Danach kommst du hierher zurück, und der Betrag steht auf deinem Deckel." }
-                a(href = payUrl, classes = "btn btn-primary btn-big") { +"Bei SumUp bezahlen" }
+                a(href = payUrl, classes = "btn btn-money btn-big") { +"Bei SumUp bezahlen" }
                 a(href = "$PORTAL/${tenant.info.slug}", classes = "link") { +"Abbrechen" }
             }
         }
@@ -369,7 +369,7 @@ private fun HTML.portalResult(tenant: Tenant, values: VereinSettings.Values, top
                     }
                     topUp.paid -> {
                         div("note note-ok") { icon("check", "m"); span { +"Danke! ${euro(topUp.amount.toDouble())} sind ${if (signedIn) "auf dem Deckel von ${topUp.memberName}" else "gutgeschrieben"}." } }
-                        balance?.let { div { span("label-m") { +"Neuer Stand"; +" " }; span("money-l ${if (it < 0) "c-warning" else "c-primary"}") { +euro(it) } } }
+                        balance?.let { div { span("label-m") { +"Neuer Stand"; +" " }; span("money-l ${if (it < 0) "c-warning" else "c-money"}") { +euro(it) } } }
                         p("cap") { +"An der Theke steht es nach dem nächsten Abgleich der Tablets, meist binnen einer Minute." }
                     }
                     topUp.open -> {

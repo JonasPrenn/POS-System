@@ -144,12 +144,12 @@ class TipFlowOnIosTest {
 
         // „Passt so“: 5 € für 4,20 € — das Rückgeld wird Trinkgeld.
         clickDescription(beer)
-        clickText("Bezahlen"); clickText("Bar"); clickText("5"); clickText("Rückgeld als Trinkgeld"); clickText("Abschließen")
+        clickText("Bezahlen"); clickText("Bar"); clickText("5 €"); clickText("Rückgeld als Trinkgeld"); clickText("Abschließen")
         waitUntil("Trinkgeld aus dem Rückgeld", 10_000) { cash(repository).size == 3 }
 
         // „Mach neun“: 10 € für 8,40 €, 0,60 € Trinkgeld getippt, 1,00 € zurück.
         repeat(2) { clickDescription(beer) }
-        clickText("Bezahlen"); clickText("Bar"); clickText("10")
+        clickText("Bezahlen"); clickText("Bar"); clickText("10 €")
         clickText("Trinkgeld"); clickText("0"); clickText(","); clickText("6")
         onAllNodesWithText("Trinkgeld").onFirst().assertIsSelected()
         clickText("Abschließen")

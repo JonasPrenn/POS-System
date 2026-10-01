@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-01T12:00:00Z",
+  "title": "Design System: VereinsDeckel",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Tinte",
+        "darkCounterpart": "#F2F1EC",
+        "tonalRamp": [
+          "#141414",
+          "#1C1B19",
+          "#2C2B28",
+          "#3A3835",
+          "#5E5B55",
+          "#8F8B83",
+          "#DEDCD6",
+          "#F2F1EC"
+        ]
+      },
+      "paper": {
+        "role": "primary",
+        "displayName": "Papier",
+        "purpose": "Tinte im dunklen Thema"
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Weiß",
+        "darkCounterpart": "#1C1B19"
+      },
+      "stone-50": {
+        "role": "neutral",
+        "displayName": "Stein 50, der Grund",
+        "darkCounterpart": "#121211",
+        "tonalRamp": [
+          "#5E5B55",
+          "#8F8B83",
+          "#DEDCD6",
+          "#E6E4DE",
+          "#EDECE7",
+          "#F4F3EF",
+          "#FFFFFF"
+        ]
+      },
+      "stone-100": {
+        "role": "neutral",
+        "displayName": "Stein 100",
+        "darkCounterpart": "#242321"
+      },
+      "stone-150": {
+        "role": "neutral",
+        "displayName": "Stein 150",
+        "darkCounterpart": "#2C2B28"
+      },
+      "stone-200": {
+        "role": "neutral",
+        "displayName": "Haarlinie",
+        "darkCounterpart": "#3A3835"
+      },
+      "stone-500": {
+        "role": "neutral",
+        "displayName": "Stein 500, Feldrand",
+        "darkCounterpart": "#7A766F"
+      },
+      "stone-700": {
+        "role": "neutral",
+        "displayName": "Zweite Textstimme",
+        "darkCounterpart": "#A8A49C"
+      },
+      "money": {
+        "role": "semantic",
+        "displayName": "Geldgrün",
+        "darkCounterpart": "#46C46F",
+        "tonalRamp": [
+          "#0C1F12",
+          "#17301F",
+          "#0B6430",
+          "#0B7A3B",
+          "#46C46F",
+          "#9FE3B5",
+          "#E3F2E7"
+        ]
+      },
+      "brass": {
+        "role": "secondary",
+        "displayName": "Messing",
+        "darkCounterpart": "#D9BE6E",
+        "tonalRamp": [
+          "#221C06",
+          "#34301A",
+          "#5E4D12",
+          "#76611A",
+          "#D9BE6E",
+          "#F1E3B8",
+          "#F4EFD9"
+        ]
+      },
+      "blue": {
+        "role": "tertiary",
+        "displayName": "Kartenblau",
+        "darkCounterpart": "#86AEF7",
+        "tonalRamp": [
+          "#0B1A33",
+          "#1A2A47",
+          "#1A4FAE",
+          "#1F5CC9",
+          "#86AEF7",
+          "#C9DAFB",
+          "#E6EDFB"
+        ]
+      },
+      "amber": {
+        "role": "semantic",
+        "displayName": "Bernstein",
+        "darkCounterpart": "#FF9A4A",
+        "tonalRamp": [
+          "#2B1300",
+          "#452410",
+          "#8A3D00",
+          "#A84B00",
+          "#FF9A4A",
+          "#FFD4B3",
+          "#FDEBDC"
+        ]
+      },
+      "red": {
+        "role": "semantic",
+        "displayName": "Karminrot",
+        "darkCounterpart": "#FF6B76",
+        "tonalRamp": [
+          "#3A0D06",
+          "#4A1820",
+          "#951B25",
+          "#B8232F",
+          "#FF6B76",
+          "#FFCDD1",
+          "#FBE6E7"
+        ]
+      },
+      "category-plum": {
+        "role": "category",
+        "displayName": "Pflaume",
+        "darkCounterpart": "#E2B3DA"
+      },
+      "category-petrol": {
+        "role": "category",
+        "displayName": "Petrol",
+        "darkCounterpart": "#86D3DE"
+      },
+      "category-violet": {
+        "role": "category",
+        "displayName": "Violett",
+        "darkCounterpart": "#BDB2F0"
+      },
+      "category-magenta": {
+        "role": "category",
+        "displayName": "Magenta",
+        "darkCounterpart": "#F2A9CF"
+      },
+      "category-slate": {
+        "role": "category",
+        "displayName": "Schiefer",
+        "darkCounterpart": "#B7BCC7"
+      },
+      "category-ink-blue": {
+        "role": "category",
+        "displayName": "Tinte-Blau",
+        "darkCounterpart": "#B4B8E8"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Selten; große Einzelzahlen außerhalb von Geld. App-Skala 36 bis 52 px."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Seitentitel der Verwaltung, Bildschirmtitel; am Telefon 24/32 px."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Listenzeilen-Titel, Flächenköpfe."
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Markenname, kleine Köpfe."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Fließtext, Tabellenzellen."
+      },
+      "body-large": {
+        "displayName": "Body Large",
+        "purpose": "Längerer Text in Dialogen."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Knöpfe und Pillen."
+      },
+      "label-small": {
+        "displayName": "Label Small",
+        "purpose": "Feldbeschriftung, Abzeichen, Kategoriename."
+      },
+      "money-display": {
+        "displayName": "Money Display",
+        "purpose": "Summe und Wechselgeld im Bezahldialog; Telefon-Web 38/46."
+      },
+      "money-large": {
+        "displayName": "Money Large",
+        "purpose": "Kennzahlen; Telefon-Web 26/32."
+      },
+      "money-medium": {
+        "displayName": "Money Medium",
+        "purpose": "Bezahlknopf, Statistik-Kacheln."
+      },
+      "money-small": {
+        "displayName": "Money Small",
+        "purpose": "Listen, Saldo, Mengenzähler."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 24px 64px rgba(0, 0, 0, 0.28)",
+        "purpose": "Popover-Dialoge der Verwaltung; Schleier rgba(20, 20, 20, 0.5)."
+      },
+      {
+        "name": "confirm",
+        "value": "0 8px 24px rgba(0, 0, 0, 0.18)",
+        "purpose": "Aufgeklappte Bestätigung unter einem Knopf; am Telefon ohne Schatten im Fluss."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-background",
+        "value": "background-color 120ms ease",
+        "purpose": "Hover von Navigation, Knöpfen und Pillen; nur ohne reduzierte Bewegung."
+      },
+      {
+        "name": "tile-pulse",
+        "value": "scale 0.96, tween 120ms",
+        "purpose": "Antwort der Produktkachel auf einen Tipp, mit haptischem Feedback."
+      },
+      {
+        "name": "pay-state",
+        "value": "fadeIn togetherWith fadeOut",
+        "purpose": "Bezahl-Pille: Bezahlen, Fortschritt, Bezahlt."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "web-narrow",
+        "value": "860px",
+        "purpose": "Seitenleiste wird Reiterleiste unten, eine Spalte."
+      },
+      {
+        "name": "web-medium",
+        "value": "1180px",
+        "purpose": "Haupt- und Seitenraster fallen auf eine Spalte."
+      },
+      {
+        "name": "app-compact-height",
+        "value": "700dp",
+        "purpose": "CompactWindowHeight: Verwaltung hinter „Mehr“, Summe in der Titelzeile, Zähldialoge nebeneinander."
+      },
+      {
+        "name": "app-reference",
+        "value": "960 × 600 dp",
+        "purpose": "Vereinsgerät Galaxy Tab Active3 quer; Prüfmaß für jeden Dialog."
+      }
+    ],
+    "strokes": [
+      {
+        "name": "hairline",
+        "value": "1px"
+      },
+      {
+        "name": "selected",
+        "value": "2px"
+      }
+    ],
+    "touchTargets": [
+      {
+        "name": "min",
+        "value": "48dp (Web 44px)"
+      },
+      {
+        "name": "sales",
+        "value": "56dp"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Die alltägliche Hauptaktion: Tinte, Pille.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Speichern</button>",
+      "css": ".ds-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:0 20px; border-radius:999px; font: 600 14px/20px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; white-space:nowrap; cursor:pointer; transition: background-color 120ms ease; } .ds-btn-primary { background:var(--primary, #141414); color:var(--on-primary, #FFFFFF); border:1px solid var(--primary, #141414); } .ds-btn-primary:hover { filter:brightness(1.12); } .ds-btn:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; }"
+    },
+    {
+      "name": "Money Button",
+      "kind": "button",
+      "refersTo": "button-money",
+      "description": "Nur wo Geld fließt: Kasse öffnen oder schließen, Bargeld buchen.",
+      "html": "<button class=\"ds-btn-money\">Kasse öffnen</button>",
+      "css": ".ds-btn-money { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 20px; border-radius:999px; border:1px solid var(--money, #0B7A3B); background:var(--money, #0B7A3B); color:var(--on-money, #FFFFFF); font: 600 14px/20px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; cursor:pointer; } .ds-btn-money:hover { filter:brightness(1.12); } .ds-btn-money:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; }"
+    },
+    {
+      "name": "Pay Pill",
+      "kind": "custom",
+      "refersTo": "button-pay",
+      "description": "Die Bezahl-Pille am Verkauf: volle Breite, 56 dp, Betrag in Tabellenziffern.",
+      "html": "<button class=\"ds-pay\"><span>Bezahlen</span><span class=\"ds-pay-amt\">12,80 €</span></button>",
+      "css": ".ds-pay { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; min-height:56px; border:0; border-radius:999px; background:var(--money, #0B7A3B); color:var(--on-money, #FFFFFF); font: 600 14px/20px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; cursor:pointer; } .ds-pay-amt { font-size:20px; line-height:26px; font-weight:700; letter-spacing:-0.2px; font-variant-numeric:tabular-nums; } .ds-pay:hover { filter:brightness(1.12); } .ds-pay:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Standardknopf der Verwaltung: weiß, Rand Stein 500.",
+      "html": "<button class=\"ds-btn-outline\">Exportieren</button>",
+      "css": ".ds-btn-outline { display:inline-flex; align-items:center; min-height:44px; padding:0 20px; border-radius:999px; border:1px solid var(--outline, #8F8B83); background:var(--panel, #FFFFFF); color:var(--on-surface, #141414); font: 600 14px/20px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; cursor:pointer; transition: background-color 120ms ease; } .ds-btn-outline:hover { background:var(--surface-high, #EDECE7); } .ds-btn-outline:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; }"
+    },
+    {
+      "name": "Filter Pill",
+      "kind": "chip",
+      "refersTo": "filter-pill",
+      "description": "Kategorie-Filter mit Farbpunkt; gewählt invertiert.",
+      "html": "<div class=\"ds-pills\"><button class=\"ds-pill\" aria-pressed=\"true\">Alle</button><button class=\"ds-pill\"><i class=\"ds-dot\"></i>Getränke</button></div>",
+      "css": ".ds-pills { display:flex; gap:8px; } .ds-pill { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 16px; border-radius:999px; border:1px solid var(--hairline, #DEDCD6); background:var(--panel, #FFFFFF); color:var(--on-surface, #141414); font: 600 14px/20px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; cursor:pointer; } .ds-pill[aria-pressed=true] { background:var(--on-surface, #141414); border-color:var(--on-surface, #141414); color:var(--surface, #F4F3EF); } .ds-pill:hover { background:var(--surface-high, #EDECE7); } .ds-pill[aria-pressed=true]:hover { background:var(--on-surface, #141414); } .ds-pill:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; } .ds-dot { width:10px; height:10px; border-radius:50%; background:#0E6F7A; }"
+    },
+    {
+      "name": "Status Chips",
+      "kind": "chip",
+      "refersTo": "chip-deckel",
+      "description": "Zustandsmarken: jede Bedeutungsfarbe als Container mit tiefer Schrift.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip ds-c-money\">Bar</span><span class=\"ds-chip ds-c-card\">Karte</span><span class=\"ds-chip ds-c-deckel\">Deckel</span><span class=\"ds-chip ds-c-warn\">Bestand niedrig</span><span class=\"ds-chip ds-c-error\">Über dem Limit</span></div>",
+      "css": ".ds-chips { display:flex; gap:6px; flex-wrap:wrap; } .ds-chip { display:inline-flex; align-items:center; height:24px; padding:0 10px; border-radius:999px; font:600 12px/16px system-ui, sans-serif; } .ds-c-money { background:var(--money-container, #E3F2E7); color:var(--on-money-container, #0B6430); } .ds-c-card { background:var(--tertiary-container, #E6EDFB); color:var(--on-tertiary-container, #1A4FAE); } .ds-c-deckel { background:var(--secondary-container, #F4EFD9); color:var(--on-secondary-container, #5E4D12); } .ds-c-warn { background:var(--warning-container, #FDEBDC); color:var(--on-warning-container, #8A3D00); } .ds-c-error { background:var(--error-container, #FBE6E7); color:var(--on-error-container, #951B25); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Weiße Fläche mit Haarlinie, ohne Schatten; Saldo nach Zustand gefärbt.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-t\">Lukas Hofer</div><div class=\"ds-card-m\">+24,50 €</div></div>",
+      "css": ".ds-card { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px; border-radius:12px; border:1px solid var(--hairline, #DEDCD6); background:var(--panel, #FFFFFF); color:var(--on-surface, #141414); font:600 17px/24px system-ui, sans-serif; } .ds-card-m { font-size:15px; line-height:20px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--money, #0B7A3B); }"
+    },
+    {
+      "name": "Product Tile",
+      "kind": "custom",
+      "refersTo": "product-tile",
+      "description": "Kachel im Verkaufsraster: Kategoriepunkt, Name, Preis, Bestand in Bernstein.",
+      "html": "<button class=\"ds-tile\"><span class=\"ds-tile-top\"><i class=\"ds-tile-dot\"></i>Getränke<b class=\"ds-tile-low\">6</b></span><span class=\"ds-tile-name\">Radler 0,5</span><span class=\"ds-tile-price\">3,80 €</span></button>",
+      "css": ".ds-tile { display:flex; flex-direction:column; align-items:stretch; gap:4px; width:180px; min-height:88px; padding:8px 12px; border-radius:12px; border:1px solid var(--hairline, #DEDCD6); background:var(--panel, #FFFFFF); color:var(--on-surface, #141414); text-align:left; cursor:pointer; transition: transform 120ms ease; } .ds-tile:active { transform:scale(0.96); } .ds-tile:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; } .ds-tile-top { display:flex; align-items:center; gap:8px; font:500 11px/16px system-ui, sans-serif; color:var(--on-surface-variant, #5E5B55); } .ds-tile-dot { width:8px; height:8px; border-radius:50%; background:#7A3F72; } .ds-tile-low { margin-left:auto; padding:2px 6px; border-radius:999px; background:var(--warning-container, #FDEBDC); color:var(--on-warning-container, #8A3D00); font-weight:500; } .ds-tile-name { font:600 17px/24px system-ui, sans-serif; } .ds-tile-price { font:600 15px/20px system-ui, sans-serif; font-variant-numeric:tabular-nums; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Feld mit Beschriftung darüber, Rand Stein 500, Fokus in Tinte.",
+      "html": "<label class=\"ds-field\"><span>Name</span><input value=\"Lukas Hofer\"></label>",
+      "css": ".ds-field { display:flex; flex-direction:column; gap:6px; width:260px; } .ds-field span { font:600 12px/16px system-ui, sans-serif; color:var(--on-surface-variant, #5E5B55); } .ds-field input { min-height:44px; padding:0 12px; border-radius:10px; border:1px solid var(--outline, #8F8B83); background:var(--panel, #FFFFFF); color:var(--on-surface, #141414); font:400 14px/20px system-ui, sans-serif; } .ds-field input:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; }"
+    },
+    {
+      "name": "Side Navigation",
+      "kind": "nav",
+      "refersTo": "",
+      "description": "Seitenleiste der Verwaltung; der aktive Eintrag trägt die Vereinsfarbe.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-i\" aria-current=\"page\">Übersicht</a><a class=\"ds-nav-i\">Mitglieder</a><a class=\"ds-nav-i\">Berichte</a></nav>",
+      "css": ".ds-nav { display:flex; flex-direction:column; gap:2px; width:240px; padding:12px; background:var(--panel, #FFFFFF); border-right:1px solid var(--hairline, #DEDCD6); } .ds-nav-i { display:flex; align-items:center; min-height:44px; padding:0 14px; border-radius:999px; color:var(--on-surface-variant, #5E5B55); font:600 14px/20px system-ui, sans-serif; cursor:pointer; text-decoration:none; transition: background-color 120ms ease; } .ds-nav-i:hover { background:var(--surface-high, #EDECE7); color:var(--on-surface, #141414); } .ds-nav-i[aria-current=page] { background:var(--accent, #141414); color:var(--on-accent, #FFFFFF); } .ds-nav-i:focus-visible { outline:2px solid var(--primary, #141414); outline-offset:2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Der Kassen-Standard",
+    "overview": "**Creative North Star: \"Der Kassen-Standard\"**\n\nVereinsDeckel sieht aus wie eine gute Kasse und nicht wie eine App, die eine Kasse spielt. Weiße Flächen liegen auf warmem Hellgrau, Tinte ist die Grundstimme, und Farbe steht nur dort, wo sie etwas bedeutet. Maßstab ist SumUp: sauber, ruhig, ohne Zierrat, mit großen Zielen für einen Daumen, der es eilig hat. Die Person an der Theke ist jeden Samstag eine andere, der Raum ist abends dunkel und mittags grell. Deshalb trägt jede Farbe genau eine Bedeutung, Geld hat die lauteste Schrift, und die helle wie die dunkle Palette sind beide vollwertig gemessen. Der Nachtmodus ist kein Nachgedanke, sondern der Raum am Abend.\n\nDasselbe System gilt für drei Oberflächen: die Compose-App auf dem Tablet (Android und iOS), die Web-Verwaltung unter `/verwaltung` und den Deckel für Mitglieder unter `/konto`. Die Token stehen in `ui/theme/` und werden einmal als CSS-Variablen in `server/src/main/resources/web/app.css` nachgezogen. Wer eine Farbe in `Color.kt` ändert, ändert sie dort mit. Die Verwaltung behält den Seitenaufbau der vom Besitzer am 22. September 2026 freigegebenen Entwurfsfläche (Übersicht mit Kennzahlen, Mitglieder mit Saldo-Feld). Der Kassen-Standard ändert dort nur Token und Bausteine, nicht die Anordnung.\n\nAbgelehnt sind Materials Pastell-Tonflächen, das SaaS-Kachel-Dashboard und dynamische Farbe aus dem Hintergrundbild des Geräts.",
+    "keyCharacteristics": [
+      "Weiße Flächen mit 1-px-Haarlinie auf warmem Hellgrau; Tiefe aus Linien, nicht aus Schatten.",
+      "Tinte für jede alltägliche Hauptaktion und jede Auswahl; Grün nur, wo Geld fließt.",
+      "Fünf Bedeutungsfarben, festgelegt: Grün Geld, Messing Deckel, Blau Karte, Bernstein Achtung, Rot Fehler.",
+      "Die Pille ist das eine Zeichen für „hier kann man tippen“.",
+      "Systemschrift ohne Laufweite, fette Überschriften, eine eigene Geldstimme mit Tabellenziffern.",
+      "Auf dem Verkaufsweg ist jedes Ziel mindestens 56 dp groß."
+    ],
+    "rules": [
+      {
+        "name": "The One Meaning Rule",
+        "body": "Jede Bedeutungsfarbe hat genau eine Aufgabe: Grün Geld, Messing Deckel, Blau Karte, Bernstein Achtung, Rot Zerstörung und Fehlschlag, und Rot sonst nie. Eine Farbe, die zu dekorieren beginnt, lügt an der Theke.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Default Rule",
+        "body": "Tinte (`primary`) ist die alltägliche Hauptaktion und die Auswahl. Grün erscheint nur über `VereinsColors.money` und `moneyButtonColors()`: bezahlen, Kasse öffnen oder schließen, Bargeld buchen. Ein Knopf, der kein Geld bewegt, ist nicht grün.",
+        "section": "colors"
+      },
+      {
+        "name": "The Balance State Rule",
+        "body": "Der Saldo eines Mitglieds wird nach seinem Zustand gefärbt, nicht nach dem Vorzeichen: Plus ist Geldgrün, Null ist neutrale Tinte, ein Minus innerhalb des Rahmens ist gedämpft (onSurfaceVariant), im letzten Viertel des Rahmens (oder im Minus ohne Rahmen) Bernstein, über dem Limit Rot. Die Regel steht zweimal und muss übereinstimmen: `balanceColor()` in der App, `MemberLine.tone` in der Verwaltung.",
+        "section": "colors"
+      },
+      {
+        "name": "The Deckel Liability Rule",
+        "body": "Die Vereinssumme „Guthaben auf Deckeln“ steht in Messing, nicht in Grün: Sie ist das Geld der Mitglieder, eine Verbindlichkeit des Vereins. Grün bleibt den Einnahmen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Club Colour Fence Rule",
+        "body": "Die Vereinsfarbe färbt Navigation (aktiver Eintrag, Reiterpille), Kopfzeile, Markenzeichen und Mitglieder-Avatare, und sonst nichts: nie Bezahlknopf, Warnung, Fehler, Saldo oder Kategorie. Schrift darauf wählt `contrastingOn()` (Weiß oder Tinte, was besser liest).",
+        "section": "colors"
+      },
+      {
+        "name": "The Visible Accent Rule",
+        "body": "Liegt die Vereinsfarbe auf dem Grund des aktuellen Themas unter 1,5:1, nimmt sie dessen Schriftfarbe (Tinte am Tag, Papier in der Nacht). Bewusst nicht 3:1: Gold auf Hell ist schwach, aber erkennbar Gold, und die Farbe gehört dem Verein. Die Regel steht in `visibleAccent()` der App und in `accentSheet` der Verwaltung.",
+        "section": "colors"
+      },
+      {
+        "name": "The Neutral Category Rule",
+        "body": "Kategoriefarben meiden die fünf Bedeutungstöne absichtlich. Ein grüner Punkt an „Getränke“ läse sich als Geld.",
+        "section": "colors"
+      },
+      {
+        "name": "The Money Is Loudest Rule",
+        "body": "Beträge haben ihre eigene Stimme mit Tabellenziffern (`MoneyText`, `.money-*`) und sind das schwerste Gewicht auf jedem Bildschirm. Keine Überschrift konkurriert mit der Summe.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Tracking Rule",
+        "body": "Fließtext und Beschriftungen stehen auf Laufweite 0. Nur Grade ab 20 px ziehen leicht zusammen (-0,2 bis -1 px). Keine gesperrten Großbuchstaben.",
+        "section": "typography"
+      },
+      {
+        "name": "The Baked Weight Rule",
+        "body": "Das Gewicht steckt im Stil. Wer eine Rolle braucht, nimmt den passenden Stil aus `Type.kt`, statt `FontWeight` darüberzulegen; `grep \"FontWeight\\.\"` außerhalb von `ui/theme/` bleibt leer.",
+        "section": "typography"
+      },
+      {
+        "name": "The Thumb First Rule",
+        "body": "Alles auf dem Verkaufsweg ist mindestens 56 dp groß (`TouchTarget.sales`) und liegt in den unteren zwei Dritteln; alles andere mindestens 48 dp in der App (`TouchTarget.min`) und 44 px im Web.",
+        "section": "layout"
+      },
+      {
+        "name": "The Width Not Orientation Rule",
+        "body": "Gefragt werden Fensterbreite und Fensterhöhe, nie `ORIENTATION_LANDSCAPE`.",
+        "section": "layout"
+      },
+      {
+        "name": "The Line Not Shadow Rule",
+        "body": "Karten, Kacheln, Listenzeilen, Spalten und Panels tragen eine Haarlinie und keinen Schatten. Ein Schatten heißt „das liegt über der Seite“, und nichts Ruhendes liegt über der Seite.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Pill Means Tap Rule",
+        "body": "Knöpfe, Filter, Zustandsmarken, Betragswahl und Mengenzähler sind Pillen (`Pill`, `border-radius: 999px`). Die Pille ist das eine Zeichen für „hier kann man tippen“; Flächen, die man nicht tippt, sind keine Pillen.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** nimm für jede Fläche Weiß mit 1-px-Haarlinie auf dem Stein-50-Grund.",
+      "**Do** setze jede alltägliche Hauptaktion und jede Auswahl in Tinte (`primary`); Grün nur über `VereinsColors.money` und `moneyButtonColors()`.",
+      "**Do** färbe einen Saldo nach Zustand: Plus grün, Null Tinte, Minus im Rahmen gedämpft, im letzten Viertel Bernstein, über dem Limit Rot, in App und Verwaltung gleich.",
+      "**Do** zeige „Guthaben auf Deckeln“ in Messing.",
+      "**Do** setze jeden Betrag mit Tabellenziffern über `MoneyText` bzw. `.money-*`.",
+      "**Do** mache alles, was man tippt, zur Pille, und auf dem Verkaufsweg mindestens 56 dp hoch.",
+      "**Do** nimm Abstände aus `Spacing`, Radien aus `Shapes`, Schriftgrade aus `Type.kt`.",
+      "**Do** ziehe jede Farbänderung aus `Color.kt` in `app.css` nach, in beiden Themen.",
+      "**Do** lass die Vereinsfarbe über `visibleAccent()` bzw. `accentSheet` laufen, damit sie unter 1,5:1 auf die Schriftfarbe des Grunds zurückfällt."
+    ],
+    "donts": [
+      "**Don't** verwende Rot für etwas anderes als Zerstörung und Fehlschlag.",
+      "**Don't** färbe Bezahlknopf, Warnung, Fehler, Saldo oder Kategorie in der Vereinsfarbe.",
+      "**Don't** gib einer Kategorie Grün, Blau, Messing, Bernstein oder Rot.",
+      "**Don't** lege Schatten auf ruhende Karten, Kacheln, Zeilen oder Panels; Schatten gehören nur schwebenden Ebenen.",
+      "**Don't** baue Materials Pastell-Tonflächen oder ein SaaS-Kachel-Dashboard; Kennzahlen teilen sich eine Fläche.",
+      "**Don't** lege `FontWeight` über einen Stil oder sperre Text mit Laufweite.",
+      "**Don't** biete dynamische Farbe aus dem Hintergrundbild des Geräts an.",
+      "**Don't** ändere in der Verwaltung den Seitenaufbau der freigegebenen Entwurfsfläche vom 22. September 2026; der Kassen-Standard ändert dort Token und Bausteine.",
+      "**Don't** entscheide Layout nach der Ausrichtung des Geräts."
+    ]
+  }
+}

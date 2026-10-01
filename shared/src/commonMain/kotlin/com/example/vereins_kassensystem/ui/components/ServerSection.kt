@@ -35,6 +35,7 @@ import com.example.vereins_kassensystem.data.sync.SyncStatus
 import com.example.vereins_kassensystem.platform.LocalPlatform
 import com.example.vereins_kassensystem.platform.VdDate
 import com.example.vereins_kassensystem.ui.icons.VdIcons
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.theme.VereinsColors
@@ -193,7 +194,7 @@ private fun PairingForm(engine: SyncEngine, scope: CoroutineScope, initialUrl: S
             },
             enabled = !busy && url.isNotBlank(),
             modifier = Modifier.weight(1f).heightIn(min = TouchTarget.min),
-            shape = MaterialTheme.shapes.small
+            shape = Pill
         ) { Text("Prüfen") }
         Button(
             onClick = {
@@ -205,7 +206,7 @@ private fun PairingForm(engine: SyncEngine, scope: CoroutineScope, initialUrl: S
             },
             enabled = !busy && url.isNotBlank() && code.isNotBlank(),
             modifier = Modifier.weight(1f).heightIn(min = TouchTarget.min),
-            shape = MaterialTheme.shapes.small
+            shape = Pill
         ) {
             Icon(VdIcons.Login, contentDescription = null)
             Spacer(Modifier.width(Spacing.sm))
@@ -254,7 +255,7 @@ private fun PairedState(status: SyncStatus, engine: SyncEngine, scope: Coroutine
             onClick = { engine.requestSync() },
             enabled = !status.running,
             modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
-            shape = MaterialTheme.shapes.small
+            shape = Pill
         ) {
             Icon(VdIcons.CloudUpload, contentDescription = null)
             Spacer(Modifier.width(Spacing.sm))
@@ -267,7 +268,7 @@ private fun PairedState(status: SyncStatus, engine: SyncEngine, scope: Coroutine
     OutlinedButton(
         onClick = { confirmUnpair = true },
         modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
-        shape = MaterialTheme.shapes.small
+        shape = Pill
     ) { Text("Kopplung lösen") }
 
     if (confirmUnpair) {
@@ -331,7 +332,7 @@ private fun ReauthorizeForm(engine: SyncEngine, scope: CoroutineScope, onMessage
         },
         enabled = !busy && code.isNotBlank(),
         modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget.min),
-        shape = MaterialTheme.shapes.small
+        shape = Pill
     ) {
         Icon(VdIcons.Login, contentDescription = null)
         Spacer(Modifier.width(Spacing.sm))

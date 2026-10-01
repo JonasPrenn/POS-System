@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.RowMenuItem
@@ -85,6 +86,8 @@ fun ProductManagementScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
+                shape = Pill,
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
                 onClick = { showAddDialog = true },
                 icon = { Icon(VdIcons.Add, contentDescription = null) },
                 text = { Text("Neu") }
@@ -108,7 +111,7 @@ fun ProductManagementScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(Spacing.lg),
+                contentPadding = PaddingValues(start = Spacing.lg, top = Spacing.lg, end = Spacing.lg, bottom = Spacing.fabClearance),
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
@@ -236,10 +239,15 @@ fun ProductDialog(
     onConfirm: (Product, List<ProductVariant>, List<ProductComponent>) -> Unit
 ) {
     var name by remember { mutableStateOf(product?.name ?: "") }
-    var price by remember { mutableStateOf(product?.price?.toString() ?: "") }
+    var price by remember { mutableStateOf(product?.price?.let { Money.formatPlain(it) } ?: "") }
     var category by remember { mutableStateOf(product?.category ?: "") }
 
-    var servingSize by remember { mutableStateOf(product?.servingSize?.toString() ?: "1") }
+    // Deutsch geschrieben („0,33“, nicht „0.33“, „1“ statt „1.0“) und genau — gerundet wird nichts.
+    var servingSize by remember {
+        mutableStateOf(
+            product?.servingSize?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString().replace('.', ',') } ?: "1"
+        )
+    }
     var showComponentPicker by remember { mutableStateOf(false) }
     val editedComponents = remember { mutableStateListOf<ProductComponent>().apply { addAll(components) } }
 
@@ -270,7 +278,7 @@ fun ProductDialog(
                         enabled = !hasVariants,
                         colors = if (hasVariants) {
                             OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = MaterialTheme.colorScheme.primary,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
                                 disabledBorderColor = MaterialTheme.colorScheme.outline,
                                 disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -294,7 +302,7 @@ fun ProductDialog(
                     Text("Rezept", style = MaterialTheme.typography.titleSmall)
                     Text(
                         "Woraus dieses Produkt gezogen wird. Mengen gelten je Einheit und " +
-                            "werden von der Variantengroesse skaliert - ein Radler mit 0,5 Bier " +
+                            "werden von der Variantengröße skaliert – ein Radler mit 0,5 Bier " +
                             "und 0,5 Soda ergibt beim 0,3l-Glas 0,15 und 0,15.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -309,7 +317,7 @@ fun ProductDialog(
                         enabled = editedVariants.isEmpty(),
                         supportingText = {
                             Text(
-                                if (editedVariants.isEmpty()) "1 = ein Stueck, 0,5 = ein halber Liter"
+                                if (editedVariants.isEmpty()) "1 = ein Stück, 0,5 = ein halber Liter"
                                 else "Wird je Variante gesetzt"
                             )
                         },

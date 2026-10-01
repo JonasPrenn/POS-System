@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.ui.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -42,7 +44,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.sync.SyncStatus
 import com.example.vereins_kassensystem.ui.components.SyncStatusBadge
+import com.example.vereins_kassensystem.ui.components.hairline
 import com.example.vereins_kassensystem.ui.components.SyncStatusLine
+import com.example.vereins_kassensystem.ui.theme.VereinsColors
 import com.example.vereins_kassensystem.ui.theme.ClubTheme
 import com.example.vereins_kassensystem.ui.theme.Spacing
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
@@ -103,11 +107,15 @@ fun VereinsDeckelNavigation(
         NavLayout.Rail, NavLayout.CompactRail -> Row(modifier = modifier.fillMaxSize()) {
             NavigationRail(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Start + WindowInsetsSides.Vertical
+                // Erst malen, dann einrücken: So reicht die weiße Leiste unter Status- und
+                // Gestenleiste, statt dort einen grauen Streifen zu lassen.
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Start + WindowInsetsSides.Vertical
+                        )
                     )
-                )
             ) {
                 Spacer(Modifier.height(Spacing.sm))
                 // Hoch genug, hat die Leiste Platz für alles, und nichts versteckt sich. Sonst
@@ -152,6 +160,8 @@ fun VereinsDeckelNavigation(
                     Spacer(Modifier.height(Spacing.sm))
                 }
             }
+            // Die Leiste ist weiß, der Inhalt liegt auf dem Grund; eine Haarlinie trennt.
+            VerticalDivider(color = VereinsColors.hairline)
             Surface(
                 modifier = Modifier.weight(1f).fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
@@ -166,6 +176,7 @@ fun VereinsDeckelNavigation(
                 content = content
             )
             SyncStatusLine(status = syncStatus)
+            HorizontalDivider(color = VereinsColors.hairline)
             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Destination.primary.forEach { destination ->
                     NavigationBarItem(
@@ -242,10 +253,11 @@ private fun ManagementSheet(
                 Surface(
                     onClick = { onSelect(destination) },
                     shape = MaterialTheme.shapes.medium,
-                    color = if (current == destination) MaterialTheme.colorScheme.secondaryContainer
-                    else MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = if (current == destination) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.onSurface
+                    color = if (current == destination) MaterialTheme.colorScheme.inverseSurface
+                    else MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = if (current == destination) MaterialTheme.colorScheme.inverseOnSurface
+                    else MaterialTheme.colorScheme.onSurface,
+                    border = if (current == destination) null else hairline()
                 ) {
                     Row(
                         modifier = Modifier

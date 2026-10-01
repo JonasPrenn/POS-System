@@ -15,6 +15,9 @@ object Spacing {
     val lg = 16.dp
     val xl = 24.dp
     val xxl = 32.dp
+
+    /** Platz unter einer Liste, damit der letzte Eintrag nicht unter den schwebenden Knöpfen liegt. */
+    val fabClearance = 160.dp
 }
 
 /**
@@ -27,4 +30,13 @@ object Spacing {
 object TouchTarget {
     val min = 48.dp
     val sales = 56.dp
+}
+
+/**
+ * Linienstärken. [hairline] umrandet jede weiße Fläche — der Kassen-Standard trennt mit Linien,
+ * nicht mit Schatten. [selected] markiert, was gewählt ist (Zählfeld, Zahlungsart).
+ */
+object Stroke {
+    val hairline = 1.dp
+    val selected = 2.dp
 }

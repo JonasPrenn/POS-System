@@ -18,6 +18,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.ui.theme.MoneySmall
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.icons.VdIcons
 
@@ -43,8 +44,8 @@ fun QuantityStepper(
 
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest
+        shape = Pill,
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
@@ -53,7 +54,7 @@ fun QuantityStepper(
                     onDecrease()
                 },
                 enabled = enabled,
-                modifier = Modifier.size(TouchTarget.min)
+                modifier = Modifier.size(TouchTarget.sales)
             ) {
                 Icon(
                     imageVector = if (quantity <= 1) VdIcons.Delete else VdIcons.Remove,
@@ -82,7 +83,7 @@ fun QuantityStepper(
                     onIncrease()
                 },
                 enabled = enabled,
-                modifier = Modifier.size(TouchTarget.min)
+                modifier = Modifier.size(TouchTarget.sales)
             ) {
                 Icon(
                     imageVector = VdIcons.Add,

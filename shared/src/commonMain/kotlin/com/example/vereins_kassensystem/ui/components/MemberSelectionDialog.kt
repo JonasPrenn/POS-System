@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,10 +22,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.vereins_kassensystem.data.entity.Member
 import com.example.vereins_kassensystem.data.entity.displayName
 import com.example.vereins_kassensystem.data.entity.matches
+import com.example.vereins_kassensystem.ui.components.searchFieldColors
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.format.Money
 import com.example.vereins_kassensystem.ui.icons.VdIcons
 import com.example.vereins_kassensystem.ui.theme.Spacing
@@ -54,9 +58,10 @@ fun MemberSelectionDialog(
                     value = query,
                     onValueChange = { query = it },
                     placeholder = { Text("Suche") },
+                    shape = Pill,
+                    colors = searchFieldColors(),
                     leadingIcon = { Icon(VdIcons.Search, contentDescription = null) },
                     singleLine = true,
-                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(Spacing.md))
@@ -73,6 +78,8 @@ fun MemberSelectionDialog(
                                 headlineContent = { Text(member.displayName) },
                                 supportingContent = { Text(if (member.isBlocked) "${Money.format(member.balance)} · Deckel gesperrt" else Money.format(member.balance)) },
                                 leadingContent = { MemberAvatar(member.name, size = 36.dp) },
+                                // Durchsichtig: Die Liste gehört zum Dialog, sie ist keine eigene Fläche.
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                 modifier = Modifier.clickable {
                                     onMemberSelected(member)
                                     onDismiss()

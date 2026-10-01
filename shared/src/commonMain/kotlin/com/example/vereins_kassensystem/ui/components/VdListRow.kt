@@ -37,7 +37,7 @@ fun VdListRow(
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     titleColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     val content: @Composable () -> Unit = {
@@ -86,6 +86,7 @@ fun VdListRow(
             modifier = modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             color = containerColor,
+            border = hairline(),
             content = content
         )
     } else {
@@ -93,6 +94,7 @@ fun VdListRow(
             modifier = modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             color = containerColor,
+            border = hairline(),
             content = content
         )
     }
@@ -106,8 +108,8 @@ fun VdListRow(
 fun RowBadge(
     text: String,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Surface(
         modifier = modifier.size(40.dp),

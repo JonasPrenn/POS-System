@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -40,7 +42,9 @@ fun NumericKeypad(
     onBackspace: () -> Unit,
     modifier: Modifier = Modifier,
     onDecimalSeparator: (() -> Unit)? = null,
-    onNext: (() -> Unit)? = null
+    onNext: (() -> Unit)? = null,
+    /** Was „Weiter“ tut, in zwei Wörtern — etwa „Weiter zu 20 €“. Ohne Angabe nur „Weiter“. */
+    nextLabel: String = "Weiter"
 ) {
     val rows = listOf(
         listOf("1", "2", "3"),
@@ -66,8 +70,14 @@ fun NumericKeypad(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             if (onNext != null) {
-                KeypadKey(modifier = Modifier.weight(1f), onClick = onNext) {
-                    Text("Weiter", style = MaterialTheme.typography.titleMedium)
+                // Die Taste, die weiterführt, steht in Tinte: Sie ist die eine, nach der man sucht.
+                KeypadKey(
+                    modifier = Modifier.weight(1f),
+                    onClick = onNext,
+                    container = MaterialTheme.colorScheme.inverseSurface,
+                    content = MaterialTheme.colorScheme.inverseOnSurface
+                ) {
+                    Text(nextLabel, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
                 }
             } else {
                 KeypadKey(
@@ -104,7 +114,9 @@ private fun KeypadKey(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     contentDescription: String? = null,
-    content: @Composable () -> Unit
+    container: Color = MaterialTheme.colorScheme.surfaceContainer,
+    content: Color = MaterialTheme.colorScheme.onSurface,
+    label: @Composable () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
     Surface(
@@ -121,10 +133,10 @@ private fun KeypadKey(
             ),
         enabled = enabled,
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface
+        color = container,
+        contentColor = content
     ) {
-        Box(contentAlignment = Alignment.Center) { content() }
+        Box(contentAlignment = Alignment.Center) { label() }
     }
 }
 

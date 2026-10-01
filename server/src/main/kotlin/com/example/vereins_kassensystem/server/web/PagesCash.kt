@@ -72,7 +72,7 @@ private fun HTML.cashPage(ctx: PageContext, day: LocalDate, from: LocalDate, to:
                             td("fill") { +d.device }
                             money(d.revenue.cash); money(d.revenue.card, cell = "num hide-sm"); money(d.revenue.tab, cell = "num hide-sm"); money(d.revenue.total, "money-s")
                         }
-                        tr("sum") { td { +"Gesamt" }; money(total.cash, "money-s c-primary"); money(total.card, "money-s c-tertiary", "num hide-sm"); money(total.tab, "money-s c-secondary", "num hide-sm"); money(total.total, "money-m") }
+                        tr("sum") { td { +"Gesamt" }; money(total.cash, "money-s c-money"); money(total.card, "money-s c-tertiary", "num hide-sm"); money(total.tab, "money-s c-secondary", "num hide-sm"); money(total.total, "money-m") }
                     }
                 }
             }
@@ -119,7 +119,7 @@ private fun HTML.cashPage(ctx: PageContext, day: LocalDate, from: LocalDate, to:
                                 "DIFFERENCE" -> chip("Differenz", "warn", "alert"); else -> chip("Zählung")
                             }
                         }
-                        td("num") { e.amount?.let { span("money-s${if (it > 0) " c-primary" else if (e.kind == "DIFFERENCE") " c-warning" else ""}") { +euroSigned(it) } } ?: span("c-muted") { +"—" } }
+                        td("num") { e.amount?.let { span("money-s${if (it > 0) " c-money" else if (e.kind == "DIFFERENCE") " c-warning" else ""}") { +euroSigned(it) } } ?: span("c-muted") { +"—" } }
                         td("num c-muted tnum") { +(e.balance?.let(::euro) ?: "") }
                     }
                 }
@@ -136,7 +136,7 @@ private fun HTML.cashPage(ctx: PageContext, day: LocalDate, from: LocalDate, to:
                         td("c-muted tnum nowrap cap") { +ctx.dayShort(b.bookingDate) }
                         td("fill") { twoLine(b.counterparty.ifBlank { "Unbekannt" }, b.reference) }
                         td { when (b.status) { "MATCHED" -> chip("Abrechnung bezahlt", "ok", "check"); "IGNORED" -> chip("abgelegt"); else -> chip("offen", "warn") } }
-                        td("num") { span("money-s${if (b.amount > 0) " c-primary" else ""}") { +euroSigned(b.amount) } }
+                        td("num") { span("money-s${if (b.amount > 0) " c-money" else ""}") { +euroSigned(b.amount) } }
                     }
                 }
             }

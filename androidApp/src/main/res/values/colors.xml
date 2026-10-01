@@ -7,6 +7,6 @@
       These two match `background` in the Compose light and dark schemes, so the window
       that shows during launch is already the right colour.
     -->
-    <color name="window_background">#F7F9F6</color>
-    <color name="window_background_dark">#0E1310</color>
+    <color name="window_background">#F4F3EF</color>
+    <color name="window_background_dark">#121211</color>
 </resources>

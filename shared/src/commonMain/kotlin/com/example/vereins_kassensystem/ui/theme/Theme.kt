@@ -21,95 +21,109 @@ enum class ThemeMode {
     }
 }
 
+/*
+ * Wie die Material-Rollen belegt sind:
+ *
+ *  - primary ist Tinte, nicht Grün. Der Standardknopf, die Auswahl, ein Schalter, der Fokus
+ *    eines Feldes — das ist alles keine Geldbewegung. Grün steht dadurch nur noch dort, wo Geld
+ *    fließt oder etwas gebucht ist, und das sagt [VereinsColors.money] ausdrücklich.
+ *  - secondary ist Messing (der Deckel), tertiary Blau (Karte, Auswertung), error Rot.
+ *  - Die Flächen folgen dem Kassen-Standard: Grund ist warmes Hellgrau, darauf liegen weiße
+ *    Flächen mit einer Haarlinie. Tonale Pastellflächen gibt es nicht mehr.
+ */
 private val LightColorScheme = lightColorScheme(
-    primary = Pine40,
+    primary = Ink,
     onPrimary = White,
-    primaryContainer = Pine90,
-    onPrimaryContainer = Pine10,
-    inversePrimary = Pine80,
+    // Der schwebende Knopf („Neu“) nimmt primaryContainer: Er ist die eine Hauptaktion einer
+    // Verwaltungsseite und steht deshalb in Tinte wie jeder Hauptknopf.
+    primaryContainer = Ink,
+    onPrimaryContainer = White,
+    inversePrimary = Paper,
 
-    secondary = Brass40,
+    secondary = Brass,
     onSecondary = White,
-    secondaryContainer = Brass90,
-    onSecondaryContainer = Brass10,
+    secondaryContainer = BrassTint,
+    onSecondaryContainer = BrassDeep,
 
-    tertiary = Harbor40,
+    tertiary = Blue,
     onTertiary = White,
-    tertiaryContainer = Harbor90,
-    onTertiaryContainer = Harbor10,
+    tertiaryContainer = BlueTint,
+    onTertiaryContainer = BlueDeep,
 
-    error = Signal40,
+    error = Red,
     onError = White,
-    errorContainer = Signal90,
-    onErrorContainer = Signal10,
+    errorContainer = RedTint,
+    onErrorContainer = RedDeep,
 
-    background = NeutralLight98,
-    onBackground = NeutralInk,
-    surface = NeutralLight98,
-    onSurface = NeutralInk,
-    surfaceVariant = NeutralVariant80,
-    onSurfaceVariant = NeutralVariant30,
-    surfaceTint = Pine40,
+    background = Stone50,
+    onBackground = Ink,
+    surface = Stone50,
+    onSurface = Ink,
+    surfaceVariant = Stone100,
+    onSurfaceVariant = Stone700,
+    surfaceTint = Ink,
 
+    // Low und Lowest sind die weißen Flächen (Kacheln, Karten, Spalten, Dialoge), Container und
+    // darüber die Füllungen innerhalb einer weißen Fläche (Felder, Tasten, Zähler).
     surfaceContainerLowest = White,
-    surfaceContainerLow = NeutralLight97,
-    surfaceContainer = NeutralLight96,
-    surfaceContainerHigh = NeutralLight94,
-    surfaceContainerHighest = NeutralLight92,
-    surfaceBright = NeutralLight98,
-    surfaceDim = NeutralLight92,
+    surfaceContainerLow = White,
+    surfaceContainer = Stone100,
+    surfaceContainerHigh = White,
+    surfaceContainerHighest = Stone150,
+    surfaceBright = White,
+    surfaceDim = Stone100,
 
-    outline = NeutralVariant50,
-    outlineVariant = NeutralVariant80,
+    outline = Stone500,
+    outlineVariant = Stone200,
 
-    inverseSurface = InverseSurfaceLight,
-    inverseOnSurface = InverseOnSurfaceLight,
+    inverseSurface = Ink,
+    inverseOnSurface = Paper,
     scrim = androidx.compose.ui.graphics.Color.Black
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Pine80,
-    onPrimary = PineOnDark,
-    primaryContainer = Pine30,
-    onPrimaryContainer = Pine90,
-    inversePrimary = Pine40,
+    primary = Paper,
+    onPrimary = Ink,
+    primaryContainer = Paper,
+    onPrimaryContainer = Ink,
+    inversePrimary = Ink,
 
-    secondary = Brass80,
-    onSecondary = Brass20,
-    secondaryContainer = Brass30,
-    onSecondaryContainer = Brass90,
+    secondary = BrassNight,
+    onSecondary = BrassNightInk,
+    secondaryContainer = BrassNightTint,
+    onSecondaryContainer = BrassNightSoft,
 
-    tertiary = Harbor80,
-    onTertiary = Harbor20,
-    tertiaryContainer = Harbor30,
-    onTertiaryContainer = Harbor90,
+    tertiary = BlueNight,
+    onTertiary = BlueNightInk,
+    tertiaryContainer = BlueNightTint,
+    onTertiaryContainer = BlueNightSoft,
 
-    error = Signal80,
-    onError = Signal20,
-    errorContainer = Signal30,
-    onErrorContainer = Signal90,
+    error = RedNight,
+    onError = RedNightInk,
+    errorContainer = RedNightTint,
+    onErrorContainer = RedNightSoft,
 
-    background = NeutralDark06,
-    onBackground = NeutralInkDark,
-    surface = NeutralDark06,
-    onSurface = NeutralInkDark,
-    surfaceVariant = NeutralVariant30,
-    onSurfaceVariant = NeutralVariant80,
-    surfaceTint = Pine80,
+    background = Night950,
+    onBackground = Paper,
+    surface = Night950,
+    onSurface = Paper,
+    surfaceVariant = Night850,
+    onSurfaceVariant = Night300,
+    surfaceTint = Paper,
 
-    surfaceContainerLowest = NeutralDark04,
-    surfaceContainerLow = NeutralDark10,
-    surfaceContainer = NeutralDark12,
-    surfaceContainerHigh = NeutralDark17,
-    surfaceContainerHighest = NeutralDark22,
-    surfaceBright = NeutralDark22,
-    surfaceDim = NeutralDark06,
+    surfaceContainerLowest = Night900,
+    surfaceContainerLow = Night900,
+    surfaceContainer = Night850,
+    surfaceContainerHigh = Night900,
+    surfaceContainerHighest = Night800,
+    surfaceBright = Night800,
+    surfaceDim = Night950,
 
-    outline = NeutralVariant60,
-    outlineVariant = NeutralVariant30,
+    outline = Night500,
+    outlineVariant = Night700,
 
-    inverseSurface = NeutralInkDark,
-    inverseOnSurface = InverseSurfaceLight,
+    inverseSurface = Paper,
+    inverseOnSurface = Ink,
     scrim = androidx.compose.ui.graphics.Color.Black
 )
 

@@ -20,9 +20,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +47,9 @@ import com.example.vereins_kassensystem.data.entity.ContainerCloseReason
 import com.example.vereins_kassensystem.data.entity.ContainerType
 import com.example.vereins_kassensystem.data.entity.StockEntry
 import com.example.vereins_kassensystem.data.entity.StockTracking
+import com.example.vereins_kassensystem.ui.theme.Pill
+import com.example.vereins_kassensystem.ui.components.hairline
+import com.example.vereins_kassensystem.ui.components.FilterPill
 import com.example.vereins_kassensystem.ui.components.EmptyState
 import com.example.vereins_kassensystem.ui.components.MoneyText
 import com.example.vereins_kassensystem.ui.components.VdTopBar
@@ -103,6 +105,13 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 title = "Lagerbestand",
                 subtitle = if (rows.isEmpty()) null else "${rows.size} Lagerartikel",
                 actions = {
+                    // In der Kopfzeile statt als zweiter schwebender Knopf: Auf 600 dp Höhe lag der über
+                    // „Fasswechsel“. Schwebend bleibt nur die eine Hauptaktion, „Wareneingang“.
+                    if (!showHistory) {
+                        IconButton(onClick = { showNewItem = true }) {
+                            Icon(VdIcons.Add, contentDescription = "Lagerartikel anlegen")
+                        }
+                    }
                     IconButton(onClick = { importer.open() }) {
                         Icon(VdIcons.FileUpload, contentDescription = "Lagerartikel importieren")
                     }
@@ -118,10 +127,9 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
         floatingActionButton = {
             if (!showHistory) {
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    SmallFloatingActionButton(onClick = { showNewItem = true }) {
-                        Icon(VdIcons.Add, contentDescription = "Lagerartikel anlegen")
-                    }
                     ExtendedFloatingActionButton(
+                        shape = Pill,
+                        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
                         onClick = { showDelivery = true },
                         icon = { Icon(VdIcons.ReceiptLong, contentDescription = null) },
                         text = { Text("Wareneingang") }
@@ -143,7 +151,7 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
 
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(Spacing.lg),
+                contentPadding = PaddingValues(start = Spacing.lg, top = Spacing.lg, end = Spacing.lg, bottom = Spacing.fabClearance),
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 items(rows, key = { it.item.id }) { row ->
@@ -236,8 +244,9 @@ private fun StockCard(
         color = when {
             row.isNegative -> MaterialTheme.colorScheme.errorContainer
             row.isLow -> VereinsColors.warningContainer
-            else -> MaterialTheme.colorScheme.surfaceContainer
+            else -> MaterialTheme.colorScheme.surfaceContainerLow
         },
+        border = if (row.isNegative || row.isLow) null else hairline(),
         contentColor = when {
             row.isNegative -> MaterialTheme.colorScheme.onErrorContainer
             row.isLow -> VereinsColors.onWarningContainer
@@ -270,7 +279,7 @@ private fun StockCard(
                     val type = row.yields.firstOrNull { it.containerType.id == open.containerTypeId }
                     Surface(
                         shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        color = MaterialTheme.colorScheme.surfaceContainer,
                         contentColor = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -305,11 +314,10 @@ private fun StockCard(
                     )
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         row.fullByType.forEach { (type, count) ->
-                            FilterChip(
+                            FilterPill(
                                 selected = false,
                                 onClick = { onTap(type) },
-                                label = { Text("${type.label} · ${count}×") },
-                                shape = MaterialTheme.shapes.small
+                                label = { Text("${type.label} · ${count}×") }
                             )
                         }
                     }
@@ -371,11 +379,10 @@ private fun ReceiveDialog(
                     Text("Gebindegröße", style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         row.state.containerTypes.forEach { type ->
-                            FilterChip(
+                            FilterPill(
                                 selected = selectedType?.id == type.id,
                                 onClick = { selectedType = type },
-                                label = { Text(type.label) },
-                                shape = MaterialTheme.shapes.small
+                                label = { Text(type.label) }
                             )
                         }
                     }
@@ -390,11 +397,10 @@ private fun ReceiveDialog(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     listOf(1, 2, 5, 10).forEach { preset ->
-                        FilterChip(
+                        FilterPill(
                             selected = quantity == preset.toString(),
                             onClick = { quantity = preset.toString() },
-                            label = { Text("+$preset") },
-                            shape = MaterialTheme.shapes.small
+                            label = { Text("+$preset") }
                         )
                     }
                 }
@@ -476,17 +482,15 @@ private fun CloseContainerDialog(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(
+                    FilterPill(
                         selected = reason == ContainerCloseReason.EMPTIED,
                         onClick = { reason = ContainerCloseReason.EMPTIED },
-                        label = { Text("Leer") },
-                        shape = MaterialTheme.shapes.small
+                        label = { Text("Leer") }
                     )
-                    FilterChip(
+                    FilterPill(
                         selected = reason == ContainerCloseReason.SPOILED,
                         onClick = { reason = ContainerCloseReason.SPOILED },
-                        label = { Text("Kaputt / verdorben") },
-                        shape = MaterialTheme.shapes.small
+                        label = { Text("Kaputt / verdorben") }
                     )
                 }
 
@@ -539,13 +543,14 @@ private fun EntryHistory(entries: List<StockEntry>, modifier: Modifier = Modifie
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(Spacing.lg),
+        contentPadding = PaddingValues(start = Spacing.lg, top = Spacing.lg, end = Spacing.lg, bottom = Spacing.fabClearance),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         items(entries, key = { it.id }) { entry ->
             Surface(
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = hairline(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -568,7 +573,7 @@ private fun EntryHistory(entries: List<StockEntry>, modifier: Modifier = Modifie
                         Text(
                             text = Quantity.formatSigned(entry.quantity),
                             style = MoneySmall,
-                            color = if (entry.quantity >= 0) MaterialTheme.colorScheme.primary
+                            color = if (entry.quantity >= 0) MaterialTheme.colorScheme.onSurface
                             else MaterialTheme.colorScheme.error
                         )
                         entry.totalCost?.let { MoneyText(amount = it, style = MoneySmall) }

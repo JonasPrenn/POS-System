@@ -1,6 +1,9 @@
 package com.example.vereins_kassensystem.ui.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,10 +35,9 @@ fun StatTile(
     value: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
     contentColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
-    StatTileFrame(modifier, containerColor, contentColor, icon, label) {
+    StatTileFrame(modifier, contentColor, icon, label) {
         Text(
             text = value,
             style = MoneyMedium,
@@ -53,14 +55,14 @@ fun MoneyStatTile(
     amount: Double,
     icon: ImageVector,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
     contentColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
-    StatTileFrame(modifier, containerColor, contentColor, icon, label) {
+    StatTileFrame(modifier, contentColor, icon, label) {
         MoneyText(
             amount = amount,
             style = MoneyMedium,
-            color = contentColor
+            // Null ist kein Geld: Ein leerer Tag steht neutral, nicht grün.
+            color = if (amount == 0.0) MaterialTheme.colorScheme.onSurface else contentColor
         )
     }
 }
@@ -68,34 +70,38 @@ fun MoneyStatTile(
 @Composable
 private fun StatTileFrame(
     modifier: Modifier,
-    containerColor: Color,
     contentColor: Color,
     icon: ImageVector,
     label: String,
     value: @Composable () -> Unit
 ) {
+    // Kassen-Standard: Die Kennzahl steht auf einer weißen Fläche. Ihre Bedeutung trägt die
+    // Zahl selbst (grün Geld, Messing Deckel, Blau Karte); der Rahmen bleibt neutral.
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = containerColor,
-        contentColor = contentColor
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = contentColor,
+        border = hairline()
     ) {
         Column(modifier = Modifier.padding(Spacing.lg)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null, // the label below already names it
-                modifier = Modifier.size(20.dp),
-                tint = contentColor.copy(alpha = 0.75f)
-            )
-            Spacer(Modifier.height(Spacing.md))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = contentColor.copy(alpha = 0.75f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.height(Spacing.xs))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null, // the label beside it already names it
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.height(Spacing.sm))
             value()
         }
     }

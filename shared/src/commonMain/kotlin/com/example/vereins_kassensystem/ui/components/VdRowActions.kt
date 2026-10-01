@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.example.vereins_kassensystem.ui.theme.Pill
 import com.example.vereins_kassensystem.ui.theme.TouchTarget
 import com.example.vereins_kassensystem.ui.icons.VdIcons
 
@@ -42,7 +43,7 @@ fun VdIconAction(
     FilledTonalIconButton(
         onClick = onClick,
         modifier = modifier.size(TouchTarget.min),
-        shape = MaterialTheme.shapes.small,
+        shape = Pill,
         colors = IconButtonDefaults.filledTonalIconButtonColors(
             containerColor = containerColor,
             contentColor = contentColor

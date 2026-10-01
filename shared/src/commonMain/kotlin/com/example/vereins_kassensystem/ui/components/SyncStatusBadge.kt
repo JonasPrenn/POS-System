@@ -94,7 +94,7 @@ fun SyncStatusLine(status: SyncStatus, modifier: Modifier = Modifier) {
     if (!look.attention && status.pending == 0) return
     Surface(
         modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = describe(status, look) },
-        color = if (look.attention) VereinsColors.warningContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = if (look.attention) VereinsColors.warningContainer else MaterialTheme.colorScheme.surfaceContainer,
         contentColor = if (look.attention) VereinsColors.onWarningContainer else MaterialTheme.colorScheme.onSurfaceVariant
     ) {
         Row(

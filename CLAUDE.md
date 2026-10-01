@@ -50,7 +50,11 @@ Diese sind getroffen und begründet. Nicht ohne Anlass neu aufrollen.
 
 **Farbe bedeutet etwas.** Grün ist Geld und Bestätigung. Messing ist der Deckel. Blau ist
 Karte und Auswertung. Bernstein ist Aufmerksamkeit. Rot ist Zerstörung und Fehlschlag —
-und sonst nichts, nie. Die Vereinsfarbe färbt Navigation, Kopfzeile und
+und sonst nichts, nie. Alles andere steht in Tinte: der alltägliche Hauptknopf, die Auswahl,
+der Fokus (`primary` ist Tinte; Grün kommt über `VereinsColors.money` und
+`moneyButtonColors()`). Das Bild dazu ist seit dem 1. Oktober 2026 der Kassen-Standard mit
+SumUp als Maßstab — weiße Flächen mit Haarlinie auf warmem Hellgrau, Knöpfe als Pillen,
+Systemschrift; Begründung und Token in `DESIGN.md`. Die Vereinsfarbe färbt Navigation, Kopfzeile und
 Mitglieder-Symbole und hält sich von allem anderen fern, weil ein roter Verein sonst
 Zahlungen in derselben Farbe bestätigen würde, in der die App Fehler meldet.
 
