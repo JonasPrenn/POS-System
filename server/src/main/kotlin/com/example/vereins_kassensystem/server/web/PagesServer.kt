@@ -114,6 +114,11 @@ internal fun Route.serverPages(directory: TenantDirectory) = route("/system") {
                         if (directory.minAppVersion == TenantDirectory.NO_MINIMUM) "Gespeichert: Alle Versionen der App dürfen kassieren."
                         else "Gespeichert: Tablets unter ${directory.minAppVersion} sperren sich beim nächsten Abgleich."
                     }
+                    "adresse" -> {
+                        directory.setPublicUrl(form["adresse"].orEmpty())
+                        system.audit.record(ctx.user, "settings.save", detail = "Adresse von außen: ${directory.publicUrl ?: "aus der Anfrage"}")
+                        "Gespeichert."
+                    }
                     "update" -> {
                         when (form["aktion"]) {
                             "pruefen" -> { directory.updates.request("check"); system.audit.record(ctx.user, "update.check", detail = "Suche angestoßen") }
@@ -192,7 +197,7 @@ internal fun Route.serverPages(directory: TenantDirectory) = route("/system") {
 
 // ------------------------------------------------------------------ Seiten
 
-private fun HTML.serverShell(ctx: PageContext, title: String, subtitle: String, content: FlowContent.() -> Unit) = document(title, vereinsfarbe = false) {
+private fun HTML.serverShell(ctx: PageContext, title: String, subtitle: String, content: FlowContent.() -> Unit) = document(title, farbe = null) {
     div("app") {
         nav("side") {
             attributes["aria-label"] = "Systemverwaltung"
@@ -302,9 +307,18 @@ private fun HTML.serverPage(ctx: PageContext, directory: TenantDirectory, system
                             h2("title-m") { +"Mindestversion der App" }
                             if (directory.minAppVersion == TenantDirectory.NO_MINIMUM) chip("alle Versionen", "neutral") else chip("ab ${directory.minAppVersion}", "warn")
                         }
-                        p("muted") { +"Ein Tablet mit einer älteren App lässt sich nicht mehr bedienen, bis die App aktualisiert ist; sein Abgleich läuft weiter, nichts geht verloren. Die Sperre kennen Apps ab diesem Stand — ältere arbeiten unabhängig davon weiter, deshalb bleibt der Server zu ihnen kompatibel. 0.0.0 heißt: alle Versionen." }
+                        p("muted") { +"Ein Tablet mit einer älteren App lässt sich nicht mehr bedienen, bis die App aktualisiert ist; sein Abgleich läuft weiter, nichts geht verloren. Die Sperre kennen Apps ab 1.3.0 — ältere arbeiten unabhängig davon weiter, deshalb bleibt der Server zu ihnen kompatibel. 0.0.0 heißt: alle Versionen; 1.3.0 verlangt, dass jedes Tablet die Sperre kennt." }
                         label("field") { span { +"Mindestversion, etwa 1.3.0" }; input(InputType.text, name = "version") { value = directory.minAppVersion; required = true; maxLength = "10"; attributes["inputmode"] = "decimal" } }
                         p("cap") { +"Dieser Server: Version ${AppVersion.LABEL}." }
+                        div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+                    }
+                }
+                panel {
+                    postForm(ctx, SYSTEM_BASE, "panel-body stack-tight") {
+                        hiddenInput(name = "teil") { value = "adresse" }
+                        h2("title-m") { +"Adresse von außen" }
+                        p("muted") { +"Unter dieser Adresse erreichen Mitglieder ihren Deckel und SumUp den Server — für Anmeldelinks, die Rückkehr vom Bezahlen und die Bestätigung einer Zahlung. Leer: aus der Anfrage abgeleitet, was hinter einem Proxy meist stimmt." }
+                        label("field") { span { +"Adresse, etwa https://deckel.example.at" }; input(InputType.url, name = "adresse") { value = directory.publicUrl.orEmpty(); attributes["autocomplete"] = "off" } }
                         div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
                     }
                 }
@@ -346,7 +360,7 @@ private fun HTML.serverPage(ctx: PageContext, directory: TenantDirectory, system
         }
     }
 
-private fun HTML.unavailablePage(problem: String?) = document("Systemverwaltung", vereinsfarbe = false) {
+private fun HTML.unavailablePage(problem: String?) = document("Systemverwaltung", farbe = null) {
     div("gate") {
         panel("gate-card") {
             div("brand") {
@@ -360,7 +374,7 @@ private fun HTML.unavailablePage(problem: String?) = document("Systemverwaltung"
     }
 }
 
-private fun HTML.systemSetupPage(problem: String?, name: String = "", login: String = "") = document("Systemverwaltung einrichten", vereinsfarbe = false) {
+private fun HTML.systemSetupPage(problem: String?, name: String = "", login: String = "") = document("Systemverwaltung einrichten", farbe = null) {
     div("gate") {
         panel("gate-card") {
             div("brand") {

@@ -9,6 +9,11 @@ import com.example.vereins_kassensystem.sync.RegisterRequest
 import com.example.vereins_kassensystem.sync.RegisterResponse
 import com.example.vereins_kassensystem.sync.WireJson
 import com.example.vereins_kassensystem.server.http.module
+import com.example.vereins_kassensystem.server.payments.Checkout
+import com.example.vereins_kassensystem.server.payments.CheckoutRequest
+import com.example.vereins_kassensystem.server.payments.OnlinePayments
+import com.example.vereins_kassensystem.server.payments.PaymentAccount
+import com.example.vereins_kassensystem.server.payments.PaymentProblem
 import com.example.vereins_kassensystem.server.tenancy.Databases
 import com.example.vereins_kassensystem.server.tenancy.TenantDirectory
 import com.example.vereins_kassensystem.server.web.FakeMailbox
@@ -80,7 +85,51 @@ val SCHEMA_VERSION: String by lazy {
 }
 
 /** [db] ist die Datenbank des ersten Vereins — die von vor den Vereinen. */
-class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer, val mailbox: FakeMailbox, val directory: TenantDirectory)
+class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer, val mailbox: FakeMailbox, val directory: TenantDirectory, val payments: FakePayments)
+
+/**
+ * SumUp, nachgebaut: legt Checkouts an, kennt genau einen gültigen Schlüssel, und der Test
+ * entscheidet, wann bezahlt ist ([pay]) — oder dass SumUp gerade nicht antwortet ([down]).
+ */
+class FakePayments : OnlinePayments {
+    val created = java.util.concurrent.CopyOnWriteArrayList<CheckoutRequest>()
+    val checkouts = java.util.concurrent.ConcurrentHashMap<String, Checkout>()
+    var methods = listOf("apple_pay", "google_pay")
+    @Volatile var down = false
+
+    private fun check(account: PaymentAccount) {
+        if (down) throw PaymentProblem("SumUp ist gerade nicht erreichbar.", retry = true)
+        if (account.apiKey != KEY) throw PaymentProblem("SumUp kennt diesen API-Schlüssel nicht.")
+    }
+
+    override fun create(account: PaymentAccount, request: CheckoutRequest): Checkout {
+        check(account)
+        val id = "chk-${checkouts.size + 1}"
+        created += request
+        return Checkout(id, request.reference.toString(), Checkout.Status.PENDING, request.amount, "EUR", account.merchantCode, "https://checkout.sumup.com/pay/$id", null)
+            .also { checkouts[id] = it }
+    }
+
+    override fun fetch(account: PaymentAccount, checkoutId: String): Checkout {
+        check(account)
+        return checkouts[checkoutId] ?: throw PaymentProblem("SumUp kennt diesen Checkout nicht.")
+    }
+
+    override fun methods(account: PaymentAccount): List<String> {
+        check(account)
+        return methods
+    }
+
+    /** Das Mitglied hat bezahlt — oder SumUp meldet etwas anderes, als angelegt war. */
+    fun pay(checkoutId: String, amount: java.math.BigDecimal? = null, status: Checkout.Status = Checkout.Status.PAID) {
+        val c = checkouts.getValue(checkoutId)
+        checkouts[checkoutId] = Checkout(c.id, c.reference, status, amount ?: c.amount, c.currency, c.merchantCode, c.payUrl, "TX42")
+    }
+
+    companion object {
+        const val KEY = "sup_sk_test_schluessel"
+    }
+}
 
 /** Startet den Dienst wie in Main.kt, nur ohne Netz, und räumt danach auf. */
 fun serverTest(insecureCookies: Boolean = false, updatesDir: java.nio.file.Path? = null, withSystem: Boolean = true, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
@@ -97,14 +146,15 @@ fun serverTest(insecureCookies: Boolean = false, updatesDir: java.nio.file.Path?
     )
     val outbox = OutboxMailer()
     val mailbox = FakeMailbox()
-    val directory = TenantDirectory.open(config, db, if (withSystem) TestPostgres.databases(name) else TestPostgres.withoutCreate(name), outbox, mailbox)
+    val payments = FakePayments()
+    val directory = TenantDirectory.open(config, db, if (withSystem) TestPostgres.databases(name) else TestPostgres.withoutCreate(name), outbox, mailbox, payments)
     // Ohne den Zehn-Minuten-Abruf: Der Test ruft den Posteingang selbst ab.
     application { module(config, directory, pollMailbox = false) }
     val client = createClient {
         install(ContentNegotiation) { json(WireJson) }
     }
     try {
-        block(TestContext(db, client, outbox, mailbox, directory))
+        block(TestContext(db, client, outbox, mailbox, directory, payments))
     } finally {
         directory.close()
         db.close()

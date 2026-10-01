@@ -109,8 +109,12 @@ object Stylesheet {
     val version: String = java.security.MessageDigest.getInstance("SHA-256").digest(css.toByteArray()).take(6).joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
 }
 
-/** [vereinsfarbe] aus: Die Systemverwaltung gehört keinem Verein und trägt die Farbe des Produkts. */
-fun HTML.document(pageTitle: String, vereinsfarbe: Boolean = true, content: FlowContent.() -> Unit) {
+/**
+ * [farbe]: das Blatt mit der Vereinsfarbe — in der Verwaltung das des angemeldeten Vereins, auf
+ * dem Deckel für Mitglieder das des Vereins aus der Adresse; null für die Systemverwaltung, die
+ * keinem Verein gehört und die Farbe des Produkts trägt.
+ */
+fun HTML.document(pageTitle: String, farbe: String? = "$BASE/assets/verein.css", content: FlowContent.() -> Unit) {
     lang = "de"
     head {
         meta(charset = "utf-8")
@@ -118,7 +122,7 @@ fun HTML.document(pageTitle: String, vereinsfarbe: Boolean = true, content: Flow
         meta(name = "robots", content = "noindex")
         title("$pageTitle · VereinsDeckel")
         link(rel = "stylesheet", href = "$BASE/assets/app.css?v=${Stylesheet.version}")
-        if (vereinsfarbe) link(rel = "stylesheet", href = "$BASE/assets/verein.css")
+        farbe?.let { link(rel = "stylesheet", href = it) }
         link(rel = "icon", href = "$BASE/assets/icon.svg", type = "image/svg+xml")
     }
     body { content() }

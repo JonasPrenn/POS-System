@@ -269,6 +269,16 @@ class BankAccount(val holder: String, val iban: String, val bic: String) {
     val configured get() = iban.isNotBlank() && holder.isNotBlank()
 }
 
+/**
+ * Online aufladen: ob Mitglieder es dürfen, das SumUp-Konto dafür (API-Schlüssel und Händlercode —
+ * nicht der Schlüssel fürs Terminal, und anders als der nie auf den Tablets), die Beträge, und was
+ * SumUp beim letzten Prüfen außer der Karte freigeschaltet hatte.
+ */
+class OnlineTopUp(val enabled: Boolean, val apiKey: String, val merchantCode: String, val presets: List<Int>, val min: Int, val max: Int, val methods: List<String>) {
+    val configured get() = apiKey.isNotBlank() && merchantCode.isNotBlank()
+    val usable get() = enabled && configured
+}
+
 /** Was der Verein über sich einstellt: Name, Farbe, Anschrift, Rechnungsjahr, Bank, E-Mail. */
 class VereinSettings(private val db: Database, private val fallbackName: () -> String = { "" }) {
 
@@ -277,6 +287,7 @@ class VereinSettings(private val db: Database, private val fallbackName: () -> S
         val bank: BankAccount, val smtp: Smtp, val statementText: String,
         val imap: Imap = Imap("", 993, "", "", "INBOX", false), val mailLastPoll: Instant? = null, val mailLastError: String? = null,
         val sumUpKey: String = "", val tabletBackup: Boolean = false,
+        val online: OnlineTopUp = OnlineTopUp(false, "", "", DEFAULT_PRESETS, DEFAULT_MIN, DEFAULT_MAX, emptyList()),
     )
 
     fun load(): Values = db.transaction { c ->
@@ -293,6 +304,12 @@ class VereinSettings(private val db: Database, private val fallbackName: () -> S
             imap = Imap(all[IMAP_HOST].orEmpty(), all[IMAP_PORT]?.toIntOrNull() ?: 993, all[IMAP_USER].orEmpty(), all[IMAP_PASSWORD].orEmpty(), all[IMAP_FOLDER].orEmpty().ifBlank { "INBOX" }, all[IMAP_ENABLED] == "1"),
             mailLastPoll = all[MAIL_LAST_POLL]?.let { runCatching { Instant.parse(it) }.getOrNull() }, mailLastError = all[MAIL_LAST_ERROR]?.takeIf { it.isNotBlank() },
             sumUpKey = all[SUMUP_KEY].orEmpty(), tabletBackup = all[TABLET_BACKUP] == "1",
+            online = OnlineTopUp(
+                enabled = all[ONLINE_ENABLED] == "1", apiKey = all[ONLINE_API_KEY].orEmpty(), merchantCode = all[ONLINE_MERCHANT].orEmpty(),
+                presets = all[ONLINE_PRESETS]?.let(::amounts)?.takeIf { it.isNotEmpty() } ?: DEFAULT_PRESETS,
+                min = all[ONLINE_MIN]?.toIntOrNull() ?: DEFAULT_MIN, max = all[ONLINE_MAX]?.toIntOrNull() ?: DEFAULT_MAX,
+                methods = all[ONLINE_METHODS].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
+            ),
         )
     }
 
@@ -321,6 +338,26 @@ class VereinSettings(private val db: Database, private val fallbackName: () -> S
         if (enabled && host.isBlank()) throw AccountProblem("Zum Abrufen braucht es einen IMAP-Server.")
         put(IMAP_HOST to host.trim(), IMAP_PORT to port.toString(), IMAP_USER to user.trim(), IMAP_FOLDER to folder.trim().ifBlank { "INBOX" }, IMAP_ENABLED to if (enabled) "1" else "0")
         if (!password.isNullOrEmpty()) put(IMAP_PASSWORD to password)
+    }
+
+    /**
+     * Online aufladen. Der Schlüssel bleibt, wenn das Feld leer abgeschickt wird; [methods] ist,
+     * was SumUp beim Prüfen gemeldet hat — geprüft wird vorher, im Aufrufer, gegen SumUp selbst.
+     */
+    fun saveOnline(enabled: Boolean, apiKey: String?, removeKey: Boolean, merchantCode: String, presets: String, min: Int, max: Int, methods: List<String>?) {
+        val parsed = amounts(presets)
+        if (parsed.isEmpty()) throw AccountProblem("Mindestens einen Betrag angeben, etwa 10, 20, 50.")
+        if (min < 1 || max > 1000 || min > max) throw AccountProblem("Mindest- und Höchstbetrag: zwischen 1 und 1000 €, der kleinere zuerst.")
+        if (parsed.any { it < min || it > max }) throw AccountProblem("Die Beträge müssen zwischen $min und $max € liegen.")
+        put(
+            ONLINE_ENABLED to if (enabled) "1" else "0", ONLINE_MERCHANT to merchantCode.trim().uppercase(),
+            ONLINE_PRESETS to parsed.joinToString(","), ONLINE_MIN to min.toString(), ONLINE_MAX to max.toString(),
+        )
+        when {
+            removeKey -> put(ONLINE_API_KEY to "", ONLINE_METHODS to "")
+            !apiKey.isNullOrBlank() -> put(ONLINE_API_KEY to apiKey.trim())
+        }
+        if (methods != null) put(ONLINE_METHODS to methods.joinToString(","))
     }
 
     /** Wann zuletzt abgerufen wurde und ob es gut ging — für die Seite, nicht fürs Protokoll. */
@@ -402,6 +439,20 @@ class VereinSettings(private val db: Database, private val fallbackName: () -> S
         private const val MAIL_LAST_ERROR = "mail_last_error"
         private const val SUMUP_KEY = "sumup_affiliate_key"
         private const val TABLET_BACKUP = "tablet_auto_backup"
+        private const val ONLINE_ENABLED = "online_enabled"
+        private const val ONLINE_API_KEY = "sumup_api_key"
+        private const val ONLINE_MERCHANT = "sumup_merchant_code"
+        private const val ONLINE_PRESETS = "online_presets"
+        private const val ONLINE_MIN = "online_min"
+        private const val ONLINE_MAX = "online_max"
+        private const val ONLINE_METHODS = "sumup_methods"
+        val DEFAULT_PRESETS = listOf(10, 20, 50)
+        const val DEFAULT_MIN = 5
+        const val DEFAULT_MAX = 200
+
+        /** „10, 20, 50“ → [10, 20, 50]; ganze Euro, doppelt nur einmal, aufsteigend. */
+        fun amounts(text: String): List<Int> = text.split(',', ';', ' ').mapNotNull { it.trim().removeSuffix("€").trim().toIntOrNull() }.filter { it > 0 }.distinct().sorted()
+
         /** Gleich benannt in der App (SettingsRepository) — dort sperrt sie sich darunter. */
         const val MIN_APP_VERSION = "min_app_version"
         const val NO_MIN_APP_VERSION = com.example.vereins_kassensystem.MinimumVersion.NONE
