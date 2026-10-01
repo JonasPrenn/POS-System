@@ -123,6 +123,16 @@ class DeviceStore(private val db: Database, private val codeTtl: Duration) {
         return DevicePrincipal(parsed.deviceId, label)
     }
 
+    /** Steht das Gerät in dieser Datenbank? Für die Suche nach dem Verein eines Geräts ohne gespeicherten Weg. */
+    fun knows(deviceId: UUID): Boolean = db.transaction { c -> c.queryOne("SELECT 1 FROM devices WHERE id = ?", deviceId) { true } ?: false }
+
+    /** Hat dieser Verein den Code je erzeugt — offen, verbraucht oder abgelaufen? [hash] wie in `pairing_codes.code_hash`. */
+    fun knowsCode(hash: String): Boolean = db.transaction { c -> c.queryOne("SELECT 1 FROM pairing_codes WHERE code_hash = ?", hash) { true } ?: false }
+
+    fun hasOpenCode(hash: String, now: Instant = Instant.now()): Boolean = db.transaction { c ->
+        c.queryOne("SELECT 1 FROM pairing_codes WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?", hash, now.atOffset(ZoneOffset.UTC)) { true } ?: false
+    }
+
     /** Merkt sich, wann das Gerät zuletzt da war und bis wohin es gelesen hat. */
     fun touch(deviceId: UUID, ackSeq: Long? = null) {
         db.transaction { c ->

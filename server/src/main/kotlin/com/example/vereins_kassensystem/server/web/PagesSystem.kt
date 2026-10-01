@@ -50,8 +50,8 @@ private class FreshCodes {
     fun take(csrf: String): Fresh? = bySession.remove(csrf)?.takeIf { it.until.isAfter(java.time.Instant.now()) }
 }
 
-private val ACTIONS = mapOf(
-    "login" to "Angemeldet", "login.failed" to "Anmeldung fehlgeschlagen",
+internal val ACTIONS = mapOf(
+    "login" to "Angemeldet", "login.failed" to "Anmeldung fehlgeschlagen", "login.test" to "Testanmeldung", "verein.create" to "Verein angelegt", "verein.update" to "Verein geändert", "support.login" to "Testanmeldung in einem Verein", "minversion.set" to "Mindestversion der App gesetzt",
     "device.code" to "Kopplungscode erzeugt", "device.register" to "Gerät gekoppelt", "device.revoke" to "Gerät gesperrt",
     "user.create" to "Benutzer angelegt", "user.update" to "Benutzer geändert", "user.password" to "Passwort gesetzt",
     "settings.save" to "Einstellungen geändert",
@@ -157,6 +157,8 @@ internal fun Route.systemPages(web: Web) {
                     "smtp" -> { web.settings.saveSmtp(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 587, form["benutzer"].orEmpty(), form["passwort"], form["absender"].orEmpty(), form["starttls"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Versand") }
                     "update" -> {
                         if (ctx.user.role != Role.ADMIN) return@guardedPost call.forbidden(ctx, "Updates sind Sache des Administrators.")
+                        // Mit Systemverwaltung gehören Updates dem Hauptadmin: Sie starten den Server für alle Vereine neu.
+                        if (ctx.withSystem) return@guardedPost call.forbidden(ctx, "Updates macht der Hauptadmin in der Systemverwaltung ($SYSTEM_BASE).")
                         when (form["aktion"]) {
                             "pruefen" -> { web.updates.request("check"); web.audit.record(ctx.user, "update.check", detail = "Suche angestoßen") }
                             "installieren" -> { web.updates.request("install"); web.audit.record(ctx.user, "update.install", detail = "Installation angestoßen: ${web.updates.status().latest ?: "?"}") }
@@ -167,9 +169,20 @@ internal fun Route.systemPages(web: Web) {
                             }
                         }
                     }
+                    "kuerzel" -> {
+                        if (ctx.user.role != Role.ADMIN) return@guardedPost call.forbidden(ctx, "Das Kürzel ändert die Anmeldung aller — das ist Sache des Administrators.")
+                        val before = web.tenant.info.slug
+                        web.directory.rename(web.tenant, slugText = form["kuerzel"].orEmpty())
+                        if (web.tenant.info.slug != before) web.audit.record(ctx.user, "settings.save", detail = "Kürzel: $before → ${web.tenant.info.slug}")
+                    }
                     "tablets" -> { web.settings.saveTablets(form["sumup"], form["sumup_entfernen"] == "1", form["sicherung"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "Tablets: SumUp-Schlüssel und Sicherung") }
                     "imap" -> { web.settings.saveImap(form["host"].orEmpty(), form["port"]?.toIntOrNull() ?: 993, form["benutzer"].orEmpty(), form["passwort"], form["ordner"].orEmpty(), form["aktiv"] == "1"); web.audit.record(ctx.user, "settings.save", detail = "E-Mail-Empfang") }
-                    else -> { web.settings.save(form["name"].orEmpty(), form["farbe"].orEmpty(), form["monat"]?.toIntOrNull() ?: 1, form["anschrift"].orEmpty()); web.audit.record(ctx.user, "settings.save", detail = "Name, Vereinsfarbe, Rechnungsjahr, Anschrift") }
+                    else -> {
+                        web.settings.save(form["name"].orEmpty(), form["farbe"].orEmpty(), form["monat"]?.toIntOrNull() ?: 1, form["anschrift"].orEmpty())
+                        // Die Systemverwaltung führt den Verein unter seinem Namen.
+                        if (ctx.withSystem && form["name"].orEmpty().isNotBlank()) web.directory.rename(web.tenant, name = form["name"].orEmpty())
+                        web.audit.record(ctx.user, "settings.save", detail = "Name, Vereinsfarbe, Rechnungsjahr, Anschrift")
+                    }
                 }
                 "hinweis=" + "Gespeichert.".encodeURLParameter()
             } catch (e: AccountProblem) {
@@ -316,6 +329,7 @@ private fun HTML.usersPage(ctx: PageContext, users: List<WebUser>, notice: Strin
                 panel {
                     div("panel-body") {
                         h2("title-m") { +"Zugang anlegen" }
+                        ctx.tenant?.takeIf { ctx.withSystem }?.let { p("cap") { +"Angemeldet wird mit Anmeldename@${it.slug}." } }
                         postForm(ctx, "$BASE/benutzer", "stack-tight") {
                             label("field") { span { +"Name" }; input(InputType.text, name = "name") { required = true } }
                             label("field") { span { +"Anmeldename" }; input(InputType.text, name = "login") { required = true; attributes["autocomplete"] = "off" } }
@@ -340,8 +354,7 @@ private fun HTML.usersPage(ctx: PageContext, users: List<WebUser>, notice: Strin
  * Updates aus dem Git-Repo (Betrieb): was läuft, was im Repo ist, und was der Updater davon
  * halten soll. Nur für den Administrator — es startet den Dienst neu.
  */
-private fun FlowContent.updatesPanel(ctx: PageContext, web: Web) = panel {
-    val updates = web.updates
+internal fun FlowContent.updatesPanel(csrf: String, action: String, updates: Updates) = panel {
     val status = updates.status()
     val settings = updates.settings()
     val available = updates.updateAvailable(status)
@@ -366,13 +379,13 @@ private fun FlowContent.updatesPanel(ctx: PageContext, web: Web) = panel {
         }
         if (status.state == "failed" && status.log.isNotBlank()) pre("cap") { +status.log.takeLast(1200) }
         div("row wrap") {
-            postForm(ctx, "$BASE/einstellungen") { hiddenInput(name = "teil") { value = "update" }; hiddenInput(name = "aktion") { value = "pruefen" }; button(type = ButtonType.submit, classes = "btn") { icon("search", "m"); +"Jetzt suchen" } }
-            if (available && status.state != "installing") postForm(ctx, "$BASE/einstellungen") { hiddenInput(name = "teil") { value = "update" }; hiddenInput(name = "aktion") { value = "installieren" }; button(type = ButtonType.submit, classes = "btn btn-primary") { icon("upload", "m"); +"Jetzt installieren" } }
+            postForm(csrf, action) { hiddenInput(name = "teil") { value = "update" }; hiddenInput(name = "aktion") { value = "pruefen" }; button(type = ButtonType.submit, classes = "btn") { icon("search", "m"); +"Jetzt suchen" } }
+            if (available && status.state != "installing") postForm(csrf, action) { hiddenInput(name = "teil") { value = "update" }; hiddenInput(name = "aktion") { value = "installieren" }; button(type = ButtonType.submit, classes = "btn btn-primary") { icon("upload", "m"); +"Jetzt installieren" } }
         }
         if (available) p("cap") { +"Installieren holt den Stand, baut den Dienst neu und startet ihn — ein paar Minuten, in denen die Verwaltung nicht antwortet. Die Tablets merken nur eine Pause im Abgleich; Datenbank und Belegfotos bleiben." }
         }
     }
-    if (updates.available) postForm(ctx, "$BASE/einstellungen", "panel-body stack-tight") {
+    if (updates.available) postForm(csrf, action, "panel-body stack-tight") {
         hiddenInput(name = "teil") { value = "update" }
         span("label-m") { +"Von selbst" }
         for (mode in Updates.Mode.entries) label("check") {
@@ -383,6 +396,21 @@ private fun FlowContent.updatesPanel(ctx: PageContext, web: Web) = panel {
             span { +"Abstand der Suche" }
             select { name = "abstand"; for ((minutes, text) in listOf(15 to "alle 15 Minuten", 60 to "stündlich", 360 to "alle 6 Stunden", 1440 to "täglich", 10080 to "wöchentlich")) option { value = "$minutes"; if (minutes == settings.intervalMinutes) selected = true; +text } }
         }
+        div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
+    }
+}
+
+/** Das Kürzel des Vereins: Es steht bei der Anmeldung hinter dem @ und ist auf dem Server einmalig. */
+private fun FlowContent.kuerzelPanel(ctx: PageContext) = panel {
+    val slug = ctx.tenant?.slug.orEmpty()
+    postForm(ctx, "$BASE/einstellungen", "panel-body") {
+        hiddenInput(name = "teil") { value = "kuerzel" }
+        h2("title-m") { +"Anmeldung: Kürzel des Vereins" }
+        p("muted") { +"Steht bei der Anmeldung hinter dem @, etwa ${ctx.user.login}@$slug. Jedes Kürzel gibt es auf diesem Server nur einmal; Anmeldenamen müssen dafür nur in diesem Verein eindeutig sein. Wer es ändert, ändert die Anmeldung aller — vorher Bescheid sagen." }
+        div("form-grid") {
+            label("field") { span { +"Kürzel: Kleinbuchstaben, Ziffern, Bindestrich" }; input(InputType.text, name = "kuerzel") { value = slug; maxLength = "30"; required = true; attributes["autocomplete"] = "off" } }
+        }
+        p("cap") { +"Testanmeldung: Mit ${ctx.user.login}#anmeldename@$slug und dem eigenen Passwort zeigt die Verwaltung, was dieser Zugang sieht. Jede Testanmeldung steht im Protokoll." }
         div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
     }
 }
@@ -474,11 +502,12 @@ private fun HTML.settingsPage(ctx: PageContext, web: Web, notice: String?, probl
                 div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }
             }
         }
-        if (ctx.user.role == Role.ADMIN) updatesPanel(ctx, web)
+        if (ctx.user.role == Role.ADMIN && ctx.withSystem) kuerzelPanel(ctx)
+        if (ctx.user.role == Role.ADMIN && !ctx.withSystem) updatesPanel(ctx.session.csrf, "$BASE/einstellungen", web.updates)
         panel {
             div("panel-body") {
                 h2("title-m") { +"Server" }
-                p("muted") { +"Version ${AppVersion.LABEL} · Stand ${web.updates.runningVersion}${web.updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()} · Zeitzone ${ctx.zone.id} · Serverzeit ${ctx.now.atOffset(ZoneOffset.UTC).toLocalTime().withNano(0)} UTC. Sicherung und Zertifikat sind Sache des Betriebs; die Anleitung steht in server/README.md." }
+                p("muted") { +"Version ${AppVersion.LABEL} · Stand ${web.updates.runningVersion}${web.updates.runningDate.takeIf { it.isNotBlank() }?.let { " vom ${it.take(10)}" }.orEmpty()} · Zeitzone ${ctx.zone.id} · Serverzeit ${ctx.now.atOffset(ZoneOffset.UTC).toLocalTime().withNano(0)} UTC. Sicherung und Zertifikat sind Sache des Betriebs; die Anleitung steht in server/README.md.${if (ctx.withSystem) " Updates, weitere Vereine und die Mindestversion der App: in der Systemverwaltung unter $SYSTEM_BASE, für den Hauptadmin." else ""}" }
             }
         }
     }

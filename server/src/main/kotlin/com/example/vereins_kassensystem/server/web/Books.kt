@@ -207,7 +207,7 @@ class Books(private val db: Database, private val zone: ZoneId) {
         db.transaction { c ->
             if (value == null) c.execute("DELETE FROM settings WHERE key = ?", "books.bank.$year")
             else c.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", "books.bank.$year", Money.cents(value).toString())
-            AuditLog.record(c, by.id, by.displayName, "books.bank", year.toString(), value?.let(::euro) ?: "gelöscht")
+            AuditLog.record(c, by.id, by.actor, "books.bank", year.toString(), value?.let(::euro) ?: "gelöscht")
         }
     }
 

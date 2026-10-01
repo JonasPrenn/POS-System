@@ -49,7 +49,8 @@ import java.util.Locale
 
 // ------------------------------------------------------ Anmeldung und Einrichtung
 
-fun HTML.loginPage(problem: String?, login: String, target: String?, notice: String? = null) = document("Anmelden") {
+/** [kuerzel]: Gibt es mehr als einen Verein, sagt die Seite, wie man den eigenen angibt. */
+fun HTML.loginPage(problem: String?, login: String, target: String?, notice: String? = null, kuerzel: Boolean = false, hint: String? = null) = document("Anmelden") {
     div("gate") {
         panel("gate-card") {
             div("brand") {
@@ -60,12 +61,14 @@ fun HTML.loginPage(problem: String?, login: String, target: String?, notice: Str
                 }
             }
             notice?.let { div("note note-ok") { icon("check", "m"); span { +it } } }
+            hint?.let { div("note") { span { +it } } }
             problem?.let { div("note note-error") { icon("alert", "m"); span { +it } } }
             form(action = "$BASE/anmelden", method = FormMethod.post) {
                 target?.let { hiddenInput(name = "weiter") { value = it } }
                 label("field") {
                     span { +"Anmeldename" }
                     input(InputType.text, name = "login") { value = login; required = true; autoFocus = true; attributes["autocomplete"] = "username" }
+                    if (kuerzel) span("cap") { +"Mit dem Kürzel des Vereins dahinter, etwa kassier@clunia." }
                 }
                 label("field") {
                     span { +"Passwort" }
@@ -88,7 +91,7 @@ fun HTML.setupPage(problem: String?, name: String = "", login: String = "") = do
                     span("cap") { +"Einmalig: der erste Administrator" }
                 }
             }
-            p("muted") { +"Es gibt noch keinen Benutzer. Wer den Verwaltungsschlüssel des Servers kennt, legt hier den ersten an; danach ist diese Seite zu." }
+            p("muted") { +"Es gibt noch keinen Benutzer. Wer den Verwaltungsschlüssel des Servers kennt, legt hier den ersten an; danach ist diese Seite zu. Weitere Vereine, Updates und die Mindestversion der App kommen später in die Systemverwaltung unter $SYSTEM_BASE." }
             problem?.let { div("note note-error") { icon("alert", "m"); span { +it } } }
             form(action = "$BASE/einrichten", method = FormMethod.post) {
                 label("field") {

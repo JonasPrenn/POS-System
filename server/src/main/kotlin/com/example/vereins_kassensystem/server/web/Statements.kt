@@ -76,7 +76,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
                 """.trimIndent(),
                 memberId, number.trim().take(20), mail.take(120), address.trim().take(400), consent, notes.trim().take(1000)
             )
-            AuditLog.record(c, by.id, by.displayName, "profile.update", name, if (consent) "E-Mail-Versand erlaubt" else "kein E-Mail-Versand")
+            AuditLog.record(c, by.id, by.actor, "profile.update", name, if (consent) "E-Mail-Versand erlaubt" else "kein E-Mail-Versand")
         }
     }
 
@@ -137,7 +137,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
             val runId = UUID.fromString(Ids.new())
             c.execute(
                 "INSERT INTO statement_runs (id, label, period_from, period_to, due_date, threshold, extra_label, extra_amount, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                runId, label, Date.valueOf(request.from), Date.valueOf(request.to), Date.valueOf(request.dueDate), money(request.threshold), request.extraLabel.trim().take(80), money(request.extraAmount), by.displayName
+                runId, label, Date.valueOf(request.from), Date.valueOf(request.to), Date.valueOf(request.dueDate), money(request.threshold), request.extraLabel.trim().take(80), money(request.extraAmount), by.actor
             )
             val openings = balancesAt(c, request.from).associate { it.first.id to it.second }
             val closings = balancesAt(c, request.to.plusDays(1))
@@ -156,7 +156,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
                 created++
             }
             if (created == 0) throw AccountProblem("Niemand liegt unter der Schwelle — es gäbe keine einzige Abrechnung.")
-            AuditLog.record(c, by.id, by.displayName, "statement.run", label, "$created Abrechnungen, Zahlungsziel ${request.dueDate}")
+            AuditLog.record(c, by.id, by.actor, "statement.run", label, "$created Abrechnungen, Zahlungsziel ${request.dueDate}")
             c.queryOne("$RUN WHERE r.id = ?", runId) { it.run() }!!
         }
     }
@@ -197,12 +197,12 @@ class Statements(private val db: Database, private val writes: Writes, private v
 
     fun markSent(by: WebUser?, id: UUID, via: String, to: String, now: Instant = Instant.now()) = db.transaction { c ->
         c.execute("UPDATE statements SET sent_at = ?, sent_via = ?, sent_to = ? WHERE id = ? AND status = 'OPEN'", Timestamp.from(now), via, to.take(120), id)
-        if (by != null) AuditLog.record(c, by.id, by.displayName, "statement.sent", numberOf(c, id), if (via == "EMAIL") "per E-Mail an $to" else "gedruckt")
+        if (by != null) AuditLog.record(c, by.id, by.actor, "statement.sent", numberOf(c, id), if (via == "EMAIL") "per E-Mail an $to" else "gedruckt")
     }
 
     fun markReminded(by: WebUser, id: UUID, via: String, now: Instant = Instant.now()) = db.transaction { c ->
         c.execute("UPDATE statements SET reminded_at = ?, reminder_level = reminder_level + 1 WHERE id = ? AND status = 'OPEN'", Timestamp.from(now), id)
-        AuditLog.record(c, by.id, by.displayName, "statement.reminded", numberOf(c, id), via)
+        AuditLog.record(c, by.id, by.actor, "statement.reminded", numberOf(c, id), via)
     }
 
     fun cancel(by: WebUser, id: UUID, reason: String) {
@@ -211,7 +211,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
             val s = c.queryOne("SELECT * FROM statements WHERE id = ? FOR UPDATE", id) { it.statement() } ?: throw AccountProblem("Diese Abrechnung gibt es nicht.")
             if (s.status == StatementStatus.PAID) throw AccountProblem("Eine bezahlte Abrechnung wird nicht storniert; die Zahlung steht als Aufladung auf dem Deckel.")
             c.execute("UPDATE statements SET status = 'CANCELLED' WHERE id = ?", id)
-            AuditLog.record(c, by.id, by.displayName, "statement.cancelled", s.number, reason.trim().take(200))
+            AuditLog.record(c, by.id, by.actor, "statement.cancelled", s.number, reason.trim().take(200))
         }
     }
 
@@ -229,7 +229,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
         db.transaction { c ->
             c.execute("UPDATE statements SET status = 'PAID', paid_at = ?, payment_id = ? WHERE id = ?", Date.valueOf(paidAt), paymentId, s.id)
             if (bankId != null) c.execute("UPDATE bank_transactions SET status = 'MATCHED', statement_id = ?, payment_id = ? WHERE id = ?", s.id, paymentId, bankId)
-            AuditLog.record(c, by.id, by.displayName, "statement.paid", s.number, "${Money.format(amount)} ${kind.label}${if (kotlin.math.abs(amount - s.amount) > 0.005) " (gefordert ${Money.format(s.amount)})" else ""}")
+            AuditLog.record(c, by.id, by.actor, "statement.paid", s.number, "${Money.format(amount)} ${kind.label}${if (kotlin.math.abs(amount - s.amount) > 0.005) " (gefordert ${Money.format(s.amount)})" else ""}")
         }
         return booked
     }
@@ -286,7 +286,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
             val (amount, kind, at) = topUp
             val day = at.atZone(zone).toLocalDate()
             c.execute("UPDATE statements SET status = 'PAID', paid_at = ?, payment_id = ? WHERE id = ?", Date.valueOf(day), transactionId, s.id)
-            AuditLog.record(c, by.id, by.displayName, "statement.paid", s.number,
+            AuditLog.record(c, by.id, by.actor, "statement.paid", s.number,
                 "${Money.format(amount)} ${topUpKindLabel(kind)} — Aufladung vom ${day.dayOfMonth}.${day.monthValue}., keine neue Buchung${if (kotlin.math.abs(amount - s.amount) > 0.005) " (gefordert ${Money.format(s.amount)})" else ""}")
         }
     }
@@ -319,7 +319,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
             val inserted = db.transaction { c ->
                 c.execute(
                     "INSERT INTO bank_transactions (id, fingerprint, booking_date, amount, counterparty, reference, status, imported_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (fingerprint) DO NOTHING",
-                    id, row.fingerprint, Date.valueOf(row.date), money(row.amount), row.counterparty.take(140), row.reference.take(400), if (row.amount <= 0) "IGNORED" else "OPEN", by.displayName
+                    id, row.fingerprint, Date.valueOf(row.date), money(row.amount), row.counterparty.take(140), row.reference.take(400), if (row.amount <= 0) "IGNORED" else "OPEN", by.actor
                 ) > 0
             }
             if (!inserted) { duplicates++; continue }
@@ -328,7 +328,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
             val hit = open.values.firstOrNull { row.reference.uppercase().replace(" ", "").contains(it.number.replace(" ", "")) }
             if (hit != null && recordPayment(by, hit.id, row.amount, TopUpKind.BANK, row.date, id)) matched++
         }
-        db.transaction { c -> AuditLog.record(c, by.id, by.displayName, "bank.import", "", "$imported neu, $duplicates schon bekannt, $matched zugeordnet") }
+        db.transaction { c -> AuditLog.record(c, by.id, by.actor, "bank.import", "", "$imported neu, $duplicates schon bekannt, $matched zugeordnet") }
         return ImportResult(imported, duplicates, matched, ignored)
     }
 
@@ -339,7 +339,7 @@ class Statements(private val db: Database, private val writes: Writes, private v
 
     fun ignoreBank(by: WebUser, bankId: UUID) = db.transaction { c ->
         c.execute("UPDATE bank_transactions SET status = 'IGNORED' WHERE id = ? AND status = 'OPEN'", bankId)
-        AuditLog.record(c, by.id, by.displayName, "bank.ignored", bankId.toString().take(8))
+        AuditLog.record(c, by.id, by.actor, "bank.ignored", bankId.toString().take(8))
     }
 
     private fun numberOf(c: Connection, id: UUID) = c.queryOne("SELECT number FROM statements WHERE id = ?", id) { it.getString("number") } ?: ""

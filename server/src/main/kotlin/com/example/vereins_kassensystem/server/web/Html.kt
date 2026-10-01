@@ -1,5 +1,6 @@
 package com.example.vereins_kassensystem.server.web
 
+import com.example.vereins_kassensystem.server.tenancy.TenantInfo
 import com.example.vereins_kassensystem.ui.format.Money
 import kotlinx.html.ButtonType
 import kotlinx.html.FORM
@@ -35,8 +36,14 @@ import java.util.Locale
 
 const val BASE = "/verwaltung"
 
-/** Was jede Seite weiß: wer angemeldet ist, wie der Verein heißt, welche Zeit gilt. */
-class PageContext(val session: WebSession, val verein: VereinSettings.Values, val zone: ZoneId, val now: Instant) {
+/**
+ * Was jede Seite weiß: wer angemeldet ist, wie der Verein heißt, welche Zeit gilt — und unter
+ * welchem Kürzel er angemeldet wird ([tenant]); [withSystem], wenn es eine Systemverwaltung gibt.
+ */
+class PageContext(
+    val session: WebSession, val verein: VereinSettings.Values, val zone: ZoneId, val now: Instant,
+    val tenant: TenantInfo? = null, val withSystem: Boolean = false,
+) {
     val user get() = session.user
     val today: LocalDate get() = now.atZone(zone).toLocalDate()
 }
@@ -102,7 +109,8 @@ object Stylesheet {
     val version: String = java.security.MessageDigest.getInstance("SHA-256").digest(css.toByteArray()).take(6).joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
 }
 
-fun HTML.document(pageTitle: String, content: FlowContent.() -> Unit) {
+/** [vereinsfarbe] aus: Die Systemverwaltung gehört keinem Verein und trägt die Farbe des Produkts. */
+fun HTML.document(pageTitle: String, vereinsfarbe: Boolean = true, content: FlowContent.() -> Unit) {
     lang = "de"
     head {
         meta(charset = "utf-8")
@@ -110,7 +118,7 @@ fun HTML.document(pageTitle: String, content: FlowContent.() -> Unit) {
         meta(name = "robots", content = "noindex")
         title("$pageTitle · VereinsDeckel")
         link(rel = "stylesheet", href = "$BASE/assets/app.css?v=${Stylesheet.version}")
-        link(rel = "stylesheet", href = "$BASE/assets/verein.css")
+        if (vereinsfarbe) link(rel = "stylesheet", href = "$BASE/assets/verein.css")
         link(rel = "icon", href = "$BASE/assets/icon.svg", type = "image/svg+xml")
     }
     body { content() }
@@ -165,6 +173,13 @@ fun HTML.shell(
             }
         }
         main {
+            // Testanmeldung: unübersehbar, wer hier wirklich sitzt — Bernstein, weil es Aufmerksamkeit verdient, nicht weil etwas falsch ist.
+            ctx.user.via?.let { via ->
+                div("note note-warn") {
+                    icon("alert", "m")
+                    span { +"Testanmeldung: $via sieht die Verwaltung als ${ctx.user.displayName} (${role.label}). Was hier geschieht, steht unter beiden Namen im Protokoll." }
+                }
+            }
             div("page-head") {
                 div {
                     h1("headline") { +title }
@@ -270,9 +285,12 @@ fun FlowContent.bar(parts: List<Pair<Double, String>>, label: String, thin: Bool
 
 fun FORM.csrf(ctx: PageContext) = hiddenInput(name = "_csrf") { value = ctx.session.csrf }
 
-fun FlowContent.postForm(ctx: PageContext, action: String, extra: String = "", block: FORM.() -> Unit) =
+fun FlowContent.postForm(ctx: PageContext, action: String, extra: String = "", block: FORM.() -> Unit) = postForm(ctx.session.csrf, action, extra, block)
+
+/** Für Seiten ohne [PageContext] — die Systemverwaltung hat ihre eigene Sitzung. */
+fun FlowContent.postForm(csrf: String, action: String, extra: String = "", block: FORM.() -> Unit) =
     form(action = action, method = FormMethod.post, classes = extra.ifEmpty { null }) {
-        csrf(ctx)
+        hiddenInput(name = "_csrf") { value = csrf }
         block()
     }
 

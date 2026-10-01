@@ -2,6 +2,7 @@ package com.example.vereins_kassensystem.data
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.example.vereins_kassensystem.MinimumVersion
 import com.example.vereins_kassensystem.platform.SettingsStore
 import com.example.vereins_kassensystem.ui.theme.ClubIdentity
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
@@ -38,7 +39,8 @@ class SettingsRepository(private val store: SettingsStore) {
         val sumUpAffiliateKey: String,
         val apiBaseUrl: String?,
         val lastBackupAt: Long?,
-        val hiddenProducts: Set<String>
+        val hiddenProducts: Set<String>,
+        val minAppVersion: String
     )
 
     private val snapshot = MutableStateFlow<Snapshot?>(null)
@@ -60,7 +62,8 @@ class SettingsRepository(private val store: SettingsStore) {
         sumUpAffiliateKey = store.getSecret(KEY_SUMUP_AFFILIATE_KEY).orEmpty(),
         apiBaseUrl = store.getString(KEY_API_BASE_URL),
         lastBackupAt = store.getString(KEY_LAST_BACKUP_AT)?.toLongOrNull(),
-        hiddenProducts = store.getString(KEY_HIDDEN_PRODUCTS)?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+        hiddenProducts = store.getString(KEY_HIDDEN_PRODUCTS)?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty(),
+        minAppVersion = store.getString(KEY_MIN_APP_VERSION) ?: MinimumVersion.NONE
     )
 
     private val settings: Flow<Snapshot> = snapshot.onStart { current() }.filterNotNull()
@@ -150,6 +153,16 @@ class SettingsRepository(private val store: SettingsStore) {
         write({ store.putString(KEY_HIDDEN_PRODUCTS, next.joinToString(",")) }) { it.copy(hiddenProducts = next) }
     }
 
+    /**
+     * Die älteste App-Version, mit der der Verein noch kassieren lässt — gesetzt vom Hauptadmin des
+     * Servers, gekommen mit dem Abgleich. Darunter zeigt die App nur noch, dass sie aktualisiert
+     * werden muss ([MinimumVersion]); gemerkt wird sie, damit die Sperre auch ohne Netz gilt.
+     */
+    val minAppVersion: Flow<String> = settings.map { it.minAppVersion }.distinctUntilChanged()
+
+    suspend fun setMinAppVersion(version: String) =
+        write({ store.putString(KEY_MIN_APP_VERSION, version) }) { it.copy(minAppVersion = version) }
+
     suspend fun setLastBackupAt(at: Long) =
         write({ store.putString(KEY_LAST_BACKUP_AT, at.toString()) }) { it.copy(lastBackupAt = at) }
 
@@ -164,6 +177,7 @@ class SettingsRepository(private val store: SettingsStore) {
             "club_accent" -> parseHex(value)?.let { setClubAccent(it) }
             "sumup_affiliate_key" -> saveSumUpAffiliateKey(value)
             "tablet_auto_backup" -> setAutoBackupEnabled(value == "1")
+            KEY_MIN_APP_VERSION -> setMinAppVersion(value.trim())
         }
     }
 
@@ -184,5 +198,7 @@ class SettingsRepository(private val store: SettingsStore) {
         const val KEY_LAST_BACKUP_AT = "last_backup_at"
         const val KEY_DEVICE_TOKEN = "sync_device_token"
         const val KEY_HIDDEN_PRODUCTS = "hidden_products"
+        /** Gleich benannt wie die Zeile in `device_settings` (VereinSettings auf dem Server). */
+        const val KEY_MIN_APP_VERSION = "min_app_version"
     }
 }

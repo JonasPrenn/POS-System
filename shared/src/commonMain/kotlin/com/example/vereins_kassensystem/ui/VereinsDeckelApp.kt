@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.vereins_kassensystem.AppGraph
+import com.example.vereins_kassensystem.MinimumVersion
 import com.example.vereins_kassensystem.platform.LocalPlatform
 import com.example.vereins_kassensystem.ui.navigation.Destination
 import com.example.vereins_kassensystem.ui.navigation.NavLayout
@@ -33,6 +34,7 @@ import com.example.vereins_kassensystem.ui.screens.MemberManagementScreen
 import com.example.vereins_kassensystem.ui.screens.ProductManagementScreen
 import com.example.vereins_kassensystem.ui.screens.SalesScreen
 import com.example.vereins_kassensystem.ui.screens.SettingsScreen
+import com.example.vereins_kassensystem.ui.screens.UpdateRequiredScreen
 import com.example.vereins_kassensystem.ui.theme.ClubIdentity
 import com.example.vereins_kassensystem.ui.theme.ThemeMode
 import com.example.vereins_kassensystem.ui.theme.VereinsDeckelTheme
@@ -56,6 +58,18 @@ fun VereinsDeckelApp(graph: AppGraph) {
         val settings = graph.settingsRepository
         val themeMode by settings.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
         val clubIdentity by settings.clubIdentity.collectAsState(initial = ClubIdentity())
+        // Null, bis die Einstellungen gelesen sind: Ein gesperrtes Tablet soll die Kasse nicht kurz aufblitzen lassen.
+        val minAppVersion by settings.minAppVersion.collectAsState(initial = null)
+
+        // Der Abgleich läuft neben der Oberfläche her — auch hinter der Sperre einer zu alten App.
+        // Gestartet wird er einmal; jedes Mal, wenn die App wieder nach vorn kommt, gleicht er
+        // sofort ab (Spezifikation 4.4).
+        val syncEngine = graph.syncEngine
+        LaunchedEffect(syncEngine) { syncEngine.start() }
+        LifecycleResumeEffect(syncEngine) {
+            syncEngine.requestSync()
+            onPauseOrDispose { }
+        }
 
         VereinsDeckelTheme(themeMode = themeMode, clubIdentity = clubIdentity) {
             Surface(
@@ -67,13 +81,21 @@ fun VereinsDeckelApp(graph: AppGraph) {
                 // Grenze ist die von WindowSizeClass.Compact. Und die Höhe: Ein 8-Zoll-Tablet
                 // quer (Galaxy Tab Active3, 960 × 600 dp) hat für neun Einträge und die
                 // Anzeige des Abgleichs nicht Platz — dann steht die Verwaltung hinter „Mehr“.
-                BoxWithConstraints {
-                    val navLayout = when {
-                        maxWidth < 600.dp -> NavLayout.BottomBar
-                        maxHeight < CompactWindowHeight -> NavLayout.CompactRail
-                        else -> NavLayout.Rail
+                val required = minAppVersion
+                when {
+                    required == null -> Unit
+                    MinimumVersion.blocks(required) -> {
+                        val syncStatus by syncEngine.status.collectAsState()
+                        UpdateRequiredScreen(required, syncStatus)
                     }
-                    AppNavigation(graph, navLayout)
+                    else -> BoxWithConstraints {
+                        val navLayout = when {
+                            maxWidth < 600.dp -> NavLayout.BottomBar
+                            maxHeight < CompactWindowHeight -> NavLayout.CompactRail
+                            else -> NavLayout.Rail
+                        }
+                        AppNavigation(graph, navLayout)
+                    }
                 }
             }
         }
@@ -84,15 +106,8 @@ fun VereinsDeckelApp(graph: AppGraph) {
 private fun AppNavigation(graph: AppGraph, navLayout: NavLayout) {
     val navController = rememberNavController()
 
-    // Der Abgleich läuft neben der Oberfläche her. Gestartet wird er einmal; jedes Mal, wenn
-    // die App wieder nach vorn kommt, gleicht er sofort ab (Spezifikation 4.4).
     val syncEngine = graph.syncEngine
     val syncStatus by syncEngine.status.collectAsState()
-    LaunchedEffect(syncEngine) { syncEngine.start() }
-    LifecycleResumeEffect(syncEngine) {
-        syncEngine.requestSync()
-        onPauseOrDispose { }
-    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 

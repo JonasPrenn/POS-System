@@ -47,7 +47,7 @@ class Writes(private val db: Database) {
             }
             val id = UUID.fromString(Ids.new())
             c.execute("INSERT INTO members (id, name, nickname, category_id) VALUES (?, ?, ?, ?)", id, clean, vulgo, existingCategory(c, categoryId))
-            AuditLog.record(c, by.id, by.displayName, "member.create", clean)
+            AuditLog.record(c, by.id, by.actor, "member.create", clean)
             id
         }
     }
@@ -62,7 +62,7 @@ class Writes(private val db: Database) {
                 throw AccountProblem("„$clean“ gibt es schon.")
             }
             c.execute("UPDATE members SET name = ?, nickname = ?, category_id = ? WHERE id = ?", clean, vulgo, existingCategory(c, categoryId), id)
-            AuditLog.record(c, by.id, by.displayName, "member.update", clean, if (before != clean) "vorher „$before“" else "Kategorie")
+            AuditLog.record(c, by.id, by.actor, "member.update", clean, if (before != clean) "vorher „$before“" else "Kategorie")
         }
     }
 
@@ -79,7 +79,7 @@ class Writes(private val db: Database) {
             if (kotlin.math.abs(row.second) >= 0.005) throw AccountProblem("Der Deckel von ${row.first} steht auf ${euro(row.second)}. Erst ausgleichen — Aufladung oder Korrektur —, dann löschen.")
             c.execute("UPDATE members SET deleted = true, deleted_at = now() WHERE id = ?", id)
             c.execute("DELETE FROM member_profiles WHERE member_id = ?", id)
-            AuditLog.record(c, by.id, by.displayName, "member.delete", row.first, "Profil gelöscht, Buchungen bleiben")
+            AuditLog.record(c, by.id, by.actor, "member.delete", row.first, "Profil gelöscht, Buchungen bleiben")
         }
     }
 
@@ -90,8 +90,8 @@ class Writes(private val db: Database) {
             val name = c.queryOne("SELECT name FROM members WHERE id = ? AND NOT deleted FOR UPDATE", id) { it.getString("name") }
                 ?: throw AccountProblem("Dieses Mitglied gibt es nicht mehr.")
             c.execute("UPDATE members SET blocked_reason = ? WHERE id = ?", clean.ifEmpty { null }, id)
-            if (clean.isEmpty()) AuditLog.record(c, by.id, by.displayName, "member.unblock", name)
-            else AuditLog.record(c, by.id, by.displayName, "member.block", name, clean)
+            if (clean.isEmpty()) AuditLog.record(c, by.id, by.actor, "member.unblock", name)
+            else AuditLog.record(c, by.id, by.actor, "member.block", name, clean)
         }
     }
 
@@ -119,7 +119,7 @@ class Writes(private val db: Database) {
                 bookingId, UUID.fromString(Ids.new()), memberId, name, Ledger.TOPUP_REF,
                 if (cents >= 0) "Guthabenaufladung" else "Guthabenkorrektur", BigDecimal.valueOf(cents), paymentType, Timestamp.from(now), reason.ifEmpty { null }
             ) > 0
-            if (inserted) AuditLog.record(c, by.id, by.displayName, if (correction) "tab.correction" else "tab.topup", name, "${Money.formatSigned(cents)}${if (reason.isNotEmpty()) " · $reason" else ""}")
+            if (inserted) AuditLog.record(c, by.id, by.actor, if (correction) "tab.correction" else "tab.topup", name, "${Money.formatSigned(cents)}${if (reason.isNotEmpty()) " · $reason" else ""}")
             inserted
         }
     }

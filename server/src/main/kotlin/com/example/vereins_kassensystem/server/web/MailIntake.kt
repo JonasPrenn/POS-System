@@ -137,7 +137,7 @@ class MailIntake(
         db.transaction { c ->
             c.execute("UPDATE mail_intake SET status = 'DONE', document_id = ?, note = ? WHERE id = ?", documentId, note, id)
             if (trust) c.execute("INSERT INTO mail_senders (address, supplier_id, trusted) VALUES (?, ?, true) ON CONFLICT (address) DO UPDATE SET supplier_id = EXCLUDED.supplier_id, trusted = true", row.sender, doc.supplierId)
-            AuditLog.record(c, by.id, by.displayName, "mail.accept", "${doc.supplier} ${doc.number}".trim(), listOfNotNull(row.sender, if (trust) "Absender freigegeben" else null).joinToString(" · "))
+            AuditLog.record(c, by.id, by.actor, "mail.accept", "${doc.supplier} ${doc.number}".trim(), listOfNotNull(row.sender, if (trust) "Absender freigegeben" else null).joinToString(" · "))
         }
         return documentId
     }
@@ -145,12 +145,12 @@ class MailIntake(
     fun reject(by: WebUser, id: UUID) = db.transaction { c ->
         val row = c.queryOne("SELECT sender, subject FROM mail_intake WHERE id = ? AND status = 'NEW'", id) { it.getString("sender") to it.getString("subject") } ?: return@transaction
         c.execute("UPDATE mail_intake SET status = 'REJECTED' WHERE id = ?", id)
-        AuditLog.record(c, by.id, by.displayName, "mail.reject", row.first, row.second)
+        AuditLog.record(c, by.id, by.actor, "mail.reject", row.first, row.second)
     }
 
     fun untrust(by: WebUser, address: String) = db.transaction { c ->
         c.execute("UPDATE mail_senders SET trusted = false WHERE address = ?", address.trim().lowercase())
-        AuditLog.record(c, by.id, by.displayName, "mail.untrust", address.trim().lowercase())
+        AuditLog.record(c, by.id, by.actor, "mail.untrust", address.trim().lowercase())
     }
 
     private fun java.sql.ResultSet.row() = IntakeRow(

@@ -182,10 +182,10 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
             } else {
                 c.execute(
                     "INSERT INTO purchase_documents (id, delivery_id, supplier_id, supplier_name, number, document_date, due_date, gross, vat, payment, paid_at, file_key, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    documentId, existing?.deliveryId, supplierId, supplier, number, Date.valueOf(head.date), head.dueDate?.let(Date::valueOf), head.gross?.let(::money), money(head.vat), head.payment.name, paid?.let(Date::valueOf), fileKey, head.note.trim().take(500), by.displayName
+                    documentId, existing?.deliveryId, supplierId, supplier, number, Date.valueOf(head.date), head.dueDate?.let(Date::valueOf), head.gross?.let(::money), money(head.vat), head.payment.name, paid?.let(Date::valueOf), fileKey, head.note.trim().take(500), by.actor
                 )
             }
-            AuditLog.record(c, by.id, by.displayName, if (existing?.hasDocument == true) "purchase.update" else "purchase.create", "$supplier ${number}".trim(), head.gross?.let(Money::format) ?: "")
+            AuditLog.record(c, by.id, by.actor, if (existing?.hasDocument == true) "purchase.update" else "purchase.create", "$supplier ${number}".trim(), head.gross?.let(Money::format) ?: "")
             documentId
         }
     }
@@ -195,7 +195,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
         db.transaction { c ->
             val doc = find(c, id)?.takeIf { it.hasDocument } ?: throw AccountProblem("Zuerst die Belegdaten erfassen, dann bezahlen.")
             c.execute("UPDATE purchase_documents SET payment = ?, paid_at = ? WHERE id = ?", payment.name, Date.valueOf(paidAt), doc.id)
-            AuditLog.record(c, by.id, by.displayName, "purchase.paid", "${doc.supplier} ${doc.number}".trim(), "${payment.label}, $paidAt")
+            AuditLog.record(c, by.id, by.actor, "purchase.paid", "${doc.supplier} ${doc.number}".trim(), "${payment.label}, $paidAt")
         }
     }
 
@@ -208,13 +208,13 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
             c.queryOne("SELECT 1 FROM accounts WHERE id = ? AND active", accountId) { true } ?: throw AccountProblem("Dieses Konto gibt es nicht.")
             c.execute("INSERT INTO purchase_lines (id, document_id, label, amount, account_id, sort) VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort), 0) + 1 FROM purchase_lines WHERE document_id = ?))",
                 UUID.fromString(Ids.new()), doc.id, clean, money(cents), accountId, doc.id)
-            AuditLog.record(c, by.id, by.displayName, "purchase.line", "${doc.supplier} ${doc.number}".trim(), "$clean ${Money.format(cents)}")
+            AuditLog.record(c, by.id, by.actor, "purchase.line", "${doc.supplier} ${doc.number}".trim(), "$clean ${Money.format(cents)}")
         }
     }
 
     fun removeExpenseLine(by: WebUser, lineId: UUID) = db.transaction { c ->
         val removed = c.queryOne("DELETE FROM purchase_lines WHERE id = ? RETURNING label", lineId) { it.getString("label") }
-        if (removed != null) AuditLog.record(c, by.id, by.displayName, "purchase.line.remove", removed)
+        if (removed != null) AuditLog.record(c, by.id, by.actor, "purchase.line.remove", removed)
     }
 
     /**
@@ -243,7 +243,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
                 "INSERT INTO stock_entries (id, stock_item_id, item_name, quantity, unit_label, total_cost, source, occurred_at, delivery_id, container_type_id) VALUES (?, ?, ?, ?, ?, ?, 'MANUAL', ?, ?, ?)",
                 UUID.fromString(Ids.new()), itemId, item.first, quantity, container ?: item.second, cost?.let { money(Money.cents(it)) }, Timestamp.from(occurredAt), deliveryId, containerTypeId
             )
-            AuditLog.record(c, by.id, by.displayName, "purchase.stock", "${doc.supplier} ${doc.number}".trim(), "${Money.formatPlain(quantity).removeSuffix(",00")} × ${container ?: item.second} ${item.first}")
+            AuditLog.record(c, by.id, by.actor, "purchase.stock", "${doc.supplier} ${doc.number}".trim(), "${Money.formatPlain(quantity).removeSuffix(",00")} × ${container ?: item.second} ${item.first}")
         }
     }
 
@@ -377,7 +377,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
             c.queryOne("SELECT id FROM deposit_kinds WHERE active AND lower(name) = lower(?) AND supplier_id IS NOT DISTINCT FROM ?", clean, supplierId) { it.getObject("id", UUID::class.java) }?.let { return@transaction it }
             val id = UUID.fromString(Ids.new())
             c.execute("INSERT INTO deposit_kinds (id, name, supplier_id, code, deposit) VALUES (?, ?, ?, ?, ?)", id, clean, supplierId, code.trim().take(20), money(deposit))
-            AuditLog.record(c, by.id, by.displayName, "deposit.kind", clean, "Pfand ${euro(deposit)}")
+            AuditLog.record(c, by.id, by.actor, "deposit.kind", clean, "Pfand ${euro(deposit)}")
             id
         }
     }
@@ -387,7 +387,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
         if (deposit < 0 || deposit > 500) throw AccountProblem("Das Pfand je Gebinde ist nicht plausibel.")
         db.transaction { c ->
             c.execute("UPDATE deposit_kinds SET name = ?, deposit = ? WHERE id = ?", clean, money(deposit), id)
-            AuditLog.record(c, by.id, by.displayName, "deposit.kind", clean, "Pfand ${euro(deposit)}")
+            AuditLog.record(c, by.id, by.actor, "deposit.kind", clean, "Pfand ${euro(deposit)}")
         }
     }
 
@@ -398,8 +398,8 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
         db.transaction { c ->
             val kind = c.queryOne("SELECT name FROM deposit_kinds WHERE id = ? AND active", kindId) { it.getString("name") } ?: throw AccountProblem("Dieses Gebinde gibt es nicht.")
             c.execute("INSERT INTO deposit_movements (id, kind_id, document_id, day, delivered, returned, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                UUID.fromString(Ids.new()), kindId, documentId, Date.valueOf(day), delivered, returned, note.trim().take(120), by.displayName)
-            AuditLog.record(c, by.id, by.displayName, "deposit.move", kind, listOfNotNull(delivered.takeIf { it > 0 }?.let { "$it geliefert" }, returned.takeIf { it > 0 }?.let { "$it zurück" }).joinToString(", "))
+                UUID.fromString(Ids.new()), kindId, documentId, Date.valueOf(day), delivered, returned, note.trim().take(120), by.actor)
+            AuditLog.record(c, by.id, by.actor, "deposit.move", kind, listOfNotNull(delivered.takeIf { it > 0 }?.let { "$it geliefert" }, returned.takeIf { it > 0 }?.let { "$it zurück" }).joinToString(", "))
         }
     }
 
@@ -416,7 +416,7 @@ class Purchases(private val db: Database, private val zone: ZoneId) {
 
     fun updateSupplier(by: WebUser, id: UUID, contact: String, customerNumber: String) = db.transaction { c ->
         c.execute("UPDATE suppliers SET contact = ?, customer_number = ? WHERE id = ?", contact.trim().take(200), customerNumber.trim().take(60), id)
-        AuditLog.record(c, by.id, by.displayName, "supplier.update", c.queryOne("SELECT name FROM suppliers WHERE id = ?", id) { it.getString("name") } ?: "")
+        AuditLog.record(c, by.id, by.actor, "supplier.update", c.queryOne("SELECT name FROM suppliers WHERE id = ?", id) { it.getString("name") } ?: "")
     }
 
     private fun money(v: Double): BigDecimal = BigDecimal.valueOf(Money.cents(v))

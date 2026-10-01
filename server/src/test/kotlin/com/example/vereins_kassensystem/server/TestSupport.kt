@@ -9,6 +9,8 @@ import com.example.vereins_kassensystem.sync.RegisterRequest
 import com.example.vereins_kassensystem.sync.RegisterResponse
 import com.example.vereins_kassensystem.sync.WireJson
 import com.example.vereins_kassensystem.server.http.module
+import com.example.vereins_kassensystem.server.tenancy.Databases
+import com.example.vereins_kassensystem.server.tenancy.TenantDirectory
 import com.example.vereins_kassensystem.server.web.FakeMailbox
 import com.example.vereins_kassensystem.server.web.OutboxMailer
 import io.ktor.client.HttpClient
@@ -47,13 +49,25 @@ object TestPostgres {
 
     private val counter = AtomicInteger()
 
-    fun freshDatabase(): Database {
+    fun freshDatabase(): Database = fresh().second
+
+    /** Name und Datenbank des ersten Vereins — System und weitere Vereine legt [databases] daneben an. */
+    fun fresh(): Pair<String, Database> {
         val name = "vd_test_${counter.incrementAndGet()}"
         instance.postgresDatabase.connection.use { c ->
             c.createStatement().use { it.execute("CREATE DATABASE $name") }
         }
-        return Database("jdbc:postgresql://localhost:${instance.port}/$name", "postgres", "postgres", poolSize = 4)
+        return name to Database("jdbc:postgresql://localhost:${instance.port}/$name", "postgres", "postgres", poolSize = 4)
             .also { it.migrate() }
+    }
+
+    fun url(name: String) = "jdbc:postgresql://localhost:${instance.port}/$name"
+
+    fun databases(firstName: String) = Databases(url(firstName), "postgres", "postgres")
+
+    /** Wie ein Datenbankbenutzer ohne CREATEDB: Die Systemdatenbank lässt sich nicht anlegen. */
+    fun withoutCreate(firstName: String) = object : Databases(url(firstName), "postgres", "postgres") {
+        override fun create(name: String) = throw java.sql.SQLException("permission denied to create database", "42501")
     }
 }
 
@@ -65,11 +79,12 @@ val SCHEMA_VERSION: String by lazy {
     java.io.File(dir.toURI()).list()!!.mapNotNull { Regex("V(\\d+)__").find(it)?.groupValues?.get(1)?.toInt() }.max().toString()
 }
 
-class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer, val mailbox: FakeMailbox)
+/** [db] ist die Datenbank des ersten Vereins — die von vor den Vereinen. */
+class TestContext(val db: Database, val client: HttpClient, val outbox: OutboxMailer, val mailbox: FakeMailbox, val directory: TenantDirectory)
 
 /** Startet den Dienst wie in Main.kt, nur ohne Netz, und räumt danach auf. */
-fun serverTest(insecureCookies: Boolean = false, updatesDir: java.nio.file.Path? = null, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
-    val db = TestPostgres.freshDatabase()
+fun serverTest(insecureCookies: Boolean = false, updatesDir: java.nio.file.Path? = null, withSystem: Boolean = true, block: suspend ApplicationTestBuilder.(TestContext) -> Unit) = testApplication {
+    val (name, db) = TestPostgres.fresh()
     val config = ServerConfig(
         jdbcUrl = "", dbUser = "", dbPassword = "",
         pairingAdminToken = ADMIN_TOKEN,
@@ -82,14 +97,16 @@ fun serverTest(insecureCookies: Boolean = false, updatesDir: java.nio.file.Path?
     )
     val outbox = OutboxMailer()
     val mailbox = FakeMailbox()
+    val directory = TenantDirectory.open(config, db, if (withSystem) TestPostgres.databases(name) else TestPostgres.withoutCreate(name), outbox, mailbox)
     // Ohne den Zehn-Minuten-Abruf: Der Test ruft den Posteingang selbst ab.
-    application { module(config, db, outbox, mailbox, pollMailbox = false) }
+    application { module(config, directory, pollMailbox = false) }
     val client = createClient {
         install(ContentNegotiation) { json(WireJson) }
     }
     try {
-        block(TestContext(db, client, outbox, mailbox))
+        block(TestContext(db, client, outbox, mailbox, directory))
     } finally {
+        directory.close()
         db.close()
     }
 }
