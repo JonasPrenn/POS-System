@@ -289,6 +289,45 @@ class SyncEngineTest {
     }
 
     @Test
+    fun `a server that only carries settings for the tablets counts as empty`() = devices { server, theke, _ ->
+        // Ein neuer Verein, dessen Verwaltung schon Name und Mindestversion gesetzt hat, bevor das erste Tablet koppelt.
+        server.putSetting("club_name", "AV Austria"); server.putSetting("min_app_version", "0.0.0")
+        theke.repository.insertMember(Member(name = "Maria Bauer"))
+        assertIs<PairingResult.Source>(theke.pair(), "das Tablet bringt seinen Bestand mit, statt ihn gegen nichts zu tauschen")
+        assertTrue(theke.engine.syncOnce())
+        assertEquals(1, server.count("members"))
+        assertEquals(listOf("Maria Bauer"), theke.repository.allMembers.first().map { it.name })
+        assertEquals("AV Austria", theke.settings.clubIdentity.first().name)
+    }
+
+    @Test
+    fun `the minimum version locks an older app and what was booked still goes up`() = devices { server, theke, _ ->
+        val beer = Product(name = "Helles 0,5", price = 4.2, category = "Getränke")
+        theke.repository.saveProduct(beer, emptyList(), emptyList(), isNew = true)
+        theke.pair(); theke.engine.syncOnce()
+        assertEquals(MinimumVersion.NONE, theke.settings.minAppVersion.first())
+
+        // Gebucht vor der Sperre, oben erst mit dem Abgleich, der die Sperre bringt.
+        theke.sell(beer, null)
+        server.putSetting("min_app_version", "99.0.0")
+        assertTrue(theke.engine.syncOnce())
+        assertEquals(1, server.count("transactions"), "der Verkauf ist oben")
+        assertEquals("99.0.0", theke.settings.minAppVersion.first())
+        assertTrue(MinimumVersion.blocks(theke.settings.minAppVersion.first()), "diese App ist älter als 99.0.0")
+        assertEquals(0, theke.pending(), "die Einstellung geht nicht zurück")
+
+        // Der Hauptadmin nimmt sie zurück: Mit dem nächsten Abgleich ist die Kasse wieder da.
+        server.putSetting("min_app_version", MinimumVersion.NONE)
+        assertTrue(theke.engine.syncOnce())
+        assertTrue(!MinimumVersion.blocks(theke.settings.minAppVersion.first()))
+
+        // Und gilt nur für den Server, mit dem das Gerät gekoppelt ist.
+        server.putSetting("min_app_version", "99.0.0"); theke.engine.syncOnce()
+        theke.engine.unpair()
+        assertEquals(MinimumVersion.NONE, theke.settings.minAppVersion.first())
+    }
+
+    @Test
     fun `a device that cannot keep its token does not pretend to be paired`() = runTest {
         // Der Schlüsselbund eines unsignierten Simulator-Builds nimmt nichts an und sagt es nicht
         // (-34018). Ohne Zurücklesen sähe das Gerät gekoppelt aus und bekäme bei jedem Abgleich 401.

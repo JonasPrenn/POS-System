@@ -339,3 +339,12 @@ lagen: der Key im Schlüsselbund, der Rest in den Einstellungen; nichts davon ge
 wieder hoch. Gekoppelt zeigt der Einstellungsbildschirm Name, Farbe und Schlüssel nur
 an; ein Gerät ohne Server stellt sie weiterhin selbst ein. Der Key reist nur über den
 authentifizierten Abgleich (Gerätetoken, im Betrieb TLS) an gekoppelte Geräte.
+
+**Seit dem 1. Oktober 2026 kommt auf demselben Weg die Mindestversion der App**
+(`min_app_version`, gesetzt vom Hauptadmin in der Systemverwaltung des Servers). Liegt die
+App darunter (`MinimumVersion` aus `:core`), zeigt `VereinsDeckelApp` statt der Kasse nur
+`UpdateRequiredScreen`; der Abgleich läuft weiter — er startet deshalb an der Wurzel, nicht
+mehr in der Navigation. Kopplung lösen setzt sie zurück. Und beim Koppeln zählen Zeilen aus
+`device_settings` nicht als Daten des Servers: Ein Verein, dessen Verwaltung nur Name oder
+Mindestversion gesetzt hat, ist leer, und das Tablet lädt seinen Bestand hoch. Geprüft in
+`SyncEngineTest` im iOS-Simulator; der Bildschirm selbst ist ungeprüft auf beiden Plattformen.

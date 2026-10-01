@@ -2,6 +2,7 @@ package com.example.vereins_kassensystem.data.sync
 
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
+import com.example.vereins_kassensystem.MinimumVersion
 import com.example.vereins_kassensystem.data.AppDatabase
 import com.example.vereins_kassensystem.data.SettingsRepository
 import com.example.vereins_kassensystem.data.entity.PendingChange
@@ -376,7 +377,10 @@ class SyncEngine(
             }
             problem.value = null
 
-            val serverHasData = apiFactory(normalized) { registration.token }.changes(since = 0, limit = 1).changes.isNotEmpty()
+            // Was die Verwaltung für die Tablets setzt (Name, Farbe, Mindestversion), sind keine Daten des Vereins:
+            // Ein Server, der nur das hat, ist leer, und dieses Gerät lädt seinen Bestand hoch.
+            val first = apiFactory(normalized) { registration.token }.changes(since = 0, limit = 50)
+            val serverHasData = first.hasMore || first.changes.any { it.entity != SyncTables.DEVICE_SETTINGS }
             val localRows = localRowCount()
             when {
                 !serverHasData -> PairingResult.Source(becomeSource())
@@ -460,6 +464,8 @@ class SyncEngine(
             syncDao.clearState()
         }
         settings.setDeviceToken(null)
+        // Die Mindestversion galt für den Server, mit dem das Gerät gekoppelt war.
+        settings.setMinAppVersion(MinimumVersion.NONE)
         problem.value = null
     }
 

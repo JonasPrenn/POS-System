@@ -15,9 +15,9 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Designsystem, Phasen 0–5 | fertig, siehe `docs/` und die PR-Beschreibung |
 | Server- und API-Spezifikation | fertig, `docs/VereinsDeckel-Server-und-API.pdf` |
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
-| Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufstellen mit `server/deploy/install.sh` (Docker und git genügen, gebaut wird im Container); Updates aus dem Repo über die Verwaltung (`web/Updates.kt`, Dienst `updater`). Aufgestellt ist er bisher nur zum Probieren auf dem eigenen Rechner |
+| Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufstellen mit `server/deploy/install.sh` (Docker und git genügen, gebaut wird im Container); Updates aus dem Repo über die Systemverwaltung (`web/Updates.kt`, Dienst `updater`). **Mehrere Vereine** (`tenancy/`): je Verein eine Datenbank, dazu `<name>_system`; die Datenbank von vor den Vereinen ist der erste. Aufgestellt ist er bisher nur zum Probieren auf dem eigenen Rechner |
 | Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 15 (11 = UUID-Schlüssel, 12 = Couleurname, 13 = Kasse, 14 = Sperre, 15 = Bardienst ohne Barkasse) mit hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
-| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet nach Stückelung, `ui/components/CashDialogs.kt`; geöffnet im Warenkorb, geschlossen auf der Übersicht), das Sortiment (`web/Products.kt`) und die Bücher (`web/Books.kt`: Einnahmen-Ausgaben-Rechnung und Vermögensübersicht, hergeleitet, nichts fortgeschrieben). Schreibt in synchronisierte Tabellen nur Mitglieder (anlegen, ändern, sperren, löschen), Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung), Wareneingänge (`web/Purchases.kt`) und das Sortiment samt Kategorien (`web/Products.kt`) sowie die Einstellungen der Tablets (`device_settings`: Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung — die Geräte lesen sie nur), immer über `Database.write`. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md`; der klickbare Entwurf liegt als Artifact vor |
+| Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet nach Stückelung, `ui/components/CashDialogs.kt`; geöffnet im Warenkorb, geschlossen auf der Übersicht), das Sortiment (`web/Products.kt`) und die Bücher (`web/Books.kt`: Einnahmen-Ausgaben-Rechnung und Vermögensübersicht, hergeleitet, nichts fortgeschrieben). Schreibt in synchronisierte Tabellen nur Mitglieder (anlegen, ändern, sperren, löschen), Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung), Wareneingänge (`web/Purchases.kt`) und das Sortiment samt Kategorien (`web/Products.kt`) sowie die Einstellungen der Tablets (`device_settings`: Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung, Mindestversion der App — die Geräte lesen sie nur), immer über `Database.write`. Anmeldung mit `name@kürzel`, Testanmeldung `admin#name@kürzel` (`web/SignIn.kt`); die Systemverwaltung unter `/verwaltung/system` (`web/PagesServer.kt`, Hauptadmin): Vereine, Mindestversion, Updates. Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md` (Vereine: 4.8); der klickbare Entwurf liegt als Artifact vor |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
 `docs/PORTIERUNG.md`; Kartenzahlung gibt es auf iOS erst, wenn das SumUp-iOS-SDK per
@@ -158,6 +158,29 @@ Bauen, läuft der alte Stand weiter, und Datenbank und Belegfotos liegen in Volu
 Update anfasst. Vor einer Migration am Tablet steht die Sicherung — die App fragt danach, ehe
 sie ein Schema anhebt, ist noch zu bauen; bis dahin gilt „vorher sichern“. Wer an Schema,
 Drahtformat oder Updater arbeitet, prüft zuerst diesen Absatz.
+
+**Alte App-Versionen bleiben bedient.** Entscheidung des Besitzers vom 1. Oktober 2026: Ab
+1.2.1 arbeitet jede ältere App mit jedem neueren Server weiter, bis die App im Play Store
+steht — Tablets bekommen Updates nur, wenn jemand sie von Hand einspielt. Kein Endpunkt fällt
+weg, keiner ändert seine Bedeutung. Dazu die Mindestversion: In der Systemverwaltung setzt
+der Hauptadmin, welche App noch kassieren darf (Vorgabe 0.0.0, alle); sie kommt als
+`device_settings.min_app_version`, darunter zeigt die App nur `UpdateRequiredScreen` und
+gleicht weiter ab. Verglichen wird mit `MinimumVersion` aus `:core`, wie `AppVersion.CODE`.
+Die Sperre kennen nur Apps, die sie eingebaut haben — für alle älteren gilt der erste Satz.
+Solange die Mindestversion 0.0.0 ist und nie anders war, entsteht keine Zeile: Ein Verein ohne
+Daten muss für ein koppelndes älteres Tablet leer aussehen.
+
+**Ein Verein, eine Datenbank.** Entscheidung des Besitzers vom 1. Oktober 2026. Mehrere
+Vereine auf einem Server, jeder mit eigener Datenbank, eigenen Geräten, Zugängen und
+Einstellungen; was es außer ihnen gibt (Vereine, Gerätewege, Mindestversion, Hauptadmins),
+steht in der Systemdatenbank. Für die Apps ändert sich nichts: Der Kopplungscode sagt, welcher
+Verein, danach die Geräte-ID im Token (`TenantDirectory`). Die Verwaltung bleibt unter
+`/verwaltung`; welcher Verein, sagt die Anmeldung (`name@kürzel`, ohne Kürzel der erste) und
+danach das Sitzungscookie — die Seiten selbst wissen nichts von Vereinen (`CurrentWeb`).
+Das Kürzel wählt der Verein, eindeutig im System; Anmeldenamen sind es nur im Verein. Ein
+Administrator darf sich zum Testen als jeder Benutzer seines Vereins anmelden, ein Hauptadmin
+in jedem Verein (`admin#name@kürzel`, eigenes Passwort) — immer sichtbar und im Protokoll.
+Fehlt die Systemdatenbank, läuft der erste Verein allein weiter wie vorher.
 
 **Die Version steht genau einmal.** In `VERSION`: `x.y.z-beta` in der Entwicklung, `x.y.z`
 nach der Freigabe durch den Besitzer — geändert nur über `docs/tools/version.sh`
