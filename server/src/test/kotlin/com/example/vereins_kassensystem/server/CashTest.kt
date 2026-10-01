@@ -56,7 +56,8 @@ class CashTest {
         Accounts(ctx.db).create("lukas", "Lukas Hofer", Role.KASSIER, "ein-langes-passwort")
         val browser = createClient { install(HttpCookies); followRedirects = false }
         browser.submitForm("/verwaltung/anmelden", parameters { append("login", "lukas"); append("passwort", "ein-langes-passwort") })
-        val page = browser.get("/verwaltung/kasse")
+        // Der Tag der Verkäufe, nicht „heute“: Kurz nach Mitternacht lägen sie drei Stunden zurück schon gestern.
+        val page = browser.get("/verwaltung/kasse?tag=${start.plusSeconds(650).atZone(java.time.ZoneId.of("Europe/Vienna")).toLocalDate()}")
         assertEquals(HttpStatusCode.OK, page.status)
         val html = page.bodyAsText()
         // Tagesbericht je Gerät: links 8,40 + 20 Aufladung zählt nicht als Umsatz − 4,20 Storno = 4,20 bar, 4,20 Karte; Garten 12,60 bar.

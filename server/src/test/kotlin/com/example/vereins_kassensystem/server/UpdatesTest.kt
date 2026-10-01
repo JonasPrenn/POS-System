@@ -57,45 +57,48 @@ class UpdatesTest {
     }
 
     @Test
-    fun `the settings page shows the running version, asks the updater, and keeps the administrator's choice`() {
+    fun `the system area shows the running version, asks the updater, and keeps the main administrator's choice`() {
         val dir = Files.createTempDirectory("vd-updates")
         serverTest(insecureCookies = true, updatesDir = dir) { ctx ->
+            ctx.directory.system!!.accounts.create("jonas", "Jonas Prenn", Role.ADMIN, password)
             Accounts(ctx.db).create("admin", "Anna Admin", Role.ADMIN, password)
-            Accounts(ctx.db).create("lukas", "Lukas Hofer", Role.KASSIER, password)
-            val admin = browser()
-            admin.form("/verwaltung/anmelden", "login" to "admin", "passwort" to password)
-            var page = admin.page("/verwaltung/einstellungen")
+            val haupt = browser()
+            assertEquals("/verwaltung/system", location(haupt.form("/verwaltung/anmelden", "login" to "jonas@system", "passwort" to password)))
+            var page = haupt.page("/verwaltung/system")
             assertContains(page, "Updates"); assertContains(page, "Stand 1234567abcde"); assertContains(page, "Jetzt suchen")
             assertFalse(page.contains("Jetzt installieren"), "ohne Fund nichts zu installieren")
 
             // Jetzt suchen: die Bitte liegt im Verzeichnis, der Updater holt sie ab.
-            admin.form("/verwaltung/einstellungen", "_csrf" to csrfOf(page), "teil" to "update", "aktion" to "pruefen")
+            haupt.form("/verwaltung/system", "_csrf" to csrfOf(page), "teil" to "update", "aktion" to "pruefen")
             assertEquals("check\n", Files.readString(dir.resolve("request")))
 
             // Der Updater hat etwas gefunden: die Seite sagt es, und der Knopf zum Installieren ist da.
             Files.writeString(dir.resolve("status.json"), """{"state":"idle","message":"Zuletzt gesucht 2026-09-22T20:00:00Z","checkedAt":"2026-09-22T20:00:00Z","latest":"fedcba987654","latestDate":"2026-09-22T19:30:00+02:00","latestMessage":"Bardienst ohne Barkasse","behind":"2","branch":"main"}""")
-            page = admin.page("/verwaltung/einstellungen")
+            page = haupt.page("/verwaltung/system")
             assertContains(page, "Bardienst ohne Barkasse"); assertContains(page, "Jetzt installieren"); assertContains(page, "2 Commits")
-            val installed = admin.form("/verwaltung/einstellungen", "_csrf" to csrfOf(page), "teil" to "update", "aktion" to "installieren")
+            val installed = haupt.form("/verwaltung/system", "_csrf" to csrfOf(page), "teil" to "update", "aktion" to "installieren")
             assertContains(location(installed), "hinweis=")
             assertEquals("install\n", Files.readString(dir.resolve("request")))
 
-            // Die Wahl des Administrators: von selbst suchen und einspielen, alle zwei Stunden.
-            admin.form("/verwaltung/einstellungen", "_csrf" to csrfOf(page), "teil" to "update", "modus" to "AUTO", "abstand" to "120")
+            // Die Wahl des Hauptadmins: von selbst suchen und einspielen, alle zwei Stunden.
+            haupt.form("/verwaltung/system", "_csrf" to csrfOf(page), "teil" to "update", "modus" to "AUTO", "abstand" to "120")
             assertEquals("""{"mode":"AUTO","intervalMinutes":120}""", Files.readString(dir.resolve("settings.json")))
-            assertContains(admin.page("/verwaltung/einstellungen"), "checked")
-            assertContains(admin.page("/verwaltung/protokoll"), "Updates")
+            page = haupt.page("/verwaltung/system")
+            assertContains(page, "checked")
+            assertContains(page, "Updates gesucht", message = "das Protokoll des Systems")
 
             // Ein Fehlschlag des Updaters steht auf der Seite, mit dem Ende seines Protokolls.
             Files.writeString(dir.resolve("status.json"), """{"state":"failed","message":"Bauen fehlgeschlagen — der alte Stand laeuft weiter.","log":"e: Unresolved reference 'foo'","latest":"fedcba987654","behind":"2"}""")
-            assertContains(admin.page("/verwaltung/einstellungen"), "Unresolved reference")
+            assertContains(haupt.page("/verwaltung/system"), "Unresolved reference")
 
-            // Der Kassier sieht die Einstellungen, aber nicht die Updates — das ist Betrieb.
-            val kassier = browser()
-            kassier.form("/verwaltung/anmelden", "login" to "lukas", "passwort" to password)
-            val kassierPage = kassier.page("/verwaltung/einstellungen")
-            assertFalse(kassierPage.contains("Jetzt suchen"))
-            assertEquals(HttpStatusCode.Forbidden, kassier.form("/verwaltung/einstellungen", "_csrf" to csrfOf(kassierPage), "teil" to "update", "aktion" to "pruefen").status)
+            // Der Administrator eines Vereins sieht keine Updates mehr — sie starten den Server für alle Vereine neu.
+            val admin = browser()
+            admin.form("/verwaltung/anmelden", "login" to "admin", "passwort" to password)
+            val adminPage = admin.page("/verwaltung/einstellungen")
+            assertFalse(adminPage.contains("Jetzt suchen"))
+            assertContains(adminPage, "Systemverwaltung")
+            assertEquals(HttpStatusCode.Forbidden, admin.form("/verwaltung/einstellungen", "_csrf" to csrfOf(adminPage), "teil" to "update", "aktion" to "pruefen").status)
+            assertEquals("/verwaltung/anmelden?weiter=%2Fverwaltung%2Fsystem", location(admin.get("/verwaltung/system")), "eine Sitzung im Verein ist keine im System")
         }
     }
 }

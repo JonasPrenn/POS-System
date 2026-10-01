@@ -69,7 +69,7 @@ class Products(private val db: Database) {
             if (c.queryOne("SELECT 1 FROM products WHERE NOT deleted AND lower(name) = lower(?)", clean) { true } == true) throw AccountProblem("„$clean“ gibt es schon.")
             val id = UUID.fromString(Ids.new())
             c.execute("INSERT INTO products (id, name, price, category, has_variants, serving_size) VALUES (?, ?, ?, ?, false, ?)", id, clean, cents, cat, size)
-            AuditLog.record(c, by.id, by.displayName, "product.create", clean, "${euro(cents)} · ${cat.ifBlank { "ohne Kategorie" }}")
+            AuditLog.record(c, by.id, by.actor, "product.create", clean, "${euro(cents)} · ${cat.ifBlank { "ohne Kategorie" }}")
             id
         }
     }
@@ -85,7 +85,7 @@ class Products(private val db: Database) {
                 if (before.price != cents) "Preis vorher ${euro(before.price)}" else null,
                 if (before.category != cat) "Kategorie vorher „${before.category}“" else null,
             )
-            AuditLog.record(c, by.id, by.displayName, "product.update", clean, changes.joinToString(" · ").ifBlank { "Ausschankgröße" })
+            AuditLog.record(c, by.id, by.actor, "product.update", clean, changes.joinToString(" · ").ifBlank { "Ausschankgröße" })
         }
     }
 
@@ -95,7 +95,7 @@ class Products(private val db: Database) {
         c.execute("UPDATE products SET deleted = true, deleted_at = now() WHERE id = ?", id)
         c.execute("UPDATE product_variants SET deleted = true, deleted_at = now() WHERE product_id = ? AND NOT deleted", id)
         c.execute("UPDATE product_components SET deleted = true, deleted_at = now() WHERE product_id = ? AND NOT deleted", id)
-        AuditLog.record(c, by.id, by.displayName, "product.retire", before.name, "")
+        AuditLog.record(c, by.id, by.actor, "product.retire", before.name, "")
     }
 
     fun addVariant(by: WebUser, productId: UUID, name: String, price: String, servingSize: String) {
@@ -105,7 +105,7 @@ class Products(private val db: Database) {
             if (c.queryOne("SELECT 1 FROM product_variants WHERE NOT deleted AND product_id = ? AND lower(name) = lower(?)", productId, clean) { true } == true) throw AccountProblem("Die Variante „$clean“ gibt es schon.")
             c.execute("INSERT INTO product_variants (id, product_id, name, price, serving_size) VALUES (?, ?, ?, ?, ?)", UUID.fromString(Ids.new()), productId, clean, cents, size)
             c.execute("UPDATE products SET has_variants = true WHERE id = ? AND NOT has_variants", productId)
-            AuditLog.record(c, by.id, by.displayName, "variant.create", "${product.name} · $clean", euro(cents))
+            AuditLog.record(c, by.id, by.actor, "variant.create", "${product.name} · $clean", euro(cents))
         }
     }
 
@@ -116,7 +116,7 @@ class Products(private val db: Database) {
             val before = c.queryOne("SELECT name, price FROM product_variants WHERE id = ? AND product_id = ? AND NOT deleted FOR UPDATE", variantId, productId) { it.getString("name") to it.getDouble("price") }
                 ?: throw AccountProblem("Diese Variante gibt es nicht mehr.")
             c.execute("UPDATE product_variants SET name = ?, price = ?, serving_size = ? WHERE id = ?", clean, cents, size, variantId)
-            AuditLog.record(c, by.id, by.displayName, "variant.update", "${product.name} · $clean", listOfNotNull(if (before.first != clean) "vorher „${before.first}“" else null, if (before.second != cents) "Preis vorher ${euro(before.second)}" else null).joinToString(" · "))
+            AuditLog.record(c, by.id, by.actor, "variant.update", "${product.name} · $clean", listOfNotNull(if (before.first != clean) "vorher „${before.first}“" else null, if (before.second != cents) "Preis vorher ${euro(before.second)}" else null).joinToString(" · "))
         }
     }
 
@@ -126,7 +126,7 @@ class Products(private val db: Database) {
         c.execute("UPDATE product_variants SET deleted = true, deleted_at = now() WHERE id = ?", variantId)
         // Ohne Variante verkauft die Kachel wieder zum Grundpreis.
         if (c.queryOne("SELECT 1 FROM product_variants WHERE product_id = ? AND NOT deleted", productId) { true } != true) c.execute("UPDATE products SET has_variants = false WHERE id = ?", productId)
-        AuditLog.record(c, by.id, by.displayName, "variant.remove", "${product.name} · $name", "")
+        AuditLog.record(c, by.id, by.actor, "variant.remove", "${product.name} · $name", "")
     }
 
     /** Rezeptur: Was ein Verkauf dem Lagerartikel entnimmt, je Einheit der Ausschankgröße. Ein Artikel steht je Produkt einmal. */
@@ -138,7 +138,7 @@ class Products(private val db: Database) {
             val existing = c.queryOne("SELECT id FROM product_components WHERE product_id = ? AND stock_item_id = ? AND NOT deleted FOR UPDATE", productId, stockItemId) { it.getObject("id", UUID::class.java) }
             if (existing != null) c.execute("UPDATE product_components SET quantity_per_unit = ? WHERE id = ?", amount, existing)
             else c.execute("INSERT INTO product_components (id, product_id, stock_item_id, quantity_per_unit) VALUES (?, ?, ?, ?)", UUID.fromString(Ids.new()), productId, stockItemId, amount)
-            AuditLog.record(c, by.id, by.displayName, "component.set", "${product.name} · $item", "$amount je Einheit")
+            AuditLog.record(c, by.id, by.actor, "component.set", "${product.name} · $item", "$amount je Einheit")
         }
     }
 
@@ -146,7 +146,7 @@ class Products(private val db: Database) {
         val product = existing(c, productId)
         val item = c.queryOne("SELECT s.name FROM product_components pc JOIN stock_items s ON s.id = pc.stock_item_id WHERE pc.id = ? AND pc.product_id = ? AND NOT pc.deleted", componentId, productId) { it.getString("name") } ?: return@write
         c.execute("UPDATE product_components SET deleted = true, deleted_at = now() WHERE id = ?", componentId)
-        AuditLog.record(c, by.id, by.displayName, "component.remove", "${product.name} · $item", "")
+        AuditLog.record(c, by.id, by.actor, "component.remove", "${product.name} · $item", "")
     }
 
     // ------------------------------------------------------ Mitgliederkategorien
@@ -165,7 +165,7 @@ class Products(private val db: Database) {
             if (c.queryOne("SELECT 1 FROM member_categories WHERE NOT deleted AND lower(name) = lower(?)", clean) { true } == true) throw AccountProblem("„$clean“ gibt es schon.")
             val id = UUID.fromString(Ids.new())
             c.execute("INSERT INTO member_categories (id, name, negative_balance_limit) VALUES (?, ?, ?)", id, clean, cents)
-            AuditLog.record(c, by.id, by.displayName, "category.create", clean, "Limit ${euro(cents)}")
+            AuditLog.record(c, by.id, by.actor, "category.create", clean, "Limit ${euro(cents)}")
             id
         }
     }
@@ -177,7 +177,7 @@ class Products(private val db: Database) {
                 ?: throw AccountProblem("Diese Kategorie gibt es nicht mehr.")
             if (c.queryOne("SELECT 1 FROM member_categories WHERE NOT deleted AND id <> ? AND lower(name) = lower(?)", id, clean) { true } == true) throw AccountProblem("„$clean“ gibt es schon.")
             c.execute("UPDATE member_categories SET name = ?, negative_balance_limit = ? WHERE id = ?", clean, cents, id)
-            AuditLog.record(c, by.id, by.displayName, "category.update", clean, listOfNotNull(if (before.first != clean) "vorher „${before.first}“" else null, if (before.second != cents) "Limit vorher ${euro(before.second)}" else null).joinToString(" · "))
+            AuditLog.record(c, by.id, by.actor, "category.update", clean, listOfNotNull(if (before.first != clean) "vorher „${before.first}“" else null, if (before.second != cents) "Limit vorher ${euro(before.second)}" else null).joinToString(" · "))
         }
     }
 
@@ -187,7 +187,7 @@ class Products(private val db: Database) {
         val used = c.queryOne("SELECT COUNT(*) AS n FROM members WHERE category_id = ? AND NOT deleted", id) { it.getInt("n") } ?: 0
         if (used > 0) throw AccountProblem("„$name“ hat noch ${count(used, "Mitglied", "Mitglieder")}. Erst umhängen, dann entfernen.")
         c.execute("UPDATE member_categories SET deleted = true, deleted_at = now() WHERE id = ?", id)
-        AuditLog.record(c, by.id, by.displayName, "category.remove", name, "")
+        AuditLog.record(c, by.id, by.actor, "category.remove", name, "")
     }
 
     // ------------------------------------------------------------ Innenleben

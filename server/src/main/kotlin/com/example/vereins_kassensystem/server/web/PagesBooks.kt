@@ -97,7 +97,7 @@ internal fun Route.bookPages(web: Web) {
                 cashBook = web.cash.book(year.from, year.to.minusDays(1)),
                 documents = web.purchases.documentsBetween(year.from, year.to),
                 runs = web.statements.runs().filter { it.to >= year.from && it.to < year.to },
-                createdBy = ctx.user.displayName, createdAt = ctx.today, day = { ctx.day(it) }, time = { ctx.time(it) },
+                createdBy = ctx.user.actor, createdAt = ctx.today, day = { ctx.day(it) }, time = { ctx.time(it) },
             ))
             web.audit.record(ctx.user, "books.bundle", choice.year.toString())
             call.response.header("Content-Disposition", "inline; filename=\"pruefermappe-${choice.year}.pdf\"")

@@ -1,6 +1,7 @@
 package com.example.vereins_kassensystem.server
 
 import com.example.vereins_kassensystem.server.http.module
+import com.example.vereins_kassensystem.server.tenancy.TenantDirectory
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import kotlinx.coroutines.runBlocking
@@ -21,13 +22,14 @@ class NettyTest {
 
     @Test
     fun `the service answers over a real socket`() {
-        val db = TestPostgres.freshDatabase()
+        val (name, db) = TestPostgres.fresh()
         val config = ServerConfig(
             jdbcUrl = "", dbUser = "", dbPassword = "",
             pairingAdminToken = ADMIN_TOKEN,
             mediaDir = Files.createTempDirectory("vd-media"),
         )
-        val server = embeddedServer(Netty, host = "127.0.0.1", port = 0) { module(config, db) }
+        val directory = TenantDirectory.open(config, db, TestPostgres.databases(name))
+        val server = embeddedServer(Netty, host = "127.0.0.1", port = 0) { module(config, directory) }
         try {
             server.start(wait = false)
             val port = runBlocking { server.engine.resolvedConnectors().single().port }
@@ -48,6 +50,7 @@ class NettyTest {
             assertTrue(unauthorized.body().contains("\"error\":\"unauthorized\""), unauthorized.body())
         } finally {
             server.stop(100, 500)
+            directory.close()
             db.close()
         }
     }

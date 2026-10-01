@@ -1,12 +1,10 @@
 package com.example.vereins_kassensystem.server.http
 
 import com.example.vereins_kassensystem.AppVersion
-import com.example.vereins_kassensystem.server.db.Database
 import com.example.vereins_kassensystem.server.db.queryOne
-import com.example.vereins_kassensystem.server.devices.DevicePrincipal
-import com.example.vereins_kassensystem.server.devices.DeviceStore
-import com.example.vereins_kassensystem.server.media.ReceiptStore
 import com.example.vereins_kassensystem.server.sync.SyncStore
+import com.example.vereins_kassensystem.server.tenancy.TenantDevice
+import com.example.vereins_kassensystem.server.tenancy.TenantDirectory
 import com.example.vereins_kassensystem.server.sync.Unprocessable
 import com.example.vereins_kassensystem.server.sync.Values
 import com.example.vereins_kassensystem.sync.BalanceResponse
@@ -36,13 +34,14 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import java.time.Instant
 
-/** Alle Endpunkte aus 5.1, plus die drei Verwaltungsaufrufe, die 5.2 voraussetzt. */
-fun Route.apiRoutes(
-    db: Database,
-    devices: DeviceStore,
-    sync: SyncStore,
-    receipts: ReceiptStore,
-) {
+/**
+ * Alle Endpunkte aus 5.1, plus die drei Verwaltungsaufrufe, die 5.2 voraussetzt. Welcher Verein,
+ * sagt das Gerätetoken ([TenantDevice]) oder beim Koppeln der Code; die Verwaltungsaufrufe mit dem
+ * Serverschlüssel und /v1/health meinen den ersten Verein, wie vor den Vereinen.
+ */
+fun Route.apiRoutes(directory: TenantDirectory) {
+    val db = directory.default.db
+    val devices = directory.default.devices
     route("/v1") {
 
         // Ohne Token: Der Einrichtungsdialog prüft damit eine eingetippte Adresse.
@@ -62,7 +61,7 @@ fun Route.apiRoutes(
         rateLimit(RateLimitName("register")) {
             post("/devices/register") {
                 val request = call.receive<RegisterRequest>()
-                val registration = devices.register(request.pairingCode, request.label, request.platform)
+                val (_, registration) = directory.register(request.pairingCode, request.label, request.platform)
                 call.respond(
                     HttpStatusCode.Created,
                     RegisterResponse(deviceId = registration.deviceId.toString(), token = registration.token)
@@ -79,8 +78,8 @@ fun Route.apiRoutes(
                     if (since < 0) throw ApiException(HttpStatusCode.BadRequest, "bad_request", "since muss 0 oder größer sein")
                     if (limit !in 1..1000) throw ApiException(HttpStatusCode.BadRequest, "bad_request", "limit muss zwischen 1 und 1000 liegen")
 
-                    val page = sync.changes(since, limit)
-                    devices.touch(device.id, ackSeq = since)
+                    val page = device.tenant.sync.changes(since, limit)
+                    device.tenant.devices.touch(device.id, ackSeq = since)
                     call.respond(
                         ChangesResponse(
                             changes = page.changes.map { ChangeDto(it.entity, it.seq, it.deleted, it.row) },
@@ -108,8 +107,8 @@ fun Route.apiRoutes(
                             row = op.row,
                         )
                     }
-                    val outcome = sync.push(device.id, operations)
-                    devices.touch(device.id)
+                    val outcome = device.tenant.sync.push(device.id, operations)
+                    device.tenant.devices.touch(device.id)
                     call.respond(
                         PushResponse(
                             results = outcome.results.map { PushResult(it.clientChangeId.toString(), it.status, it.seq, it.current) },
@@ -122,7 +121,7 @@ fun Route.apiRoutes(
             // Einzelsaldo, unmittelbar vor einer Deckelbelastung.
             get("/members/{id}/balance") {
                 val id = Values.parseUuid(call.pathParameters["id"] ?: "", "id")
-                val balance = sync.balance(id)
+                val balance = device().tenant.sync.balance(id)
                     ?: throw ApiException(HttpStatusCode.NotFound, "not_found", "Mitglied unbekannt")
                 call.respond(BalanceResponse(id.toString(), balance.toPlainString(), Values.format(Instant.now())))
             }
@@ -131,6 +130,7 @@ fun Route.apiRoutes(
                 // Rohes Bild im Body, Inhaltstyp im Header — kein Multipart, die App
                 // schickt genau eine Datei.
                 post {
+                    val receipts = device().tenant.receipts
                     val extension = receipts.extensionFor(call.request.contentType())
                         ?: throw ApiException(HttpStatusCode.UnsupportedMediaType, "unsupported_media_type", "Erlaubt sind image/jpeg, image/png, image/webp und image/heic")
                     val declared = call.request.contentLength() ?: 0L
@@ -141,7 +141,7 @@ fun Route.apiRoutes(
                     call.respond(HttpStatusCode.Created, ReceiptUploadResponse(receipts.store(bytes, extension)))
                 }
                 get("/{key}") {
-                    val stored = receipts.find(call.pathParameters["key"] ?: "")
+                    val stored = device().tenant.receipts.find(call.pathParameters["key"] ?: "")
                         ?: throw ApiException(HttpStatusCode.NotFound, "not_found", "Beleg unbekannt")
                     call.respond(LocalFileContent(stored.path.toFile(), stored.contentType))
                 }
@@ -179,5 +179,5 @@ fun Route.apiRoutes(
     }
 }
 
-private fun RoutingContext.device(): DevicePrincipal =
-    call.principal<DevicePrincipal>() ?: throw ApiException(HttpStatusCode.Unauthorized, "unauthorized", "Kein Gerät angemeldet")
+private fun RoutingContext.device(): TenantDevice =
+    call.principal<TenantDevice>() ?: throw ApiException(HttpStatusCode.Unauthorized, "unauthorized", "Kein Gerät angemeldet")

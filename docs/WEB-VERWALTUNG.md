@@ -339,6 +339,29 @@ Belege, das Rechnungsjahr als Einstellung.
 - **Sicherung** des Servers ist Betriebsthema (Spezifikation 7.2), aber die Oberfläche
   zeigt, wann sie zuletzt gelaufen ist.
 
+### 4.8 Mehrere Vereine auf einem Server
+
+*Entschieden vom Besitzer am 1. Oktober 2026, gebaut am selben Tag.* Ein Server trägt mehrere
+Vereine, jeden mit eigener Datenbank, eigenen Einstellungen, Geräten und Zugängen — die
+Trennung, die „ein Server je Verein“ datenschutzrechtlich sauber machte, bleibt so erhalten.
+Die bestehende Datenbank ist der erste Verein, unverändert unter `/verwaltung`.
+
+- **Für die Apps ändert sich nichts.** Der Kopplungscode entscheidet, zu welchem Verein ein
+  Tablet gehört; danach findet der Server den Verein über die Geräte-ID im Token.
+- **Anmelden mit `name@kürzel`.** Das Kürzel wählt der Verein, eindeutig auf dem Server;
+  Anmeldenamen sind es nur im Verein. Ohne Kürzel ist es der erste Verein.
+- **Testanmeldung `admin#name@kürzel`** mit dem eigenen Passwort: Ein Administrator des Vereins
+  oder ein Hauptadmin sieht die Verwaltung mit den Augen eines Zugangs. Die Seite sagt es oben
+  in Bernstein; das Protokoll nennt beide Namen.
+- **Systemverwaltung** (`/verwaltung/system`, Hauptadmin): Vereine anlegen, Mindestversion der
+  App, Updates, Hauptadmins. Ein Vereinsadministrator sieht sie nicht — Updates starten den
+  Dienst für alle Vereine neu.
+- **Mindestversion der App**, Vorgabe 0.0.0: Darunter zeigt die App nur, dass sie aktualisiert
+  werden muss, und gleicht weiter ab. Ältere Apps kennen die Sperre nicht; der Server bleibt zu
+  ihnen kompatibel, bis die App im Play Store steht.
+
+Technik und Betrieb: `server/README.md`, Abschnitt „Vereine und Systemverwaltung“.
+
 ---
 
 ## 5 · Was außerdem in Frage kommt
@@ -347,14 +370,14 @@ Kandidaten aus dem Vergleich mit Vereins- und Kassensoftware, mit Einschätzung:
 
 | Kandidat | Einschätzung |
 |---|---|
-| **Mitgliederportal** (eigenen Deckel sehen, Auszug laden, Aufladen per QR-Überweisung) | Hoher Nutzen, geringes Risiko, sobald Abrechnung und Zahlungsimport stehen. Verringert die Rückfragen beim Kassier. Phase 5. |
+| **Mitgliederportal** (eigenen Deckel sehen, Auszug laden, Aufladen per QR-Überweisung) | Hoher Nutzen, geringes Risiko, sobald Abrechnung und Zahlungsimport stehen. Verringert die Rückfragen beim Kassier. Phase 5. *Gewünscht am 1. Oktober 2026: das eigene Konto am PC und Telefon aufladen, mit Anmeldung, über einen Zahlungsanbieter (Apple Pay, Google Pay, PayPal) — je Verein mit eigenem Händlerkonto, deshalb nach den Vereinen (4.8).* |
 | **E-Bon am Tablet** (QR-Code oder Bondrucker) | Nötig, sobald die Belegerteilungspflicht gilt (2.1) — dann für jede Bar- und Kartenzahlung an Gäste. Klein, wenn die Buchung ohnehin da ist. |
 | **RKSV-Anbindung** (Signatur, Datenerfassungsprotokoll) | Folgt aus 2.1. Wenn ja, vor der Abrechnung, nicht danach. |
 | **Dienstplan** (wer steht wann an der Theke) | Sinnvoll, weil Schichten (4.5) ohnehin Personen haben. Klein. |
 | **Preislisten mit Gültigkeit** (Fest, Happy Hour) | Klein, und die Veranstaltungs-Kennung aus 4.6 macht es abrechenbar. |
 | **Gutscheine, Pfand** | Beides braucht eigene Buchungslogik; erst, wenn der Verein es tatsächlich verkauft. |
 | **Spendenbescheinigungen, Newsletter, Vereinswebseite, Lastschrift** | Kerngeschäft der Vereinsverwaltungs-Software. Nicht nachbauen. |
-| **Mandantenfähigkeit** (mehrere Vereine auf einem Server) | Nicht, solange es einen Verein gibt. Ein Server pro Verein ist einfacher und datenschutzrechtlich sauberer. |
+| **Mandantenfähigkeit** (mehrere Vereine auf einem Server) | *Entschieden am 1. Oktober 2026: ja, mit eigener Datenbank je Verein — siehe 4.8.* Früher hier: nicht, solange es einen Verein gibt. |
 
 ---
 

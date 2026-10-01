@@ -24,6 +24,9 @@ class Database(
     user: String,
     password: String,
     poolSize: Int = 8,
+    /** Die Migrationen dieser Datenbank: die eines Vereins (Vorgabe) oder die der Systemdatenbank (`classpath:db/system`). */
+    private val migrations: String = MIGRATIONS_VEREIN,
+    poolName: String = "vereinsdeckel",
 ) : AutoCloseable {
 
     private val pool = HikariDataSource(
@@ -33,14 +36,14 @@ class Database(
             this.password = password
             maximumPoolSize = poolSize
             isAutoCommit = false
-            poolName = "vereinsdeckel"
+            this.poolName = poolName
         }
     )
 
     private val flyway: Flyway
         get() = Flyway.configure()
             .dataSource(pool)
-            .locations("classpath:db/migration")
+            .locations(migrations)
             .load()
 
     /** Spielt ausstehende Migrationen ein; liefert, wie viele es waren. */
@@ -88,5 +91,11 @@ class Database(
     companion object {
         /** Beliebige feste Zahl; nur wichtig, dass alle Schreiber dieselbe nehmen. */
         const val SYNC_LOCK = 0x5644_5343L
+
+        /** Das Schema eines Vereins: Mitglieder, Buchungen, Lager, Verwaltung — je Verein eine Datenbank. */
+        const val MIGRATIONS_VEREIN = "classpath:db/migration"
+
+        /** Das Schema der Systemdatenbank: welche Vereine es gibt, die Hauptadmins, was für alle gilt. */
+        const val MIGRATIONS_SYSTEM = "classpath:db/system"
     }
 }

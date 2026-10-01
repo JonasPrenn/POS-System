@@ -2,6 +2,8 @@ package com.example.vereins_kassensystem.server
 
 import com.example.vereins_kassensystem.server.db.Database
 import com.example.vereins_kassensystem.server.http.module
+import com.example.vereins_kassensystem.server.tenancy.Databases
+import com.example.vereins_kassensystem.server.tenancy.TenantDirectory
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.slf4j.LoggerFactory
@@ -30,11 +32,14 @@ fun main(args: Array<String>) {
     val db = Database(config.jdbcUrl, config.dbUser, config.dbPassword)
     val migrated = db.migrate()
     log.info("Schema auf Stand {} ({} Migrationen eingespielt)", db.schemaVersion(), migrated)
+    // Die Systemdatenbank und die weiteren Vereine liegen daneben; ohne sie läuft der erste Verein allein.
+    val directory = TenantDirectory.open(config, db, Databases(config.jdbcUrl, config.dbUser, config.dbPassword))
+    log.info("{} Verein(e): {}", directory.all().size, directory.all().joinToString { it.info.slug })
 
-    Runtime.getRuntime().addShutdownHook(Thread { db.close() })
+    Runtime.getRuntime().addShutdownHook(Thread { directory.close(); db.close() })
 
     embeddedServer(Netty, host = config.host, port = config.port) {
-        module(config, db)
+        module(config, directory)
     }.start(wait = true)
 }
 

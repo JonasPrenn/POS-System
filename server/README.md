@@ -52,18 +52,25 @@ bleibt für das nächste Mal. Danach:
 - `https://<Hostname>/verwaltung` öffnen und mit dem Verwaltungsschlüssel aus `.env`
   (`PAIRING_ADMIN_TOKEN`, `install.sh` zeigt ihn) den ersten Administrator anlegen.
 - Unter Einstellungen Name, Farbe, Bankverbindung, E-Mail eintragen; unter Geräte einen
-  Kopplungscode erzeugen und am Tablet eintragen.
+  Kopplungscode erzeugen und am Tablet eintragen — **das erste Tablet koppeln, bevor Name
+  oder Farbe gespeichert werden** (sonst lädt eine ältere App ihren Bestand nicht hoch; Apps
+  ab dem Stand vom 1. Oktober 2026 sehen über solche Einstellungen hinweg).
+- `https://<Hostname>/verwaltung/system` öffnen und mit demselben Schlüssel den Hauptadmin
+  anlegen: für weitere Vereine, Updates und die Mindestversion der App (siehe unten).
 
 Noch einmal `./install.sh` baut und startet neu, ohne die `.env` anzufassen. Die Daten liegen
-in den Docker-Volumes `pgdata` (Datenbank), `media` (Belegfotos), `updates`; eine Sicherung
-ist `docker compose exec db pg_dump -U vereinsdeckel vereinsdeckel > sicherung.sql` plus das
-Volume `media`.
+in den Docker-Volumes `pgdata` (alle Datenbanken: die des ersten Vereins, `vereinsdeckel_system`
+und je weiterer Verein eine), `media` (Belegfotos), `updates`. Eine Sicherung ist
+`docker compose exec -T db pg_dumpall -U vereinsdeckel > sicherung.sql` — alle Datenbanken in
+einer Datei — plus das Volume `media`.
 
 ### Updates
 
-Was im Git-Repo neu ist, kommt ohne Anmeldung am Server auf den Dienst: In der Verwaltung
-unter **Einstellungen → Updates** (nur Administrator) steht, welcher Stand läuft und welcher
-im Repo ist; „Jetzt suchen“ fragt nach, „Jetzt installieren“ spielt ein. Einstellbar ist,
+Was im Git-Repo neu ist, kommt ohne Anmeldung am Server auf den Dienst: In der
+**Systemverwaltung** (`/verwaltung/system`, Hauptadmin) steht, welcher Stand läuft und welcher
+im Repo ist — ein Update startet den Dienst für alle Vereine neu, deshalb liegt es nicht mehr
+beim Administrator eines Vereins. Nur wenn es keine Systemdatenbank gibt (siehe Vereine),
+steht es wie früher unter Einstellungen des ersten Vereins; „Jetzt suchen“ fragt nach, „Jetzt installieren“ spielt ein. Einstellbar ist,
 ob der Updater von selbst sucht und installiert (`AUTO`), nur sucht (`CHECK`) oder nichts
 von selbst tut (`MANUAL`), und in welchem Abstand.
 
@@ -184,7 +191,8 @@ Am Telefon gibt es eine untere Leiste mit Übersicht, Mitgliedern und Berichten;
 Rest liegt unter „Mehr".
 
 **Ersteinrichtung:** Solange es keinen Benutzer gibt, führt `/verwaltung` auf eine Seite, die
-den `PAIRING_ADMIN_TOKEN` verlangt und den ersten Administrator anlegt. Danach ist sie zu.
+den `PAIRING_ADMIN_TOKEN` verlangt und den ersten Administrator des ersten Vereins anlegt.
+Danach ist sie zu. Die Systemverwaltung hat ihre eigene: `/verwaltung/system/einrichten`.
 Weitere Zugänge legt der Administrator unter „Benutzer und Rollen" an; das Passwort gibt er
 persönlich weiter. Der letzte Administrator kann sich nicht selbst herabstufen oder sperren.
 
@@ -282,6 +290,52 @@ curl -X POST $BASE/v1/admin/devices/<id>/revoke -H "Authorization: Bearer $PAIRI
 curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_..."
 ```
 
+## Vereine und Systemverwaltung
+
+Ein Server trägt mehrere Vereine, jeden mit **eigener Datenbank**, eigenen Geräten, Zugängen,
+Einstellungen und Belegfotos (`tenancy/`). Für die Apps ändert sich nichts: Ein Tablet koppelt
+mit einem Code und gehört danach dem Verein, der ihn erzeugt hat; welches Gerät wohin gehört,
+steht in der Systemdatenbank (`device_routes`), das Token trägt nur die Geräte-ID.
+
+- **Der erste Verein** ist die Datenbank aus `DATABASE_URL`, mit allem, was vor den Vereinen
+  darin war: Daten, Geräte, Zugänge, Sitzungen. Seine Belege bleiben unter `MEDIA_DIR/receipts`,
+  seine Geräte ohne Eintrag werden beim ersten Abgleich gefunden und gemerkt. Die Aufrufe mit
+  dem Serverschlüssel (`/v1/admin/…`) und `/v1/health` meinen ihn.
+- **Die Systemdatenbank** `<name>_system` entsteht beim ersten Start daneben (`db/system/`):
+  Vereine, Gerätewege, Mindestversion, Hauptadmins und ihr Protokoll. Darf der
+  Datenbankbenutzer keine Datenbanken anlegen, läuft der erste Verein allein weiter wie
+  bisher; `/verwaltung/system` sagt dann, warum. In `deploy/compose.yaml` darf er es.
+- **Weitere Vereine** legt der Hauptadmin an, mit Name, Kürzel und erstem Administrator:
+  Datenbank `<name>_<kürzel>`, Belege unter `MEDIA_DIR/vereine/<id>/`. Name und Farbe kommen
+  erst auf die Tablets, wenn der Verein sie selbst speichert — ein Server, auf dem schon
+  Einstellungen stehen, sähe für eine ältere App beim Koppeln nicht leer aus. Je Verein
+  hält der Dienst vier Datenbankverbindungen; mit PostgreSQLs Vorgabe von 100 reicht das für
+  rund zwanzig Vereine.
+
+**Anmelden** mit `name@kürzel`, etwa `kassier@clunia`; ohne Kürzel ist es der erste Verein, so
+wie bisher. Das Kürzel wählt der Verein selbst (Einstellungen, nur Administrator), der Server
+prüft, dass es nur einmal vorkommt — Anmeldenamen müssen dafür nur im eigenen Verein eindeutig
+sein, neu vergeben dürfen sie kein `@` und kein `#` enthalten. Die Verwaltung bleibt für alle
+unter `/verwaltung`; welcher Verein es ist, steht im Sitzungscookie (beim ersten Verein wie
+bisher nur das Token, sonst `<id>.<token>`).
+
+**Testanmeldung:** `admin#kassier@clunia` mit dem Passwort von `admin` öffnet eine Sitzung als
+`kassier` — um zu sehen, was dessen Rolle sieht. Das darf ein Administrator des Vereins und
+ein Hauptadmin. Die Seite sagt es oben in Bernstein, jede Protokollzeile der Sitzung nennt
+beide („Karl Kassa (über Otto Obmann)“), „zuletzt angemeldet“ des Benutzers bleibt unberührt;
+die eines Hauptadmins steht zusätzlich im Protokoll des Systems.
+
+**Systemverwaltung** (`/verwaltung/system`, Anmeldung mit `name@system`, eigenes Cookie nur
+unter diesem Pfad): Vereine anlegen und umbenennen, Mindestversion der App, Updates,
+Hauptadmins, Protokoll.
+
+**Mindestversion der App:** Vorgabe `0.0.0`, alle Versionen. Gesetzt kommt sie als
+`device_settings.min_app_version` auf die Tablets aller Vereine; eine App darunter zeigt nur
+noch, dass sie aktualisiert werden muss, und gleicht weiter ab. Solange sie `0.0.0` ist und
+nie anders war, entsteht keine Zeile (siehe oben, Koppeln). Die Sperre kennen Apps ab dem
+Stand, der sie eingebaut hat; ältere arbeiten unabhängig davon weiter — deshalb bleibt der
+Server zu ihnen kompatibel (Entscheidung des Besitzers vom 1. Oktober 2026, CLAUDE.md).
+
 ## Was wo steht
 
 | Datei | Inhalt |
@@ -292,11 +346,14 @@ curl "$BASE/v1/sync/changes?since=0&limit=500" -H "Authorization: Bearer vd_dev_
 | `sync/SyncStore.kt` | Ziehen, Schieben, Konfliktregeln (Kapitel 4) |
 | `sync/Values.kt` | Zahlenformate nach 5.4: Geld als Zeichenkette, Zeit als ISO 8601 |
 | `devices/` | Kopplungscodes, Gerätetoken (Argon2id), Sperren |
+| `tenancy/` | Die Vereine: `TenantDirectory` (welcher Verein für Token, Code, Anmeldung; anlegen, umbenennen, Mindestversion), `SystemStore` (die Systemdatenbank), `Databases` (Datenbanken daneben anlegen), `Tenant` (Kürzel, der Verein der Anfrage) |
+| `src/main/resources/db/system/V1__system.sql` | Die Systemdatenbank: Vereine, Gerätewege, Systemeinstellungen, Hauptadmins mit Sitzungen und Protokoll |
+| `src/main/resources/db/migration/V14__testanmeldung.sql` | `web_sessions.via` — wer bei einer Testanmeldung wirklich davorsitzt |
 | `media/ReceiptStore.kt` | Belegfotos als Dateien unter `MEDIA_DIR/receipts` |
 | `http/` | Ktor-Routen, Fehlerbilder nach 5.3 |
 | `deploy/` | `compose.yaml` (db, api, proxy, updater), `install.sh` (Erstaufstellung), `update.sh` (von Hand), `updater/` (der Updater), `Caddyfile`, `.env.example` |
 | `Dockerfile` | Zwei Stufen: Gradle baut :server im Container, das Laufzeit-Image trägt nur das Ergebnis und die Commit-Kennung |
-| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt`, `MemberCsv.kt`, `Updates.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
+| `web/` | Die Verwaltung: `Accounts.kt` (Benutzer, Sitzungen, Protokoll, Einstellungen), `SignIn.kt` (name@kürzel, Testanmeldung), `Reads.kt` (alle Abfragen), `Html.kt` und `Pages*.kt` (Seiten, `PagesServer.kt` die Systemverwaltung), `Writes.kt`, `Products.kt`, `Purchases.kt`, `Statements.kt`, `Cash.kt`, `Books.kt`, `MemberCsv.kt`, `Updates.kt` (die Fachlogik je Bereich), `resources/web/app.css` |
 | `src/main/resources/db/migration/V13__bardienst.sql` | `cash_sessions.cashless`, synchronisiert — der Bardienst ohne Barkasse |
 | `src/main/resources/db/migration/V12__geraeteeinstellungen.sql` | `device_settings`, synchronisiert, nur vom Server geschrieben — Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung für alle Tablets |
 | `src/main/resources/db/migration/V11__posteingang.sql` | Posteingang, freigegebene Absender, gebuchte Zeilen je Beleg |

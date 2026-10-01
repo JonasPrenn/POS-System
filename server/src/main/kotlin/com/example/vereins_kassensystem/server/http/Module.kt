@@ -1,16 +1,8 @@
 package com.example.vereins_kassensystem.server.http
 
 import com.example.vereins_kassensystem.server.ServerConfig
-import com.example.vereins_kassensystem.server.db.Database
-import com.example.vereins_kassensystem.server.devices.DeviceStore
 import com.example.vereins_kassensystem.server.devices.Tokens
-import com.example.vereins_kassensystem.server.media.ReceiptStore
-import com.example.vereins_kassensystem.server.sync.SyncStore
-import com.example.vereins_kassensystem.server.web.ImapMailbox
-import com.example.vereins_kassensystem.server.web.Mailbox
-import com.example.vereins_kassensystem.server.web.Mailer
-import com.example.vereins_kassensystem.server.web.SmtpMailer
-import com.example.vereins_kassensystem.server.web.Web
+import com.example.vereins_kassensystem.server.tenancy.TenantDirectory
 import com.example.vereins_kassensystem.server.web.webRoutes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -36,11 +28,7 @@ import kotlin.time.Duration.Companion.seconds
 object AdminPrincipal
 
 /** Der Dienst — ohne Netz und Datenbank aufgesetzt, damit die Tests ihn genauso starten. */
-fun Application.module(config: ServerConfig, db: Database, mailer: Mailer = SmtpMailer, mailbox: Mailbox = ImapMailbox, pollMailbox: Boolean = true) {
-    val devices = DeviceStore(db, config.pairingCodeTtl)
-    val sync = SyncStore(db)
-    val receipts = ReceiptStore(config.mediaDir)
-
+fun Application.module(config: ServerConfig, directory: TenantDirectory, pollMailbox: Boolean = true) {
     if (config.trustProxy) install(XForwardedHeaders)
     install(ContentNegotiation) { json(WireJson) }
     install(CallLogging) { level = Level.INFO }
@@ -49,7 +37,7 @@ fun Application.module(config: ServerConfig, db: Database, mailer: Mailer = Smtp
     install(Authentication) {
         bearer("device") {
             realm = "VereinsDeckel"
-            authenticate { credential -> devices.authenticate(credential.token) }
+            authenticate { credential -> directory.authenticate(credential.token) }
         }
         bearer("admin") {
             realm = "VereinsDeckel Verwaltung"
@@ -72,14 +60,13 @@ fun Application.module(config: ServerConfig, db: Database, mailer: Mailer = Smtp
     }
 
     routing {
-        apiRoutes(db, devices, sync, receipts)
-        val web = Web(config, db, devices, receipts, mailer, mailbox)
-        webRoutes(web)
-        // Der Posteingang: alle zehn Minuten, solange der Abruf eingeschaltet ist — ein Fehler steht in den Einstellungen, nicht im Log allein.
+        apiRoutes(directory)
+        webRoutes(directory)
+        // Der Posteingang jedes Vereins: alle zehn Minuten, solange der Abruf eingeschaltet ist — ein Fehler steht in den Einstellungen, nicht im Log allein.
         if (pollMailbox) launch(Dispatchers.IO) {
             while (isActive) {
                 delay(10 * 60 * 1000L)
-                runCatching { if (web.settings.load().imap.enabled) web.intake.poll() }
+                for (tenant in directory.all()) runCatching { if (tenant.web.settings.load().imap.enabled) tenant.web.intake.poll() }
             }
         }
     }

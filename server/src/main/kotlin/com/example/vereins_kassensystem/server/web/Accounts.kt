@@ -57,8 +57,13 @@ class WebUser(
     val active: Boolean,
     val validUntil: LocalDate?,
     val lastLoginAt: Instant?,
+    /** Bei einer Testanmeldung (admin#benutzer@verein): wer wirklich davorsitzt. */
+    val via: String? = null,
 ) {
     fun usable(today: LocalDate): Boolean = active && (validUntil == null || !today.isAfter(validUntil))
+
+    /** Wer im Protokoll und in Belegen steht: der Benutzer — und bei einer Testanmeldung, wer es war. */
+    val actor: String get() = if (via == null) displayName else "$displayName (über $via)"
 
     companion object {
         /** Der Posteingang handelt ohne Menschen: ein Akteur fürs Protokoll, der kein Benutzer ist. */
@@ -93,11 +98,9 @@ class Accounts(private val db: Database, private val today: () -> LocalDate = Lo
     fun find(id: UUID): WebUser? = db.transaction { c -> c.queryOne("SELECT * FROM users WHERE id = ?", id) { it.user() } }
 
     fun create(login: String, displayName: String, role: Role, password: String, validUntil: LocalDate? = null): WebUser {
+        check(login, displayName, password)
         val cleanLogin = login.trim()
         val cleanName = displayName.trim()
-        if (cleanLogin.length < 3) throw AccountProblem("Der Anmeldename braucht mindestens drei Zeichen.")
-        if (cleanName.isEmpty()) throw AccountProblem("Bitte einen Namen angeben.")
-        checkPassword(password)
         val id = UUID.randomUUID()
         db.transaction { c ->
             if (c.queryOne("SELECT 1 FROM users WHERE lower(login) = lower(?)", cleanLogin) { true } == true) {
@@ -131,7 +134,11 @@ class Accounts(private val db: Database, private val today: () -> LocalDate = Lo
     fun activeAdmins(): Int = list().count { it.role == Role.ADMIN && it.usable(today()) }
 
     /** Prüft Name und Passwort. Null bei jedem Fehlschlag — welcher es war, erfährt niemand. */
-    fun login(login: String, password: String, now: Instant = Instant.now()): Pair<String, WebSession>? {
+    fun login(login: String, password: String, now: Instant = Instant.now()): Pair<String, WebSession>? =
+        verify(login, password)?.let { open(it, null, now) }
+
+    /** Prüft Name und Passwort, ohne anzumelden — für die Testanmeldung, bei der das Passwort das des Administrators ist. */
+    fun verify(login: String, password: String): WebUser? {
         val row = db.transaction { c ->
             c.queryOne("SELECT * FROM users WHERE lower(login) = lower(?)", login.trim()) { it.user() to it.getString("password_hash") }
         }
@@ -139,29 +146,38 @@ class Accounts(private val db: Database, private val today: () -> LocalDate = Lo
         val hash = row?.second ?: DUMMY_HASH
         val matches = Argon2.verify(password.toByteArray(), hash)
         val user = row?.first
-        if (!matches || user == null || !user.usable(today())) return null
+        return if (matches && user != null && user.usable(today())) user else null
+    }
 
+    fun findByLogin(login: String): WebUser? = db.transaction { c -> c.queryOne("SELECT * FROM users WHERE lower(login) = lower(?)", login.trim()) { it.user() } }
+
+    /**
+     * Eine Sitzung für [user]. Mit [via] ist es eine Testanmeldung: Die Sitzung gehört [user], jede
+     * Protokollzeile nennt [via] dazu, und „zuletzt angemeldet“ bleibt, wie es war — angemeldet hat
+     * sich ja nicht er.
+     */
+    fun open(user: WebUser, via: String?, now: Instant = Instant.now()): Pair<String, WebSession> {
         val token = ByteArray(32).also(random::nextBytes).let(encoder::encodeToString)
         val csrf = ByteArray(24).also(random::nextBytes).let(encoder::encodeToString)
         db.transaction { c ->
             c.execute(
-                "INSERT INTO web_sessions (token_hash, user_id, csrf, expires_at) VALUES (?, ?, ?, ?)",
-                Tokens.sha256Hex(token), user.id, csrf, Timestamp.from(now.plus(MAX_AGE))
+                "INSERT INTO web_sessions (token_hash, user_id, csrf, expires_at, via) VALUES (?, ?, ?, ?, ?)",
+                Tokens.sha256Hex(token), user.id, csrf, Timestamp.from(now.plus(MAX_AGE)), via
             )
-            c.execute("UPDATE users SET last_login_at = ? WHERE id = ?", Timestamp.from(now), user.id)
+            if (via == null) c.execute("UPDATE users SET last_login_at = ? WHERE id = ?", Timestamp.from(now), user.id)
             c.execute("DELETE FROM web_sessions WHERE expires_at < ?", Timestamp.from(now))
         }
-        return token to WebSession(user, csrf)
+        return token to WebSession(if (via == null) user else user.withVia(via), csrf)
     }
 
     /** Die Sitzung zum Cookie — oder null, wenn sie abgelaufen ist oder der Benutzer nicht mehr darf. */
     fun session(token: String, now: Instant = Instant.now()): WebSession? = db.transaction { c ->
         val hash = Tokens.sha256Hex(token)
         val found = c.queryOne(
-            "SELECT u.*, s.csrf, s.last_seen_at AS seen FROM web_sessions s JOIN users u ON u.id = s.user_id " +
+            "SELECT u.*, s.csrf, s.last_seen_at AS seen, s.via FROM web_sessions s JOIN users u ON u.id = s.user_id " +
                 "WHERE s.token_hash = ? AND s.expires_at > ?",
             hash, Timestamp.from(now)
-        ) { Triple(it.user(), it.getString("csrf"), it.getTimestamp("seen").toInstant()) } ?: return@transaction null
+        ) { rs -> Triple(rs.user().let { u -> rs.getString("via")?.let { v -> u.withVia(v) } ?: u }, rs.getString("csrf"), rs.getTimestamp("seen").toInstant()) } ?: return@transaction null
         val (user, csrf, seen) = found
         if (!user.usable(today()) || Duration.between(seen, now) > IDLE) {
             c.execute("DELETE FROM web_sessions WHERE token_hash = ?", hash)
@@ -182,6 +198,8 @@ class Accounts(private val db: Database, private val today: () -> LocalDate = Lo
         if (password.length < MIN_PASSWORD) throw AccountProblem("Das Passwort braucht mindestens $MIN_PASSWORD Zeichen.")
     }
 
+    private fun WebUser.withVia(via: String) = WebUser(id, login, displayName, role, active, validUntil, lastLoginAt, via)
+
     private fun ResultSet.user() = WebUser(
         id = getObject("id", UUID::class.java),
         login = getString("login"),
@@ -195,6 +213,20 @@ class Accounts(private val db: Database, private val today: () -> LocalDate = Lo
     companion object {
         const val MIN_PASSWORD = 10
         val IDLE: Duration = Duration.ofHours(12)
+
+        /**
+         * Was ein neuer Zugang erfüllen muss, bevor nach Doppelten gesucht wird. @ und # sind
+         * vergeben: name@verein meldet im Verein an, admin#name@verein ist die Testanmeldung.
+         * Ältere Namen mit @ oder # melden sich weiter an; neu vergeben werden sie nicht.
+         */
+        fun check(login: String, displayName: String, password: String) {
+            val cleanLogin = login.trim()
+            if (cleanLogin.length < 3) throw AccountProblem("Der Anmeldename braucht mindestens drei Zeichen.")
+            if (cleanLogin.any { it == '@' || it == '#' }) throw AccountProblem("Der Anmeldename darf kein @ und kein # enthalten — bei der Anmeldung steht dahinter das Kürzel des Vereins.")
+            if (displayName.trim().isEmpty()) throw AccountProblem("Bitte einen Namen angeben.")
+            if (password.length < MIN_PASSWORD) throw AccountProblem("Das Passwort braucht mindestens $MIN_PASSWORD Zeichen.")
+        }
+
         val MAX_AGE: Duration = Duration.ofDays(14)
         private val DUMMY_HASH: String by lazy { Argon2.hash("kein-benutzer".toByteArray()) }
     }
@@ -206,7 +238,11 @@ class AuditLog(private val db: Database) {
     class Entry(val at: Instant, val actor: String, val action: String, val subject: String, val detail: String)
 
     fun record(user: WebUser?, action: String, subject: String = "", detail: String = "") =
-        db.transaction { c -> record(c, user?.id, user?.displayName ?: "System", action, subject, detail) }
+        db.transaction { c -> record(c, user?.id, user?.actor ?: "System", action, subject, detail) }
+
+    /** Für jemanden ohne Zugang in diesem Verein — etwa den Hauptadmin, der ihn angelegt hat. */
+    fun recordAs(actor: String, action: String, subject: String = "", detail: String = "") =
+        db.transaction { c -> record(c, null, actor, action, subject, detail) }
 
     fun recent(limit: Int, actionPrefix: String? = null): List<Entry> = db.transaction { c ->
         c.query(
@@ -234,7 +270,7 @@ class BankAccount(val holder: String, val iban: String, val bic: String) {
 }
 
 /** Was der Verein über sich einstellt: Name, Farbe, Anschrift, Rechnungsjahr, Bank, E-Mail. */
-class VereinSettings(private val db: Database) {
+class VereinSettings(private val db: Database, private val fallbackName: () -> String = { "" }) {
 
     class Values(
         val name: String, val accent: String, val fiscalStartMonth: Int, val address: String,
@@ -246,11 +282,12 @@ class VereinSettings(private val db: Database) {
     fun load(): Values = db.transaction { c ->
         val all = c.query("SELECT key, value FROM settings") { it.getString("key") to it.getString("value") }.toMap()
         Values(
-            name = all[NAME].orEmpty(),
+            // Ein neu angelegter Verein hat noch keinen gespeicherten Namen: dann der, unter dem er angelegt wurde.
+            name = all[NAME].orEmpty().ifBlank { fallbackName() },
             accent = all[ACCENT]?.takeIf(HEX::matches) ?: DEFAULT_ACCENT,
             fiscalStartMonth = all[FISCAL]?.toIntOrNull()?.takeIf { it in 1..12 } ?: 1,
             address = all[ADDRESS].orEmpty(),
-            bank = BankAccount(all[BANK_HOLDER].orEmpty().ifBlank { all[NAME].orEmpty() }, all[IBAN].orEmpty(), all[BIC].orEmpty()),
+            bank = BankAccount(all[BANK_HOLDER].orEmpty().ifBlank { all[NAME].orEmpty().ifBlank { fallbackName() } }, all[IBAN].orEmpty(), all[BIC].orEmpty()),
             smtp = Smtp(all[SMTP_HOST].orEmpty(), all[SMTP_PORT]?.toIntOrNull() ?: 587, all[SMTP_USER].orEmpty(), all[SMTP_PASSWORD].orEmpty(), all[SMTP_FROM].orEmpty(), all[SMTP_TLS] != "0"),
             statementText = all[STATEMENT_TEXT].orEmpty(),
             imap = Imap(all[IMAP_HOST].orEmpty(), all[IMAP_PORT]?.toIntOrNull() ?: 993, all[IMAP_USER].orEmpty(), all[IMAP_PASSWORD].orEmpty(), all[IMAP_FOLDER].orEmpty().ifBlank { "INBOX" }, all[IMAP_ENABLED] == "1"),
@@ -313,6 +350,17 @@ class VereinSettings(private val db: Database) {
         }
     }
 
+    /**
+     * Die Mindestversion der App, aus der Systemverwaltung. Solange sie "0.0.0" ist und nie anders
+     * war, entsteht keine Zeile: Ein Verein ohne Daten muss für ein koppelndes Tablet leer aussehen,
+     * sonst lädt es seine eigenen Daten nicht hoch.
+     */
+    fun mirrorMinAppVersion(version: String) {
+        val present = db.read { c -> c.queryOne("SELECT 1 FROM device_settings WHERE key = ? AND NOT deleted", MIN_APP_VERSION) { true } } ?: false
+        if (!present && version == NO_MIN_APP_VERSION) return
+        mirror(MIN_APP_VERSION to version)
+    }
+
     /** Beim Start: Was schon gespeichert ist, steht auch für die Tablets bereit — aber nur, was je gespeichert wurde. */
     fun mirrorDeviceSettings() {
         val all = db.read { c -> c.query("SELECT key, value FROM settings WHERE key = ANY(?)", c.createArrayOf("text", arrayOf(NAME, ACCENT, SUMUP_KEY, TABLET_BACKUP))) { it.getString("key") to it.getString("value") } }.toMap()
@@ -354,6 +402,9 @@ class VereinSettings(private val db: Database) {
         private const val MAIL_LAST_ERROR = "mail_last_error"
         private const val SUMUP_KEY = "sumup_affiliate_key"
         private const val TABLET_BACKUP = "tablet_auto_backup"
+        /** Gleich benannt in der App (SettingsRepository) — dort sperrt sie sich darunter. */
+        const val MIN_APP_VERSION = "min_app_version"
+        const val NO_MIN_APP_VERSION = com.example.vereins_kassensystem.MinimumVersion.NONE
 
         /** ISO 7064 mod 97-10, wie jede Bank sie prüft. */
         fun ibanValid(iban: String): Boolean {
