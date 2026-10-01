@@ -25,6 +25,7 @@ import kotlinx.html.FormMethod
 import kotlinx.html.HTML
 import kotlinx.html.InputType
 import kotlinx.html.a
+import kotlinx.html.br
 import kotlinx.html.button
 import kotlinx.html.div
 import kotlinx.html.form
@@ -291,8 +292,13 @@ private fun HTML.serverPage(ctx: PageContext, directory: TenantDirectory, system
                     if (entries.isEmpty()) div("panel-body") { p("muted") { +"Noch nichts." } }
                     else table("t t-tight") {
                         tbody {
+                            // Umbrechend statt einzeilig: In der schmaleren Spalte schöbe eine lange Zeile die Zeit sonst über den Rand.
                             for (e in entries) tr {
-                                td { twoLine(listOfNotNull(ACTIONS[e.action] ?: e.action, e.subject.takeIf { it.isNotBlank() }?.let { "„$it“" }).joinToString(": "), listOf(e.actor, e.detail).filter { it.isNotBlank() }.joinToString(" · ")) }
+                                td {
+                                    span("title-s") { +listOfNotNull(ACTIONS[e.action] ?: e.action, e.subject.takeIf { it.isNotBlank() }?.let { "„$it“" }).joinToString(": ") }
+                                    br()
+                                    span("cap") { +listOf(e.actor, e.detail).filter { it.isNotBlank() }.joinToString(" · ") }
+                                }
                                 td("num c-muted nowrap") { +ctx.friendly(e.at) }
                             }
                         }
