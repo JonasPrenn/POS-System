@@ -32,3 +32,6 @@ iosApp/build/
 server/deploy/.env
 /media/
 /server/media/
+
+# Python (Werkzeuge unter docs/tools)
+__pycache__/

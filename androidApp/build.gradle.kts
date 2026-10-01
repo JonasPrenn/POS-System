@@ -18,6 +18,11 @@ android {
     }
 
     buildTypes {
+        // Für die Bilder der Anleitung (docs/tools/anleitung): `-PappIdSuffix=.anleitung` installiert die
+        // App als eigenes Paket neben der Entwicklungs-App, ohne deren Daten anzufassen.
+        debug {
+            providers.gradleProperty("appIdSuffix").orNull?.let { applicationIdSuffix = it }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

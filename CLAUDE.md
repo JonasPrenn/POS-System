@@ -17,6 +17,7 @@ sondern ein Anschreibsystem mit angeschlossener Kasse.
 | Portierung auf iOS | **läuft im iPad-Simulator**, Gerätestart steht aus, siehe `docs/PORTIERUNG.md` |
 | Server für den Mehrgerätebetrieb | **steht und ist getestet**, `server/` — Schema, Kopplung, Sync, Belegfotos nach der Spezifikation. Aufstellen mit `server/deploy/install.sh` (Docker und git genügen, gebaut wird im Container); Updates aus dem Repo über die Systemverwaltung (`web/Updates.kt`, Dienst `updater`). **Mehrere Vereine** (`tenancy/`): je Verein eine Datenbank, dazu `<name>_system`; die Datenbank von vor den Vereinen ist der erste. Aufgestellt ist er bisher nur zum Probieren auf dem eigenen Rechner |
 | Mehrgerätebetrieb in der App (Schritt 7) | **fertig**: Schema 15 (11 = UUID-Schlüssel, 12 = Couleurname, 13 = Kasse, 14 = Sperre, 15 = Bardienst ohne Barkasse) mit hergeleitetem Saldo und Bestand, Abgleich und Kopplung. Mit zwei Geräten (Emulator, Simulator) gegen den Server in Docker durchgespielt. **Auf dem echten Vereinstablet ist die Migration ungeprüft — vorher sichern** |
+| Anleitung | `docs/Anleitung-VereinsDeckel.pdf` für Theke, Kassier, Mitglieder und Betrieb, mit Screenshots — Quelle `docs/anleitung/anleitung.html`, gebaut von `docs/tools/anleitung/anleitung.py` aus einem Wegwerf-Server mit erfundenem Verein. **Zieht bei jedem Commit auf main mit** (siehe unten) |
 | Web-Verwaltung | **Phase 1 gebaut** (`server/.../web/`, unter `/verwaltung`): Anmeldung mit Rollen, Übersicht, Mitglieder, Berichte, Lager, Einkauf, Geräte, Protokoll, mit Telefonansicht. Dazu Abrechnung mit PDF, E-Mail und Bankimport (`web/Statements.kt`) und die Kasse (`web/Cash.kt`: Tagesbericht, Kassenbuch, Bankbuch aus dem, was die Tablets als `cash_sessions` und `cash_movements` melden — gezählt wird am Tablet nach Stückelung, `ui/components/CashDialogs.kt`; geöffnet im Warenkorb, geschlossen auf der Übersicht), das Sortiment (`web/Products.kt`) und die Bücher (`web/Books.kt`: Einnahmen-Ausgaben-Rechnung und Vermögensübersicht, hergeleitet, nichts fortgeschrieben). Schreibt in synchronisierte Tabellen nur Mitglieder (anlegen, ändern, sperren, löschen), Aufladungen und Korrekturen (`web/Writes.kt`, auch die Zahlung einer Abrechnung), Wareneingänge (`web/Purchases.kt`) und das Sortiment samt Kategorien (`web/Products.kt`) sowie die Einstellungen der Tablets (`device_settings`: Vereinsname, Vereinsfarbe, SumUp-Schlüssel, tägliche Sicherung, Mindestversion der App — die Geräte lesen sie nur), immer über `Database.write`. Anmeldung mit `name@kürzel`, Testanmeldung `admin#name@kürzel` (`web/SignIn.kt`); die Systemverwaltung unter `/verwaltung/system` (`web/PagesServer.kt`, Hauptadmin): Vereine, Mindestversion, Updates, Adresse von außen. Dazu der Deckel für Mitglieder unter `/konto/<kürzel>` (`web/Portal.kt`): Anmeldelink per E-Mail, Online-Aufladung über SumUp (`payments/`). Konzept und Phasen 2–4 in `docs/WEB-VERWALTUNG.md` (Vereine: 4.8); der klickbare Entwurf liegt als Artifact vor |
 
 Beide Plattformen bauen aus demselben Code. Was geprüft ist und was nicht, steht in
@@ -40,7 +41,7 @@ androidApp/      Nur Hülle: MainActivity, Application, BackupWorker, Manifest, 
 iosApp/          Xcode-Projekt und Swift-Host. Baut das Kotlin-Framework über Gradle.
 server/          Der Sync-Server nach der Spezifikation: Kotlin/JVM, Ktor, PostgreSQL. Eigene README.
                  web/ ist die Verwaltung: server-gerendertes HTML, ein Stylesheet, keine Skripte.
-docs/            Spezifikation, Portierungsplan, Werkzeuge.
+docs/            Spezifikation, Portierungsplan, Werkzeuge, die Anleitung (anleitung/ → PDF).
 ```
 
 ## Feste Entscheidungen
@@ -192,6 +193,20 @@ Zahlungsart Karte, deren id die der Aufladung ist. Eine neue Zahlungsart in `tra
 es für ältere Apps nicht; deshalb bleibt es bei `CARD`. Der API-Schlüssel steht in `settings`,
 nie in `device_settings`.
 
+**Die Anleitung zieht mit main mit.** Entscheidung des Besitzers vom 1. Oktober 2026: Jeder
+Commit, der auf main landet, bringt die Anleitung (`docs/Anleitung-VereinsDeckel.pdf`) auf seinen
+Stand. Was sich für Theke, Kassier, Mitglieder oder Betrieb sichtbar ändert, steht danach in
+`docs/anleitung/anleitung.html`; die Bilder der geänderten Bildschirme werden neu gemacht und das
+PDF neu gebaut: `python3 docs/tools/anleitung/anleitung.py alles <bild …>` (Docker, Chrome, für
+Bilder der App ein Android-Emulator im Format des Vereinstablets, `adb shell wm size 1920x1200`
+bei Dichte 320). Nur die betroffenen Bilder, nicht alle: Jedes neu gemachte Bild trägt neue
+Uhrzeiten und bleibt als Datei in der Geschichte des Repos, die auch der Server bei jedem Update
+holt — alle auf einmal sind gut 5 MB. Ändert sich nur Text, genügt `anleitung.py pdf`. Die
+Demodaten sind erfunden, echte Mitglieder kommen nie in die Bilder. Ändert ein Commit nichts, was
+man sieht oder bedient, sagt die PR-Beschreibung das in einem Satz — die Vorlage
+`.github/pull_request_template.md` fragt danach. Das Titelblatt nennt Version und Commit, aus dem
+gebaut wurde.
+
 **Die Version steht genau einmal.** In `VERSION`: `x.y.z-beta` in der Entwicklung, `x.y.z`
 nach der Freigabe durch den Besitzer — geändert nur über `docs/tools/version.sh`
 (`beta x.y.z`, `release` mit Commit und Tag `vx.y.z`, `next`). Daraus erzeugt `:core` das
@@ -223,6 +238,10 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"  
 ./gradlew :core:jvmTest :shared:testAndroidHostTest   # ohne Simulator
 ./gradlew :core:allTests :shared:allTests   # braucht eine iOS-Simulator-Runtime
 ```
+
+Vor jedem Merge auf main die Anleitung nachziehen: Text in `docs/anleitung/anleitung.html`, dann
+`python3 docs/tools/anleitung/anleitung.py alles <bild …>` für die geänderten Bildschirme oder
+`… pdf`, wenn sich nur Text ändert (siehe „Die Anleitung zieht mit main mit“).
 
 Wer `server/` oder `core/` anfasst, zusätzlich `./gradlew :server:test` (startet einen
 eingebetteten PostgreSQL, braucht weder Docker noch eine Installation).
