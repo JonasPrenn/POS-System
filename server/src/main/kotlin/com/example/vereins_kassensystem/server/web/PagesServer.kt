@@ -302,7 +302,7 @@ private fun HTML.serverPage(ctx: PageContext, directory: TenantDirectory, system
                             h2("title-m") { +"Mindestversion der App" }
                             if (directory.minAppVersion == TenantDirectory.NO_MINIMUM) chip("alle Versionen", "neutral") else chip("ab ${directory.minAppVersion}", "warn")
                         }
-                        p("muted") { +"Ein Tablet mit einer älteren App lässt sich nicht mehr bedienen, bis die App aktualisiert ist; sein Abgleich läuft weiter, nichts geht verloren. Die Sperre kennen Apps ab diesem Stand — ältere arbeiten unabhängig davon weiter, deshalb bleibt der Server zu ihnen kompatibel. 0.0.0 heißt: alle Versionen." }
+                        p("muted") { +"Ein Tablet mit einer älteren App lässt sich nicht mehr bedienen, bis die App aktualisiert ist; sein Abgleich läuft weiter, nichts geht verloren. Die Sperre kennen Apps ab 1.3.0 — ältere arbeiten unabhängig davon weiter, deshalb bleibt der Server zu ihnen kompatibel. 0.0.0 heißt: alle Versionen; 1.3.0 verlangt, dass jedes Tablet die Sperre kennt." }
                         label("field") { span { +"Mindestversion, etwa 1.3.0" }; input(InputType.text, name = "version") { value = directory.minAppVersion; required = true; maxLength = "10"; attributes["inputmode"] = "decimal" } }
                         p("cap") { +"Dieser Server: Version ${AppVersion.LABEL}." }
                         div { button(type = ButtonType.submit, classes = "btn btn-primary") { +"Speichern" } }

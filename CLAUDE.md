@@ -166,7 +166,7 @@ weg, keiner ändert seine Bedeutung. Dazu die Mindestversion: In der Systemverwa
 der Hauptadmin, welche App noch kassieren darf (Vorgabe 0.0.0, alle); sie kommt als
 `device_settings.min_app_version`, darunter zeigt die App nur `UpdateRequiredScreen` und
 gleicht weiter ab. Verglichen wird mit `MinimumVersion` aus `:core`, wie `AppVersion.CODE`.
-Die Sperre kennen nur Apps, die sie eingebaut haben — für alle älteren gilt der erste Satz.
+Die Sperre kennen Apps ab 1.3.0 — für alle älteren gilt der erste Satz.
 Solange die Mindestversion 0.0.0 ist und nie anders war, entsteht keine Zeile: Ein Verein ohne
 Daten muss für ein koppelndes älteres Tablet leer aussehen.
 

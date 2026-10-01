@@ -53,8 +53,8 @@ bleibt für das nächste Mal. Danach:
   (`PAIRING_ADMIN_TOKEN`, `install.sh` zeigt ihn) den ersten Administrator anlegen.
 - Unter Einstellungen Name, Farbe, Bankverbindung, E-Mail eintragen; unter Geräte einen
   Kopplungscode erzeugen und am Tablet eintragen — **das erste Tablet koppeln, bevor Name
-  oder Farbe gespeichert werden** (sonst lädt eine ältere App ihren Bestand nicht hoch; Apps
-  ab dem Stand vom 1. Oktober 2026 sehen über solche Einstellungen hinweg).
+  oder Farbe gespeichert werden** (sonst lädt eine App vor 1.3.0 ihren Bestand nicht hoch;
+  ab 1.3.0 sieht sie über solche Einstellungen hinweg).
 - `https://<Hostname>/verwaltung/system` öffnen und mit demselben Schlüssel den Hauptadmin
   anlegen: für weitere Vereine, Updates und die Mindestversion der App (siehe unten).
 
@@ -332,9 +332,10 @@ Hauptadmins, Protokoll.
 **Mindestversion der App:** Vorgabe `0.0.0`, alle Versionen. Gesetzt kommt sie als
 `device_settings.min_app_version` auf die Tablets aller Vereine; eine App darunter zeigt nur
 noch, dass sie aktualisiert werden muss, und gleicht weiter ab. Solange sie `0.0.0` ist und
-nie anders war, entsteht keine Zeile (siehe oben, Koppeln). Die Sperre kennen Apps ab dem
-Stand, der sie eingebaut hat; ältere arbeiten unabhängig davon weiter — deshalb bleibt der
-Server zu ihnen kompatibel (Entscheidung des Besitzers vom 1. Oktober 2026, CLAUDE.md).
+nie anders war, entsteht keine Zeile (siehe oben, Koppeln). Die Sperre kennen Apps ab 1.3.0
+(Beta); ältere arbeiten unabhängig davon weiter — deshalb bleibt der Server zu ihnen
+kompatibel (Entscheidung des Besitzers vom 1. Oktober 2026, CLAUDE.md). Wer verlangen will,
+dass jedes Tablet die Sperre kennt, setzt 1.3.0.
 
 ## Was wo steht
 

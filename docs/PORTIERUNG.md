@@ -340,7 +340,7 @@ wieder hoch. Gekoppelt zeigt der Einstellungsbildschirm Name, Farbe und Schlüss
 an; ein Gerät ohne Server stellt sie weiterhin selbst ein. Der Key reist nur über den
 authentifizierten Abgleich (Gerätetoken, im Betrieb TLS) an gekoppelte Geräte.
 
-**Seit dem 1. Oktober 2026 kommt auf demselben Weg die Mindestversion der App**
+**Seit dem 1. Oktober 2026 (App 1.3.0) kommt auf demselben Weg die Mindestversion der App**
 (`min_app_version`, gesetzt vom Hauptadmin in der Systemverwaltung des Servers). Liegt die
 App darunter (`MinimumVersion` aus `:core`), zeigt `VereinsDeckelApp` statt der Kasse nur
 `UpdateRequiredScreen`; der Abgleich läuft weiter — er startet deshalb an der Wurzel, nicht
