@@ -299,7 +299,7 @@ def steps(d, bilder, base):
     d.wait("Zahlung wählen")
     d.shot(p("app-bezahlen.jpg"))
     d.tap("Bar")
-    d.tap("20")
+    d.tap("20 €")
     d.shot(p("app-bar.jpg"))
     d.tap("Abschließen")
 

@@ -9,11 +9,12 @@
   sondern diese Datei — und bei jedem Commit auf main nachziehen, was sich geändert hat (CLAUDE.md).
 -->
 <style>
-  /* Farben der App: Grün ist Geld und Bestätigung, Messing der Deckel, Bernstein Aufmerksamkeit. */
+  /* Farben der App (Kassen-Standard, DESIGN.md): Tinte die Grundstimme, Grün Geld und Bestätigung,
+     Messing der Deckel, Bernstein Aufmerksamkeit. --pine heißt aus Gewohnheit so und ist das Grün der App. */
   :root {
-    --ink: #191D1A; --muted: #4A524B; --line: #D3DAD1; --sub: #F2F5F0;
-    --pine: #146B4C; --pine-soft: #E2F3E9; --brass: #7A5314; --brass-soft: #F7ECD9;
-    --ember: #A03E00; --ember-soft: #FFE7D6; --harbor: #2B5C87;
+    --ink: #141414; --muted: #5E5B55; --line: #DEDCD6; --sub: #F4F3EF;
+    --pine: #0B7A3B; --pine-soft: #E3F2E7; --brass: #76611A; --brass-soft: #F4EFD9;
+    --ember: #A84B00; --ember-soft: #FDEBDC; --harbor: #1F5CC9;
   }
   @page { size: A4; margin: 17mm 16mm 19mm 16mm; }
   @page titel { margin: 0; }
@@ -28,7 +29,7 @@
 
   .titel { page: titel; height: 297mm; display: flex; flex-direction: column; justify-content: space-between; padding: 30mm 24mm 22mm; background: #fff; }
   .marke { display: flex; align-items: center; gap: 12pt; }
-  .marke-zeichen { width: 44pt; height: 44pt; border-radius: 11pt; background: var(--pine); display: flex; align-items: center; justify-content: center; }
+  .marke-zeichen { width: 44pt; height: 44pt; border-radius: 11pt; background: var(--ink); display: flex; align-items: center; justify-content: center; }
   .marke-zeichen svg { width: 28pt; height: 28pt; }
   .marke span { font-size: 15pt; font-weight: 650; letter-spacing: 0.2pt; }
   .titel h1 { font-size: 40pt; line-height: 1.05; margin: 0 0 10pt; letter-spacing: -0.5pt; break-before: auto; border: 0; padding: 0; }
@@ -125,11 +126,12 @@
 <h2>Die Farben bedeuten etwas</h2>
 <table>
   <tr><th>Farbe</th><th>Bedeutung</th></tr>
-  <tr><td><span class="farbe" style="background:#146B4C"></span>Grün</td><td>Geld und Bestätigung — Bezahlen, bezahlt, gebucht</td></tr>
-  <tr><td><span class="farbe" style="background:#7A5314"></span>Messing</td><td>der Deckel</td></tr>
-  <tr><td><span class="farbe" style="background:#2B5C87"></span>Blau</td><td>Karte und Auswertung</td></tr>
-  <tr><td><span class="farbe" style="background:#A03E00"></span>Bernstein</td><td>Aufmerksamkeit — etwas sollte man sich ansehen</td></tr>
-  <tr><td><span class="farbe" style="background:#B3261E"></span>Rot</td><td>Fehler oder etwas, das sich nicht rückgängig machen lässt — und sonst nichts</td></tr>
+  <tr><td><span class="farbe" style="background:#141414"></span>Tinte</td><td>alles Alltägliche — Knöpfe wie Speichern oder Anlegen, die Auswahl in Filtern und Umschaltern</td></tr>
+  <tr><td><span class="farbe" style="background:#0B7A3B"></span>Grün</td><td>Geld und Bestätigung — Bezahlen, Kasse öffnen und schließen, bezahlt, gebucht</td></tr>
+  <tr><td><span class="farbe" style="background:#76611A"></span>Messing</td><td>der Deckel — das gewählte Mitglied, Aufladen</td></tr>
+  <tr><td><span class="farbe" style="background:#1F5CC9"></span>Blau</td><td>Karte und Auswertung</td></tr>
+  <tr><td><span class="farbe" style="background:#A84B00"></span>Bernstein</td><td>Aufmerksamkeit — etwas sollte man sich ansehen</td></tr>
+  <tr><td><span class="farbe" style="background:#B8232F"></span>Rot</td><td>Fehler oder etwas, das sich nicht rückgängig machen lässt — und sonst nichts</td></tr>
 </table>
 <p>Die <strong>Vereinsfarbe</strong> färbt nur Navigation, Kopfzeile und die Symbole der Mitglieder. So bestätigt ein Verein mit roter Farbe nie eine Zahlung in derselben Farbe, in der die App Fehler meldet.</p>
 
@@ -147,7 +149,7 @@
 <ol class="schritte">
   <li><strong>Kasse öffnen</strong> antippen.</li>
   <li><strong>Wer</strong> Schicht hat: das Mitglied aus der Liste wählen.</li>
-  <li><strong>Mit Barkasse</strong>, wenn Bargeld angenommen wird: das Wechselgeld in der Lade zählen, Schein für Schein und Münze für Münze. Den Wert antippen, die Anzahl über das Tastenfeld eingeben, mit <span class="key">Weiter</span> zum nächsten Wert. Die Summe rechnet die App.</li>
+  <li><strong>Mit Barkasse</strong>, wenn Bargeld angenommen wird: das Wechselgeld in der Lade zählen, Schein für Schein und Münze für Münze. Den Wert antippen; über dem Tastenfeld fragt die App „Wie viele 50-€-Scheine?“ — die Anzahl eintippen, mit <span class="key">Weiter</span> geht es zum nächsten Wert, die Taste nennt ihn. Gezählte Werte tragen ihre Stückzahl („3×“). Die Summe rechnet die App. Bleibt <strong>Öffnen</strong> grau, steht darüber, was noch fehlt — meist, wer öffnet.</li>
   <li><strong>Ohne Barkasse</strong>, wenn es an diesem Abend nur Deckel und Karte gibt — dann gibt es nichts zu zählen, und die Theke nimmt kein Bargeld.</li>
   <li><strong>Öffnen</strong> antippen. Unten im Warenkorb steht ab jetzt, wer die Kasse führt und ob mit oder ohne Barkasse; die Übersicht sagt auch, seit wann.</li>
 </ol>
@@ -158,10 +160,10 @@
 <p>Die Produkte stehen als Kacheln in der Mitte, oben die Kategorien zum Filtern. Ein Tipp legt ein Produkt in die <strong>Bestellung</strong> rechts, den Warenkorb; gibt es ein Produkt in mehreren Größen (etwa Helles 0,5 l und 0,3 l, auf der Kachel steht dann „Varianten“), fragt die App nach der Größe. In der Bestellung ändern <span class="key">−</span> und <span class="key">+</span> die Menge; steht eine Position auf 1, nimmt der Mülleimer sie heraus.</p>
 <figure><img src="bilder/app-verkauf-warenkorb.jpg" alt=""><figcaption>Verkauf mit gefülltem Warenkorb. Oben die Kategorien, rechts der Warenkorb mit Mitglied und Bezahlen.</figcaption></figure>
 <ul>
-  <li><strong>Rabatt</strong>: das Etikett neben einer Position — in Prozent oder als fester Betrag.</li>
+  <li><strong>Rabatt</strong>: das Etikett neben einer Position. Oben wählen, ob in <strong>Prozent</strong> oder als <strong>Betrag</strong>, dann einen der Werte antippen (10 %, 20 %, 50 %, <strong>Aufs Haus</strong>) oder einen eigenen eintragen; die App zeigt den neuen Preis. Ein gesetzter Rabatt lässt sich dort wieder entfernen.</li>
   <li><strong>Manueller Betrag</strong>: das Plus oben in der Bestellung, für etwas, das nicht im Sortiment steht.</li>
   <li><strong>Bestellung leeren</strong>: der Knopf daneben verwirft die ganze Bestellung.</li>
-  <li><strong>Mitglied auswählen</strong>, wenn auf einen Deckel gebucht werden soll. Ist ein Mitglied gewählt, stehen darunter <strong>+5 €, +10 €, +20 €, +50 €</strong>: Ein Tipp legt eine <strong>Guthabenaufladung</strong> mit in die Bestellung, bezahlt wird sie bar oder mit Karte. Ist der Deckel gesperrt, steht der Grund beim Mitglied.</li>
+  <li><strong>Mitglied auswählen</strong>, wenn auf einen Deckel gebucht werden soll. Ist ein Mitglied gewählt, gibt es <strong>+5 €, +10 €, +20 €, +50 €</strong>: Ein Tipp legt eine <strong>Guthabenaufladung</strong> mit in die Bestellung, bezahlt wird sie bar oder mit Karte. Auf dem Vereinstablet quer liegen die Beträge hinter <strong>Aufladen</strong> beim Namen — so bleibt für die Bestellung Platz. Ist der Deckel gesperrt, steht der Grund beim Mitglied.</li>
 </ul>
 <figure><img src="bilder/app-mitglied-waehlen.jpg" alt=""><figcaption>Mitglied auswählen: Suche oben, neben jedem Namen der Stand des Deckels.</figcaption></figure>
 
@@ -169,7 +171,7 @@
 <p><strong>Bezahlen</strong> öffnet die Auswahl der Zahlart. Oben steht der Gesamtbetrag.</p>
 <figure><img src="bilder/app-bezahlen.jpg" alt=""><figcaption>Die Zahlart wählen. Ist ein Mitglied gewählt, bucht ein Tipp auf „Deckel“ sofort auf seinen Deckel.</figcaption></figure>
 <h3>Bar</h3>
-<p>Unter <strong>Gegeben</strong> den erhaltenen Betrag eintippen oder einen der Knöpfe nehmen (<span class="key">Passend</span>, 5, 10, 20, 50). Die App zeigt das <strong>Rückgeld</strong>. Behält der Verein das Rückgeld, <strong>Rückgeld als Trinkgeld</strong> antippen. Mit <strong>Abschließen</strong> ist gebucht. Ist die Kasse <em>ohne Barkasse</em> geöffnet, ist „Bar“ durchgestrichen und lässt sich nicht wählen.</p>
+<p>Unter <strong>Gegeben</strong> den erhaltenen Betrag eintippen oder einen der Knöpfe nehmen (<span class="key">Passend</span>, 5 €, 10 €, 20 €, 50 €). Die App zeigt das <strong>Rückgeld</strong> — grün, sobald welches fällig ist. Behält der Verein das Rückgeld, <strong>Rückgeld als Trinkgeld</strong> antippen. Mit <strong>Abschließen</strong> ist gebucht. Ist die Kasse <em>ohne Barkasse</em> geöffnet, ist „Bar“ durchgestrichen und lässt sich nicht wählen.</p>
 <figure><img src="bilder/app-bar.jpg" alt=""><figcaption>Barzahlung mit Rückgeld.</figcaption></figure>
 <h3>Karte</h3>
 <p>Mit einem SumUp-Kartenterminal: <strong>Karte</strong>, dann <strong>Abschließen</strong> — das Terminal zeigt den Betrag, der Gast hält die Karte hin. Gebucht wird erst, wenn SumUp die Zahlung bestätigt. Trinkgeld: Fragt das Terminal selbst danach, wählt es der Gast dort, mit gewähltem Mitglied auch bei einer Aufladung. Sonst bietet die App es vorher an (Kein, 5 %, 10 %, 15 %, aufgerundet auf 50 Cent) — auf den Einkauf, nicht auf eine Aufladung.</p>
@@ -190,7 +192,7 @@
 <ol class="schritte">
   <li>In der Übersicht <strong>Kasse schließen</strong> antippen.</li>
   <li><strong>Wer zählt</strong> wählen und die Lade zählen wie beim Öffnen, nach Stückelung.</li>
-  <li>Die App zeigt <strong>Soll</strong>, <strong>Gezählt</strong> und die <strong>Differenz</strong>. Gibt es eine Differenz, verlangt sie einen <strong>Grund für die Differenz</strong> — vorher lässt sich nicht schließen.</li>
+  <li>Sobald gezählt wird, zeigt die App <strong>Soll</strong>, <strong>Gezählt</strong> und die <strong>Differenz</strong>. Gibt es eine Differenz, verlangt sie einen <strong>Grund für die Differenz</strong> — vorher lässt sich nicht schließen. Eine leere Lade schließt man, indem man bei einem Wert „0“ eintippt.</li>
   <li><strong>Schließen</strong>. Die Schicht steht danach im Tagesbericht und im Kassenbuch der Verwaltung. Eine Kasse ohne Barkasse wird ohne Zählen geschlossen.</li>
 </ol>
 <figure><img src="bilder/app-kasse-schliessen.jpg" alt=""><figcaption>Kasse schließen: 50 Cent fehlen — „Schließen“ geht erst mit einem Grund.</figcaption></figure>
@@ -200,7 +202,7 @@
 <figure><img src="bilder/app-historie.jpg" alt=""><figcaption>Die Historie: jede Buchung mit Zeit, Zahlart und Betrag.</figcaption></figure>
 
 <h2>2.8 Mitglieder und Aufladen</h2>
-<p>Unter <strong>Mehr → Mitglieder</strong> stehen alle Mitglieder mit dem Stand ihres Deckels. Seine Farbe sagt, wie es darum steht: grün im Plus, grau im Minus, Bernstein im letzten Viertel des Rahmens, rot über dem Rahmen — wie bei Florian Egger im Bild, einem Gast, der gar nicht ins Minus dürfte.</p>
+<p>Unter <strong>Mehr → Mitglieder</strong> stehen alle Mitglieder mit dem Stand ihres Deckels. Seine Farbe sagt, wie es darum steht: grün im Plus, schwarz bei null, grau im Minus, Bernstein im letzten Viertel des Rahmens, rot über dem Rahmen — wie bei Florian Egger im Bild, einem Gast, der gar nicht ins Minus dürfte.</p>
 <figure><img src="bilder/app-mitglieder.jpg" alt=""><figcaption>Die Mitgliederliste.</figcaption></figure>
 <p>Rechts neben jedem Mitglied: <strong>Guthaben aufladen</strong> und das Menü mit <strong>Bearbeiten</strong> und <strong>Löschen</strong>. Oben die Suche und, als Pfeile, Import und Export als CSV-Datei; unten rechts <strong>Neu</strong>.</p>
 <p>Beim Aufladen sagt die Zahlart, wie das Geld gekommen ist:</p>
