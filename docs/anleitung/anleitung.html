@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>VereinsDeckel – Anleitung</title>
+<!--
+  Quelle der Anleitung. Das PDF entsteht daraus mit docs/tools/anleitung/anleitung.py (Chrome druckt
+  diese Seite); die Bilder legt dasselbe Werkzeug in bilder/ ab. Nicht das PDF von Hand bearbeiten,
+  sondern diese Datei — und bei jedem Commit auf main nachziehen, was sich geändert hat (CLAUDE.md).
+-->
+<style>
+  /* Farben der App: Grün ist Geld und Bestätigung, Messing der Deckel, Bernstein Aufmerksamkeit. */
+  :root {
+    --ink: #191D1A; --muted: #4A524B; --line: #D3DAD1; --sub: #F2F5F0;
+    --pine: #146B4C; --pine-soft: #E2F3E9; --brass: #7A5314; --brass-soft: #F7ECD9;
+    --ember: #A03E00; --ember-soft: #FFE7D6; --harbor: #2B5C87;
+  }
+  @page { size: A4; margin: 17mm 16mm 19mm 16mm; }
+  @page titel { margin: 0; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; color: var(--ink); font: 10.2pt/1.5 -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  p, li { orphans: 3; widows: 3; }
+  p { margin: 0 0 7pt; }
+  a { color: var(--pine); text-decoration: none; }
+  code, .key { font: 9pt ui-monospace, "SF Mono", Menlo, monospace; background: var(--sub); padding: 0 3pt; border-radius: 3pt; }
+  strong { font-weight: 650; }
+
+  .titel { page: titel; height: 297mm; display: flex; flex-direction: column; justify-content: space-between; padding: 30mm 24mm 22mm; background: #fff; }
+  .marke { display: flex; align-items: center; gap: 12pt; }
+  .marke-zeichen { width: 44pt; height: 44pt; border-radius: 11pt; background: var(--pine); display: flex; align-items: center; justify-content: center; }
+  .marke-zeichen svg { width: 28pt; height: 28pt; }
+  .marke span { font-size: 15pt; font-weight: 650; letter-spacing: 0.2pt; }
+  .titel h1 { font-size: 40pt; line-height: 1.05; margin: 0 0 10pt; letter-spacing: -0.5pt; break-before: auto; border: 0; padding: 0; }
+  .titel .unter { font-size: 15pt; color: var(--muted); max-width: 120mm; }
+  .titel .stand { font-size: 9.5pt; color: var(--muted); border-top: 1pt solid var(--line); padding-top: 8pt; display: flex; justify-content: space-between; }
+  .titel .wer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8pt 18pt; max-width: 150mm; font-size: 10pt; }
+  .titel .wer div { border-left: 2.5pt solid var(--pine); padding-left: 8pt; }
+  .titel .wer b { display: block; font-size: 10.5pt; }
+
+  .inhalt { break-after: page; }
+  .inhalt h2 { margin-top: 0; }
+  .inhalt ol { list-style: none; padding: 0; margin: 0; columns: 1; }
+  .inhalt > ol > li { margin: 0 0 7pt; font-weight: 600; }
+  .inhalt ol ol { font-weight: 400; margin: 3pt 0 0 14pt; columns: 2; column-gap: 18pt; font-size: 9.6pt; color: var(--muted); }
+  .inhalt ol ol li { break-inside: avoid; margin-bottom: 2pt; }
+  .inhalt a { color: inherit; }
+
+  h1 { font-size: 21pt; line-height: 1.15; margin: 0 0 12pt; padding-bottom: 6pt; border-bottom: 1.5pt solid var(--ink); break-before: page; letter-spacing: -0.2pt; }
+  h1 .nr { color: var(--pine); margin-right: 6pt; }
+  h2 { font-size: 13.5pt; margin: 16pt 0 6pt; break-after: avoid; }
+  h3 { font-size: 11pt; margin: 12pt 0 4pt; break-after: avoid; }
+  .vorspann { font-size: 11.2pt; color: var(--muted); margin-bottom: 10pt; }
+
+  figure { margin: 6pt 0 12pt; break-inside: avoid; max-width: 148mm; }
+  figure img { display: block; width: 100%; border: 0.75pt solid var(--line); border-radius: 5pt; }
+  figure.halb img { width: 70%; }
+  figure.karte img { width: 78mm; }
+  figure.handy { display: flex; gap: 10pt; align-items: flex-start; }
+  figure.handy img { width: 52mm; border-radius: 9pt; }
+  figure.handy figcaption { flex: 1; margin-top: 0; }
+  figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 4pt; }
+  .reihe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8pt; break-inside: avoid; }
+  .reihe figure { margin: 0; }
+  .reihe img { border-radius: 9pt; aspect-ratio: 390 / 844; object-fit: cover; object-position: top; }
+
+  ol.schritte { counter-reset: s; list-style: none; padding: 0; margin: 4pt 0 10pt; }
+  ol.schritte > li { counter-increment: s; position: relative; padding-left: 22pt; margin-bottom: 5pt; }
+  ol.schritte > li::before { content: counter(s); position: absolute; left: 0; top: 0.5pt; width: 15pt; height: 15pt; border-radius: 50%; background: var(--pine); color: #fff; font-size: 8.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  ul { padding-left: 14pt; margin: 3pt 0 9pt; }
+  li { margin-bottom: 3pt; }
+
+  .hinweis { border-left: 3pt solid var(--ember); background: var(--ember-soft); padding: 6pt 9pt; border-radius: 0 5pt 5pt 0; margin: 6pt 0 10pt; break-inside: avoid; }
+  .tipp { border-left: 3pt solid var(--pine); background: var(--pine-soft); padding: 6pt 9pt; border-radius: 0 5pt 5pt 0; margin: 6pt 0 10pt; break-inside: avoid; }
+  .hinweis b, .tipp b { display: block; margin-bottom: 1pt; }
+
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 11pt; font-size: 9.4pt; break-inside: auto; }
+  th { text-align: left; font-size: 8.4pt; text-transform: uppercase; letter-spacing: 0.5pt; color: var(--muted); border-bottom: 1pt solid var(--ink); padding: 3pt 6pt 3pt 0; }
+  td { border-bottom: 0.5pt solid var(--line); padding: 4pt 6pt 4pt 0; vertical-align: top; }
+  tr { break-inside: avoid; }
+  .farbe { display: inline-block; width: 8pt; height: 8pt; border-radius: 2pt; vertical-align: 0; margin-right: 4pt; }
+</style>
+</head>
+<body>
+
+<section class="titel">
+  <div class="marke">
+    <div class="marke-zeichen"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8M6 14.8l12-5.6"/></svg></div>
+    <span>VereinsDeckel</span>
+  </div>
+  <div>
+    <h1>Anleitung</h1>
+    <p class="unter">Kassieren und anschreiben an der Theke, den Verein im Browser verwalten, den Deckel online aufladen.</p>
+  </div>
+  <div class="wer">
+    <div><b>An der Theke</b>Wer Schicht hat: Kasse öffnen, verkaufen, bezahlen lassen, Kasse schließen.</div>
+    <div><b>Kassier und Vorstand</b>Mitglieder, Abrechnung, Kasse, Bücher, Lager und Einkauf in der Verwaltung.</div>
+    <div><b>Mitglieder</b>Den eigenen Deckel ansehen und am Handy aufladen.</div>
+    <div><b>Wer den Server betreut</b>Vereine, Updates, Mindestversion der App, Sicherung.</div>
+  </div>
+  <div class="stand"><span>Version <span data-version>–</span> · Stand <span data-stand>–</span></span><span>main <span data-commit>–</span></span></div>
+</section>
+
+<section class="inhalt">
+  <h2>Inhalt</h2>
+  <ol data-inhalt></ol>
+</section>
+
+<!-- ======================================================================= 1 -->
+<h1><span class="nr">1</span>So hängt alles zusammen</h1>
+<p class="vorspann">VereinsDeckel ist ein Anschreibsystem mit angeschlossener Kasse. Gekauft wird an der Theke auf dem Tablet — bar, mit Karte oder auf den Deckel eines Mitglieds. Alles Weitere erledigt der Kassier im Browser.</p>
+
+<table>
+  <tr><th>Teil</th><th>Wo</th><th>Wer</th></tr>
+  <tr><td><strong>App</strong> auf einem oder mehreren Tablets</td><td>an der Theke, auch ohne Internet</td><td>wer Schicht hat</td></tr>
+  <tr><td><strong>Verwaltung</strong></td><td>im Browser unter <code>/verwaltung</code>, am PC und am Handy</td><td>Kassier, Vorstand, Budenwart, Rechnungsprüfer</td></tr>
+  <tr><td><strong>Dein Deckel</strong></td><td>im Browser unter <code>/konto/&lt;kürzel&gt;</code></td><td>jedes Mitglied mit E-Mail-Adresse im Profil</td></tr>
+  <tr><td><strong>Systemverwaltung</strong></td><td>im Browser unter <code>/verwaltung/system</code></td><td>wer den Server betreut (Hauptadmin)</td></tr>
+</table>
+
+<p>Die Tablets und der Server <strong>gleichen sich ab</strong>: Was an einer Theke gebucht wird, steht nach spätestens einer Minute auf den anderen Tablets und in der Verwaltung. Fällt das Internet aus, verkauft die Theke trotzdem weiter — die Buchungen warten auf dem Tablet und gehen hoch, sobald die Verbindung wieder steht. Der Verkauf wartet nie auf das Netz.</p>
+
+<p>Ein <strong>Deckel</strong> ist das Konto eines Mitglieds. Ist er im Minus, schuldet das Mitglied dem Verein etwas; im Plus hat es Guthaben. Wie weit ein Deckel ins Minus darf, legt seine Kategorie fest (etwa „Aktive bis −50 €“). Der Stand wird nie von Hand geändert, sondern immer aus den Buchungen gerechnet: Verkäufe auf den Deckel, Aufladungen, Korrekturen.</p>
+
+<h2>Die Farben bedeuten etwas</h2>
+<table>
+  <tr><th>Farbe</th><th>Bedeutung</th></tr>
+  <tr><td><span class="farbe" style="background:#146B4C"></span>Grün</td><td>Geld und Bestätigung — Bezahlen, bezahlt, gebucht</td></tr>
+  <tr><td><span class="farbe" style="background:#7A5314"></span>Messing</td><td>der Deckel</td></tr>
+  <tr><td><span class="farbe" style="background:#2B5C87"></span>Blau</td><td>Karte und Auswertung</td></tr>
+  <tr><td><span class="farbe" style="background:#A03E00"></span>Bernstein</td><td>Aufmerksamkeit — etwas sollte man sich ansehen</td></tr>
+  <tr><td><span class="farbe" style="background:#B3261E"></span>Rot</td><td>Fehler oder etwas, das sich nicht rückgängig machen lässt — und sonst nichts</td></tr>
+</table>
+<p>Die <strong>Vereinsfarbe</strong> färbt nur Navigation, Kopfzeile und die Symbole der Mitglieder. So bestätigt ein Verein mit roter Farbe nie eine Zahlung in derselben Farbe, in der die App Fehler meldet.</p>
+
+<!-- ======================================================================= 2 -->
+<h1><span class="nr">2</span>An der Theke: die App</h1>
+<p class="vorspann">Die App ist für das Tablet an der Theke gebaut: große Knöpfe für den Daumen, alles Wichtige in den unteren zwei Dritteln. Wer Schicht hat, braucht davon vier Dinge: Kasse öffnen, verkaufen, bezahlen lassen, Kasse schließen.</p>
+
+<h2>2.1 Die App im Überblick</h2>
+<p>Links steht die Leiste mit <strong>Verkauf</strong>, <strong>Übersicht</strong> und <strong>Historie</strong>. Auf einem kleinen Tablet wie dem Galaxy Tab Active3 liegt der Rest unter <strong>Mehr</strong> ganz unten: Produkte, Lagerbestand, Mitglieder, Kategorien, Auswertung und Einstellungen. Darüber steht, wie es um den Abgleich steht: <strong>Abgeglichen</strong> mit Uhrzeit, „3 warten“, solange Buchungen noch zum Server müssen, und in Bernstein <strong>Offline</strong> oder <strong>Abgemeldet</strong> (Kapitel 6).</p>
+<figure><img src="bilder/app-mehr.jpg" alt=""><figcaption>Unter „Mehr“ liegt alles, was man nicht während der Schicht braucht.</figcaption></figure>
+
+<h2>2.2 Schicht beginnen: Kasse öffnen</h2>
+<p>Ohne offene Kasse wird nicht kassiert. Solange die Kasse zu ist, steht im Warenkorb rechts statt „Bezahlen“ der Knopf <strong>Kasse öffnen</strong>.</p>
+<figure><img src="bilder/app-verkauf-kasse-zu.jpg" alt=""><figcaption>Die Kasse ist zu: Verkaufen lässt sich erst nach dem Öffnen.</figcaption></figure>
+<ol class="schritte">
+  <li><strong>Kasse öffnen</strong> antippen.</li>
+  <li><strong>Wer</strong> Schicht hat: das Mitglied aus der Liste wählen.</li>
+  <li><strong>Mit Barkasse</strong>, wenn Bargeld angenommen wird: das Wechselgeld in der Lade zählen, Schein für Schein und Münze für Münze. Den Wert antippen, die Anzahl über das Tastenfeld eingeben, mit <span class="key">Weiter</span> zum nächsten Wert. Die Summe rechnet die App.</li>
+  <li><strong>Ohne Barkasse</strong>, wenn es an diesem Abend nur Deckel und Karte gibt — dann gibt es nichts zu zählen, und die Theke nimmt kein Bargeld.</li>
+  <li><strong>Öffnen</strong> antippen. Unten im Warenkorb steht ab jetzt, wer die Kasse führt und ob mit oder ohne Barkasse; die Übersicht sagt auch, seit wann.</li>
+</ol>
+<figure><img src="bilder/app-kasse-oeffnen.jpg" alt=""><figcaption>Kasse öffnen mit Barkasse: Das Wechselgeld wird nach Stückelung gezählt.</figcaption></figure>
+<div class="tipp"><b>Warum zählen?</b>Beim Schließen rechnet die App aus, was in der Lade sein müsste: Wechselgeld plus Bareinnahmen minus Entnahmen. Nur wenn am Anfang gezählt wurde, stimmt am Ende die Differenz.</div>
+
+<h2>2.3 Verkaufen</h2>
+<p>Die Produkte stehen als Kacheln in der Mitte, oben die Kategorien zum Filtern. Ein Tipp legt ein Produkt in die <strong>Bestellung</strong> rechts, den Warenkorb; gibt es ein Produkt in mehreren Größen (etwa Helles 0,5 l und 0,3 l, auf der Kachel steht dann „Varianten“), fragt die App nach der Größe. In der Bestellung ändern <span class="key">−</span> und <span class="key">+</span> die Menge; steht eine Position auf 1, nimmt der Mülleimer sie heraus.</p>
+<figure><img src="bilder/app-verkauf-warenkorb.jpg" alt=""><figcaption>Verkauf mit gefülltem Warenkorb. Oben die Kategorien, rechts der Warenkorb mit Mitglied und Bezahlen.</figcaption></figure>
+<ul>
+  <li><strong>Rabatt</strong>: das Etikett neben einer Position — in Prozent oder als fester Betrag.</li>
+  <li><strong>Manueller Betrag</strong>: das Plus oben in der Bestellung, für etwas, das nicht im Sortiment steht.</li>
+  <li><strong>Bestellung leeren</strong>: der Knopf daneben verwirft die ganze Bestellung.</li>
+  <li><strong>Mitglied auswählen</strong>, wenn auf einen Deckel gebucht werden soll. Ist ein Mitglied gewählt, stehen darunter <strong>+5 €, +10 €, +20 €, +50 €</strong>: Ein Tipp legt eine <strong>Guthabenaufladung</strong> mit in die Bestellung, bezahlt wird sie bar oder mit Karte. Ist der Deckel gesperrt, steht der Grund beim Mitglied.</li>
+</ul>
+<figure><img src="bilder/app-mitglied-waehlen.jpg" alt=""><figcaption>Mitglied auswählen: Suche oben, neben jedem Namen der Stand des Deckels.</figcaption></figure>
+
+<h2>2.4 Bezahlen: Bar, Karte, Deckel</h2>
+<p><strong>Bezahlen</strong> öffnet die Auswahl der Zahlart. Oben steht der Gesamtbetrag.</p>
+<figure><img src="bilder/app-bezahlen.jpg" alt=""><figcaption>Die Zahlart wählen. Ist ein Mitglied gewählt, bucht ein Tipp auf „Deckel“ sofort auf seinen Deckel.</figcaption></figure>
+<h3>Bar</h3>
+<p>Unter <strong>Gegeben</strong> den erhaltenen Betrag eintippen oder einen der Knöpfe nehmen (<span class="key">Passend</span>, 5, 10, 20, 50). Die App zeigt das <strong>Rückgeld</strong>. Behält der Verein das Rückgeld, <strong>Rückgeld als Trinkgeld</strong> antippen. Mit <strong>Abschließen</strong> ist gebucht. Ist die Kasse <em>ohne Barkasse</em> geöffnet, ist „Bar“ durchgestrichen und lässt sich nicht wählen.</p>
+<figure><img src="bilder/app-bar.jpg" alt=""><figcaption>Barzahlung mit Rückgeld.</figcaption></figure>
+<h3>Karte</h3>
+<p>Mit einem SumUp-Kartenterminal: <strong>Karte</strong>, dann <strong>Abschließen</strong> — das Terminal zeigt den Betrag, der Gast hält die Karte hin. Gebucht wird erst, wenn SumUp die Zahlung bestätigt. Trinkgeld: Fragt das Terminal selbst danach, wählt es der Gast dort, mit gewähltem Mitglied auch bei einer Aufladung. Sonst bietet die App es vorher an (Kein, 5 %, 10 %, 15 %, aufgerundet auf 50 Cent) — auf den Einkauf, nicht auf eine Aufladung.</p>
+<p>Einmal je Tablet: Den SumUp-Schlüssel trägt der Kassier in der Verwaltung ein (Kapitel 3.11), er kommt mit dem Abgleich. Dann am Tablet unter <strong>Mehr → Einstellungen → Kartenzahlung</strong> auf <strong>Bei SumUp anmelden</strong> tippen.</p>
+<h3>Deckel</h3>
+<p>Ist ein Mitglied gewählt, steht unten die große Kachel <strong>Deckel</strong> mit seinem Namen und Guthaben. Ein Tipp bucht — ohne zweite Rückfrage. Reicht der Rahmen seiner Kategorie nicht, ist die Kachel aus und nennt das Limit; eine Aufladung lässt sich nicht vom Deckel bezahlen. Einen gesperrten Deckel bucht die App nicht. Dann bleibt Bar oder Karte.</p>
+
+<h2>2.5 Produkte suchen und ausblenden</h2>
+<p>Die <strong>Lupe</strong> oben rechts, neben dem Warenkorb, öffnet die Suche. <strong>Langes Drücken</strong> auf eine Produktkachel blendet das Produkt auf diesem Tablet aus — etwa die Getränke auf dem Tablet in der Küche. Ausgeblendetes steht nicht mehr unter „Alle“ und in seiner Kategorie, sondern unter <strong>Ausgeblendet</strong> ganz hinten in der Kategorienleiste; verkaufen lässt es sich dort weiterhin. Langes Drücken dort blendet es wieder ein.</p>
+<figure class="halb"><img src="bilder/app-ausblenden.jpg" alt=""><figcaption>Langes Drücken auf ein Produkt: ausblenden, nur auf diesem Tablet.</figcaption></figure>
+
+<h2>2.6 Übersicht und Kasse schließen</h2>
+<p>Die <strong>Übersicht</strong> zeigt den Tag: Umsatz und Zahl der Buchungen, die laufende <strong>Kasse</strong> — wer sie führt, seit wann, was bar dazugekommen ist und was in der Lade sein müsste —, Hinweise wie „Lagerbestand niedrig“ und zwei Abkürzungen zu Verkauf und Mitgliedern.</p>
+<figure><img src="bilder/app-uebersicht.jpg" alt=""><figcaption>Die Übersicht mit der laufenden Kasse.</figcaption></figure>
+<h3>Geld entnehmen oder einlegen</h3>
+<p>Unter <strong>Entnahme · Einlage</strong>: Entnahme oder Einlage wählen, Betrag, wofür oder woher (etwa „Bank“ oder „Bareinkauf“) und wer, dann <strong>Buchen</strong>. Das Kassenbuch in der Verwaltung führt es mit.</p>
+<h3>Kasse schließen</h3>
+<ol class="schritte">
+  <li>In der Übersicht <strong>Kasse schließen</strong> antippen.</li>
+  <li><strong>Wer zählt</strong> wählen und die Lade zählen wie beim Öffnen, nach Stückelung.</li>
+  <li>Die App zeigt <strong>Soll</strong>, <strong>Gezählt</strong> und die <strong>Differenz</strong>. Gibt es eine Differenz, verlangt sie einen <strong>Grund für die Differenz</strong> — vorher lässt sich nicht schließen.</li>
+  <li><strong>Schließen</strong>. Die Schicht steht danach im Tagesbericht und im Kassenbuch der Verwaltung. Eine Kasse ohne Barkasse wird ohne Zählen geschlossen.</li>
+</ol>
+<figure><img src="bilder/app-kasse-schliessen.jpg" alt=""><figcaption>Kasse schließen: 50 Cent fehlen — „Schließen“ geht erst mit einem Grund.</figcaption></figure>
+
+<h2>2.7 Historie</h2>
+<p>Die <strong>Historie</strong> listet alle Buchungen, die neuesten oben, mit Mitglied (oder „Barverkauf“), Zeit und Betrag. Das Symbol zeigt die Zahlart: grün bar, blau Karte, Messing Deckel und Guthaben — auch eine Online-Aufladung eines Mitglieds steht hier. Ein Tipp klappt eine Buchung auf und zeigt, was verkauft wurde. Gelöscht oder storniert wird hier nichts: Ist auf einen Deckel falsch gebucht worden, gleicht man es unter <strong>Mitglieder</strong> mit einer <strong>Korrektur</strong> aus (Kapitel 2.8) oder der Kassier in der Verwaltung. Eine falsche Barbuchung zeigt sich beim Schließen der Kasse als Differenz — dort den Grund eintragen.</p>
+<figure><img src="bilder/app-historie.jpg" alt=""><figcaption>Die Historie: jede Buchung mit Zeit, Zahlart und Betrag.</figcaption></figure>
+
+<h2>2.8 Mitglieder und Aufladen</h2>
+<p>Unter <strong>Mehr → Mitglieder</strong> stehen alle Mitglieder mit dem Stand ihres Deckels. Seine Farbe sagt, wie es darum steht: grün im Plus, grau im Minus, Bernstein im letzten Viertel des Rahmens, rot über dem Rahmen — wie bei Florian Egger im Bild, einem Gast, der gar nicht ins Minus dürfte.</p>
+<figure><img src="bilder/app-mitglieder.jpg" alt=""><figcaption>Die Mitgliederliste.</figcaption></figure>
+<p>Rechts neben jedem Mitglied: <strong>Guthaben aufladen</strong> und das Menü mit <strong>Bearbeiten</strong> und <strong>Löschen</strong>. Oben die Suche und, als Pfeile, Import und Export als CSV-Datei; unten rechts <strong>Neu</strong>.</p>
+<p>Beim Aufladen sagt die Zahlart, wie das Geld gekommen ist:</p>
+<ul>
+  <li><strong>Bar</strong> — in die Lade; geht nur bei offener Kasse mit Barkasse.</li>
+  <li><strong>Karte</strong> — für eine Kartenzahlung, die schon am Terminal gelaufen ist. Hier belastet die App keine Karte; soll das Terminal den Betrag abbuchen, die Aufladung im Verkauf über +5 € … +50 € in die Bestellung legen (Kapitel 2.3).</li>
+  <li><strong>Korrektur</strong> — kein Geld geflossen, etwa um eine falsche Buchung auszugleichen. Der Betrag darf negativ sein, der <strong>Grund</strong> ist Pflicht und steht danach in der Historie.</li>
+</ul>
+<p>Betrag antippen oder eintragen, <strong>Aufladen</strong> (bei einer Korrektur <strong>Korrigieren</strong>). Ist ein Deckel <strong>gesperrt</strong> — das legt der Kassier in der Verwaltung fest —, wird nicht mehr auf ihn angeschrieben; Bar, Karte und Aufladen gehen weiter.</p>
+<figure><img src="bilder/app-aufladen.jpg" alt=""><figcaption>Aufladen: Zahlart, Betrag, auf Wunsch ein Grund.</figcaption></figure>
+
+<h2>2.9 Produkte, Lager, Kategorien</h2>
+<p><strong>Produkte</strong>: das Sortiment mit Preisen, Kategorien und Größen. Zu jedem Produkt gehört ein <strong>Rezept</strong> — was ein Verkauf dem Lager entnimmt, etwa 0,5 l Helles aus dem Fass. Gekoppelte Tablets bekommen das Sortiment aus der Verwaltung; geändert wird es am besten dort.</p>
+<figure><img src="bilder/app-produkte.jpg" alt=""><figcaption>Produkte mit Preisen und Größen.</figcaption></figure>
+<p><strong>Lagerbestand</strong>: was verfügbar ist. Beim Fassbier steht das Fass <strong>am Hahn</strong> dabei — wie viel gezapft ist und was ungefähr noch drin ist. Ist es leer, <strong>Fasswechsel</strong>: „Leer“, dann lernt die App daraus, wie viel ein Fass wirklich hergibt; oder „Kaputt / verdorben“, dann wird der Rest als Verderb gebucht. Das nächste Fass kommt mit <strong>Anstechen</strong> an den Hahn.</p>
+<p>Was eine Lieferung bringt, ist ein <strong>Wareneingang</strong>: unten rechts für die ganze Lieferung, mit den Beträgen vom Kassabon und auf Wunsch einem Foto davon — oder <strong>+ Eingang</strong> bei einem einzelnen Artikel. Unter <strong>Eingänge</strong> stehen die bisherigen. Geht etwas zur Neige, sagt es die Übersicht.</p>
+<figure><img src="bilder/app-lager.jpg" alt=""><figcaption>Der Lagerbestand; beim Hellen das Fass am Hahn mit dem, was noch drin ist.</figcaption></figure>
+<p><strong>Kategorien</strong>: die Mitgliederkategorien mit ihrem Rahmen — wie weit ein Deckel ins Minus darf.</p>
+<figure><img src="bilder/app-kategorien.jpg" alt=""><figcaption>Kategorien mit ihrem Rahmen.</figcaption></figure>
+
+<h2>2.10 Auswertung</h2>
+<p>Für den schnellen Blick an der Theke: Umsatz, Trinkgeld, Bar und Karte, die meistverkauften Produkte — für heute, sieben Tage, dreißig Tage oder gesamt. Die ausführlichen Berichte stehen in der Verwaltung.</p>
+<figure><img src="bilder/app-auswertung.jpg" alt=""><figcaption>Die Auswertung in der App.</figcaption></figure>
+
+<h2>2.11 Einstellungen, Koppeln, Sicherung</h2>
+<figure><img src="bilder/app-einstellungen.jpg" alt=""><figcaption>Einstellungen. Name und Farbe des Vereins kommen bei einem gekoppelten Tablet aus der Verwaltung.</figcaption></figure>
+<h3>Ein Tablet koppeln</h3>
+<ol class="schritte">
+  <li>In der Verwaltung unter <strong>Geräte</strong> einen <strong>Kopplungscode</strong> erzeugen. Er gilt zehn Minuten und einmal.</li>
+  <li>Am Tablet: <strong>Mehr → Einstellungen → Server und Abgleich</strong>. Die Adresse des Servers eintragen, den Code und einen Namen für das Gerät (etwa „Theke links“).</li>
+  <li><strong>Koppeln</strong>. Hat der Server schon Daten, holt das Tablet sie; ist er leer, lädt das Tablet seine eigenen hoch.</li>
+</ol>
+<figure><img src="bilder/app-server.jpg" alt=""><figcaption>Gekoppelt: wann zuletzt abgeglichen wurde und ob etwas wartet.</figcaption></figure>
+<p><strong>Abgemeldet</strong> heißt: Der Server kennt dieses Tablet nicht mehr (etwa weil es in der Verwaltung gesperrt wurde). Dann in der Verwaltung einen neuen Code erzeugen und am Tablet <strong>Neu anmelden</strong> — <em>nicht</em> „Kopplung lösen“, das würde die wartenden Buchungen kosten.</p>
+<h3>Sicherung</h3>
+<p>Unter <strong>Backup</strong>: zuerst <strong>Speicherort wählen</strong>. Das <strong>automatische Backup</strong> sichert dann täglich im Hintergrund — bei einem gekoppelten Tablet schaltet es die Verwaltung ein oder aus. Von Hand: <strong>Sichern</strong>. <strong>Einspielen</strong> legt eine Sicherung bereit; übernommen wird sie, wenn die App beendet und neu gestartet wird.</p>
+<div class="hinweis"><b>Vor einem App-Update sichern.</b>Eine neue App-Version stellt die Datenbank des Tablets beim ersten Start um. Vorher eine Sicherung zu machen kostet eine Minute und schützt die Buchungen, die noch nicht beim Server sind.</div>
+
+<h2>2.12 Wenn die App gesperrt ist</h2>
+<p>Der Betreuer des Servers kann eine <strong>Mindestversion der App</strong> festlegen. Liegt die App auf einem Tablet darunter, zeigt sie nur noch diesen Hinweis. Kassieren geht erst nach dem Update; der Abgleich läuft weiter, es geht nichts verloren.</p>
+<figure class="halb"><img src="bilder/app-sperre.jpg" alt=""><figcaption>Die App ist älter als die verlangte Mindestversion.</figcaption></figure>
+
+<!-- ======================================================================= 3 -->
+<h1><span class="nr">3</span>Die Verwaltung im Browser</h1>
+<p class="vorspann">Die Verwaltung läuft im Browser, am PC und am Handy. Sie zeigt alles, was die Tablets gebucht haben, und erledigt, was an der Theke keinen Platz hat: Mitglieder, Abrechnung, Kasse, Bücher, Lager und Einkauf.</p>
+
+<h2>3.1 Anmelden</h2>
+<p>Unter <code>https://&lt;server&gt;/verwaltung</code> anmelden — mit dem <strong>Anmeldenamen und dem Kürzel des Vereins</strong>, getrennt durch @, etwa <code>karl@musterbude</code>. Beim ersten Verein auf einem Server genügt der Name allein. Das Passwort vergibt der Administrator des Vereins.</p>
+<figure class="karte"><img src="bilder/verwaltung-anmelden.jpg" alt=""><figcaption>Die Anmeldung.</figcaption></figure>
+<p>Nach zwölf Stunden ohne Klick meldet die Verwaltung ab; spätestens nach vierzehn Tagen muss man sich neu anmelden.</p>
+
+<h2>3.2 Wer was sieht: Rollen</h2>
+<table>
+  <tr><th>Rolle</th><th>Sieht und darf</th></tr>
+  <tr><td><strong>Administrator</strong></td><td>alles, dazu Benutzer und Rollen, das Kürzel des Vereins</td></tr>
+  <tr><td><strong>Kassier</strong></td><td>Mitglieder, Abrechnung, Kasse, Berichte, Bücher, Lager, Sortiment, Einkauf, Geräte, Protokoll, Einstellungen</td></tr>
+  <tr><td><strong>Senior und Chargen</strong></td><td>liest mit: Übersicht, Mitglieder, Abrechnung, Kasse, Berichte, Bücher, Lager, Sortiment, Einkauf</td></tr>
+  <tr><td><strong>Budenwart</strong></td><td>Lager, Sortiment, Einkauf — keine Deckel</td></tr>
+  <tr><td><strong>Rechnungsprüfer</strong></td><td>lesend und auf Zeit: Abrechnung, Kasse, Berichte, Bücher, Einkauf, Protokoll</td></tr>
+</table>
+
+<h2>3.3 Übersicht</h2>
+<p>Der Tag auf einen Blick: Umsatz heute nach Bar, Karte und Deckel, die letzten sieben Tage, Außenstände (was Mitglieder schulden) und Guthaben (was der Verein ihnen schuldet), die letzten Buchungen aller Tablets und der Zustand der Geräte. Hinweise in Bernstein zeigen, was sich jemand ansehen sollte — etwa eine Abrechnung, die vermutlich schon bezahlt ist.</p>
+<figure><img src="bilder/verwaltung-uebersicht.jpg" alt=""><figcaption>Die Übersicht der Verwaltung.</figcaption></figure>
+
+<h2>3.4 Mitglieder</h2>
+<p>Die Liste aller Mitglieder mit Kategorie und Stand, zu suchen und zu filtern. Neue Mitglieder legt der Kassier hier an; sie stehen mit dem nächsten Abgleich auf allen Tablets. Mitglieder lassen sich auch aus einer CSV-Datei einlesen (mit Vorschau) und als CSV ausgeben.</p>
+<figure><img src="bilder/verwaltung-mitglieder.jpg" alt=""><figcaption>Die Mitgliederliste.</figcaption></figure>
+<p>Die Seite eines Mitglieds zeigt den <strong>Kontoauszug</strong> mit jeder Buchung und dem Stand danach. Hier wird</p>
+<ul>
+  <li><strong>aufgeladen</strong> (bar, per Überweisung oder Karte) und <strong>korrigiert</strong> — eine Korrektur braucht einen Grund, der Rechnungsprüfer fragt danach,</li>
+  <li>der Deckel <strong>gesperrt</strong>, mit Grund: An der Theke geht dann nichts mehr auf den Deckel, Bar und Karte schon,</li>
+  <li>das <strong>Profil</strong> gepflegt: Mitgliedsnummer, E-Mail-Adresse, Anschrift und ob die Abrechnung per E-Mail kommen darf. Die E-Mail-Adresse braucht das Mitglied auch, um seinen Deckel online zu sehen.</li>
+</ul>
+<figure><img src="bilder/verwaltung-mitglied.jpg" alt=""><figcaption>Ein Mitglied mit Kontoauszug, Aufladung und Profil.</figcaption></figure>
+
+<h2>3.5 Abrechnung</h2>
+<p>Die <strong>Bierrechnung</strong>: Ein Abrechnungslauf erstellt für jedes Mitglied, dessen Deckel am Stichtag unter der Schwelle liegt, eine Abrechnung — als PDF mit QR-Code zum Bezahlen. Versendet wird per E-Mail (wenn das Mitglied zugestimmt hat) oder gedruckt.</p>
+<ol class="schritte">
+  <li><strong>Neuer Lauf</strong>: Name, Zeitraum, Stichtag, Zahlungsziel, Schwelle; auf Wunsch eine Zusatzzeile wie den Semesterbeitrag.</li>
+  <li>Die Abrechnungen ansehen, dann <strong>versenden</strong> oder drucken.</li>
+  <li>Zahlungen kommen per <strong>Kontoauszug</strong> (CAMT oder CSV der Bank) herein: Die Verwaltung ordnet sie über Betrag und Verwendungszweck zu. Was sie nicht zuordnen kann, ordnet man von Hand zu.</li>
+  <li>Wer nicht zahlt, bekommt eine <strong>Erinnerung</strong>; eine falsche Abrechnung wird <strong>storniert</strong>.</li>
+</ol>
+<figure><img src="bilder/verwaltung-abrechnung.jpg" alt=""><figcaption>Die Abrechnung mit Lauf, offenen Beträgen und Bankumsätzen.</figcaption></figure>
+
+<h2>3.6 Kasse</h2>
+<p>Was die Tablets an Schichten melden: der <strong>Tagesbericht</strong> je Gerät, die laufenden Schichten, das <strong>Kassenbuch</strong> mit fortgeführtem Bestand (als CSV für den Steuerberater) und das <strong>Bankbuch</strong>. Gezählt wird am Tablet; die Verwaltung rechnet Soll und Differenz und zeigt Entnahmen und Einlagen mit Grund.</p>
+<figure><img src="bilder/verwaltung-kasse.jpg" alt=""><figcaption>Kasse: Tagesbericht, Schichten und Kassenbuch.</figcaption></figure>
+
+<h2>3.7 Berichte und Bücher</h2>
+<p><strong>Berichte</strong>: Umsatz nach Zahlart je Monat, Aufladungen, Trinkgeld, Stornos, Wareneinsatz.</p>
+<figure><img src="bilder/verwaltung-berichte.jpg" alt=""><figcaption>Berichte.</figcaption></figure>
+<p><strong>Bücher</strong>: die <strong>Einnahmen-Ausgaben-Rechnung</strong> je Rechnungsjahr mit Vorjahr, nach Konto und Bereich, und die <strong>Vermögensübersicht</strong> zum Stichtag (den Bankstand trägt der Kassier ein). Dazu zwei CSV-Ausgaben und die <strong>Prüfermappe</strong> als PDF für den Rechnungsprüfer. Alles wird aus den Buchungen gerechnet, nichts von Hand fortgeschrieben.</p>
+<figure><img src="bilder/verwaltung-buecher.jpg" alt=""><figcaption>Bücher: Einnahmen-Ausgaben-Rechnung und Vermögen.</figcaption></figure>
+
+<h2>3.8 Lager, Sortiment, Einkauf</h2>
+<p><strong>Lager</strong>: Bestand, Fässer, Mindestbestände und der <strong>Bestellvorschlag</strong> — alles unter Mindestbestand, nach Lieferant, Fässer in ganzen Gebinden. Dazu Pfand und Leergut.</p>
+<figure><img src="bilder/verwaltung-lager.jpg" alt=""><figcaption>Das Lager.</figcaption></figure>
+<p><strong>Sortiment</strong>: Produkte mit Preisen, Größen und Rezeptur, die Kategorien mit ihrem Rahmen. Was hier geändert wird, steht mit dem nächsten Abgleich auf allen Tablets.</p>
+<figure><img src="bilder/verwaltung-sortiment.jpg" alt=""><figcaption>Das Sortiment.</figcaption></figure>
+<p><strong>Einkauf</strong>: Eingangsrechnungen mit Datei, Fälligkeit und Zahlung, zugeordnet zu Lagerartikeln und Konten. Rechnungen können per E-Mail kommen: Die Verwaltung ruft das Postfach des Vereins ab, liest PDF-Rechnungen und schlägt Lieferant, Betrag und Positionen vor.</p>
+<figure><img src="bilder/verwaltung-einkauf.jpg" alt=""><figcaption>Einkauf: Belege und Lieferungen.</figcaption></figure>
+
+<h2>3.9 Geräte</h2>
+<p>Hier werden Tablets <strong>gekoppelt</strong> (Kopplungscode erzeugen, siehe 2.11) und <strong>gesperrt</strong> — etwa wenn eines verloren geht. Ein gesperrtes Tablet verkauft weiter, gleicht aber nicht mehr ab, bis es mit einem neuen Code neu angemeldet wird. Die Liste zeigt, wann jedes Gerät zuletzt abgeglichen hat.</p>
+<figure><img src="bilder/verwaltung-geraete.jpg" alt=""><figcaption>Geräte: koppeln, sehen, sperren.</figcaption></figure>
+
+<h2>3.10 Benutzer, Testanmeldung, Protokoll</h2>
+<p>Unter <strong>Benutzer und Rollen</strong> legt der Administrator Zugänge an: Name, Anmeldename, Rolle, erstes Passwort, auf Wunsch „Zugang bis“ (für den Rechnungsprüfer). Das Passwort persönlich weitergeben, nicht per E-Mail. Chargen wechseln jedes Semester — Zugänge wechseln mit.</p>
+<figure><img src="bilder/verwaltung-benutzer.jpg" alt=""><figcaption>Benutzer und Rollen.</figcaption></figure>
+<h3>Testanmeldung</h3>
+<p>Ein Administrator sieht die Verwaltung mit den Augen eines anderen Zugangs: Anmelden mit <code>admin#karl@musterbude</code> und dem <em>eigenen</em> Passwort. Oben steht dann in Bernstein, wer wirklich davorsitzt, und jede Zeile im Protokoll nennt beide Namen.</p>
+<figure><img src="bilder/verwaltung-testanmeldung.jpg" alt=""><figcaption>Eine Testanmeldung: Lena sieht, was der Kassier sieht.</figcaption></figure>
+<p>Das <strong>Protokoll</strong> hält fest, wer wann was getan hat — Anmeldungen, Aufladungen, Korrekturen, Änderungen an Mitgliedern, Sortiment und Einstellungen, gekoppelte und gesperrte Geräte.</p>
+<figure><img src="bilder/verwaltung-protokoll.jpg" alt=""><figcaption>Das Protokoll.</figcaption></figure>
+
+<h2>3.11 Einstellungen und Online aufladen</h2>
+<p>Name, Vereinsfarbe, Rechnungsjahr und Anschrift; das <strong>Kürzel</strong> des Vereins für die Anmeldung (nur Administrator); was die Tablets bekommen (SumUp-Schlüssel fürs Terminal, tägliche Sicherung); die Bankverbindung für die Abrechnung; der E-Mail-Versand und der E-Mail-Empfang für Rechnungen.</p>
+<figure><img src="bilder/verwaltung-einstellungen.jpg" alt=""><figcaption>Einstellungen.</figcaption></figure>
+<h3>Online aufladen einrichten</h3>
+<ol class="schritte">
+  <li>Beim <strong>SumUp-Support</strong> Online-Zahlungen sowie Apple Pay und Google Pay für das Vereinskonto freischalten lassen (bei Vereinen geht das nur dort).</li>
+  <li>In SumUp unter <strong>Einstellungen → Für Entwickler → API-Schlüssel</strong> einen Schlüssel anlegen. Das ist ein anderer als der fürs Terminal.</li>
+  <li>Hier unter <strong>Online aufladen</strong> Schlüssel, Händlercode und Beträge eintragen, einschalten, <strong>Speichern und bei SumUp prüfen</strong>. Die Seite zeigt, welche Zahlungsarten SumUp freigeschaltet hat, und den Link für die Mitglieder — etwa für einen QR-Code an der Bude.</li>
+</ol>
+<figure><img src="bilder/verwaltung-online.jpg" alt=""><figcaption>Online aufladen: SumUp-Konto, Beträge, Link für Mitglieder, die letzten Aufladungen.</figcaption></figure>
+<p>Der E-Mail-Versand muss eingerichtet sein: Die Mitglieder melden sich mit einem Link per E-Mail an. Die Gebühr der Zahlung trägt der Verein — einen Aufschlag für die Zahlungsart erlaubt das Gesetz nicht.</p>
+
+<h2>3.12 Am Handy</h2>
+<p>Am Handy zeigt die Verwaltung unten eine Leiste mit Übersicht, Mitgliedern und Berichten; der Rest liegt unter „Mehr“.</p>
+<figure class="handy"><img src="bilder/verwaltung-handy.jpg" alt=""><figcaption>Die Verwaltung am Handy.</figcaption></figure>
+
+<!-- ======================================================================= 4 -->
+<h1><span class="nr">4</span>Für Mitglieder: den Deckel online aufladen</h1>
+<p class="vorspann">Jedes Mitglied mit E-Mail-Adresse im Profil sieht seinen Deckel am PC und am Handy und lädt ihn auf — mit Karte, Apple Pay oder Google Pay. Den Link gibt der Verein bekannt, etwa als QR-Code an der Bude.</p>
+
+<div class="reihe">
+  <figure><img src="bilder/konto-anmelden.jpg" alt=""><figcaption>1 · Anmelden mit der E-Mail-Adresse.</figcaption></figure>
+  <figure><img src="bilder/konto-deckel.jpg" alt=""><figcaption>2 · Stand, Betrag wählen, weiter.</figcaption></figure>
+  <figure><img src="bilder/konto-bezahlen.jpg" alt=""><figcaption>3 · Bezahlen auf der Seite von SumUp.</figcaption></figure>
+</div>
+<ol class="schritte">
+  <li>Die Seite des Vereins öffnen und die eigene <strong>E-Mail-Adresse</strong> eintragen, <strong>Link schicken</strong>. Kommt keine Mail: Ist beim Kassier die richtige Adresse hinterlegt?</li>
+  <li>In der Mail auf den Link tippen, dann <strong>Jetzt anmelden</strong>. Der Link gilt 30 Minuten und einmal; auf diesem Gerät bleibt man 30 Tage angemeldet.</li>
+  <li>Den Betrag antippen (oder einen eigenen eingeben) und <strong>Weiter zur Bezahlung</strong>.</li>
+  <li><strong>Bei SumUp bezahlen</strong>: Die Bezahlseite von SumUp öffnet sich. Dort mit Karte (Kartennummer eintippen), Apple Pay oder Google Pay zahlen.</li>
+  <li>Danach geht es zurück zum Deckel: <strong>Danke!</strong> und der neue Stand. An der Theke steht er nach dem nächsten Abgleich, meist binnen einer Minute.</li>
+</ol>
+<figure class="handy"><img src="bilder/konto-danke.jpg" alt=""><figcaption>Bezahlt und gutgeschrieben. Ist die Zahlung noch nicht bestätigt, sagt die Seite es und bietet „Neu laden“ an; ist sie nicht durchgegangen, wurde nichts abgebucht.</figcaption></figure>
+<div class="tipp"><b>Sicher</b>Die Kartendaten gibt man nur auf der Seite von SumUp ein; der Server des Vereins sieht sie nie. Gebucht wird erst, wenn SumUp die Zahlung bestätigt hat — genau einmal.</div>
+
+<!-- ======================================================================= 5 -->
+<h1><span class="nr">5</span>Betrieb: Systemverwaltung, Updates, Sicherung</h1>
+<p class="vorspann">Für wen den Server betreut. Ein Server kann mehrere Vereine tragen, jeden mit eigener Datenbank, eigenen Geräten und Zugängen.</p>
+
+<h2>5.1 Systemverwaltung</h2>
+<p>Unter <code>/verwaltung/system</code>, Anmeldung mit <code>name@system</code>. Den ersten Hauptadmin legt man dort einmal mit dem Verwaltungsschlüssel des Servers an (<code>PAIRING_ADMIN_TOKEN</code> in der <code>.env</code>).</p>
+<figure><img src="bilder/system-verwaltung.jpg" alt=""><figcaption>Die Systemverwaltung.</figcaption></figure>
+<ul>
+  <li><strong>Vereine</strong>: anlegen mit Name, Kürzel und erstem Administrator; umbenennen. Ein Tablet gehört zu dem Verein, der seinen Kopplungscode erzeugt hat.</li>
+  <li><strong>Mindestversion der App</strong>: 0.0.0 heißt, alle Versionen dürfen kassieren. Apps ab 1.3.0 sperren sich unter der Mindestversion (siehe 2.12); ältere kennen die Sperre nicht und arbeiten weiter.</li>
+  <li><strong>Adresse von außen</strong>: unter welcher Adresse Mitglieder und SumUp den Server erreichen.</li>
+  <li><strong>Updates</strong>: was im Git-Repo neu ist, mit „Jetzt suchen“ und „Jetzt installieren“, oder von selbst. Ein Update startet den Dienst neu; die Tablets merken eine kurze Pause im Abgleich.</li>
+  <li><strong>Hauptadmins</strong> und das <strong>Protokoll</strong> des Systems. Ein Hauptadmin kann sich zum Helfen in jedem Verein als jeder Zugang anmelden (<code>hauptadmin#name@kürzel</code>) — das steht im Protokoll des Vereins.</li>
+</ul>
+
+<h2>5.2 Sicherung des Servers</h2>
+<p>Alle Datenbanken in eine Datei — die Vereine, die Systemdatenbank:</p>
+<p><code>docker compose exec -T db pg_dumpall -U vereinsdeckel &gt; sicherung.sql</code></p>
+<p>Dazu das Docker-Volume <code>media</code> mit den Belegfotos. Vor jedem Update sichern.</p>
+<div class="hinweis"><b>Ein Update beschädigt nichts — trotzdem vorher sichern.</b>Updates stellen die Datenbank nur um, wo sie etwas hinzufügen; die Tablets arbeiten mit einer älteren App weiter. Eine Sicherung kostet eine Minute und ist der einzige Weg zurück, wenn doch etwas schiefgeht.</div>
+
+<!-- ======================================================================= 6 -->
+<h1><span class="nr">6</span>Kurz nachgeschlagen</h1>
+<table>
+  <tr><th style="width:38%">Was ist?</th><th>Was tun</th></tr>
+  <tr><td>Am Tablet gibt es kein „Bezahlen“</td><td>Die Kasse ist zu: im Warenkorb <strong>Kasse öffnen</strong>.</td></tr>
+  <tr><td>„Bar“ ist durchgestrichen</td><td>Die Kasse ist <em>ohne Barkasse</em> geöffnet. Bar geht erst, wenn eine Schicht mit Barkasse läuft.</td></tr>
+  <tr><td>„Deckel“ geht nicht</td><td>Der Rahmen der Kategorie reicht nicht (die Kachel nennt das Limit), eine Aufladung liegt in der Bestellung, oder der Deckel ist gesperrt (der Grund steht beim Mitglied). Bar oder Karte geht.</td></tr>
+  <tr><td>In der Leiste steht <strong>Offline</strong></td><td>Das Tablet erreicht den Server nicht. Weiterverkaufen — die Buchungen gehen hoch, sobald das Netz wieder da ist.</td></tr>
+  <tr><td>In der Leiste steht <strong>Abgemeldet</strong></td><td>Der Server kennt das Tablet nicht mehr. In der Verwaltung unter Geräte einen neuen Code erzeugen, am Tablet <strong>Neu anmelden</strong>. Nicht „Kopplung lösen“.</td></tr>
+  <tr><td>Die App zeigt nur „Diese App muss aktualisiert werden“</td><td>Die App ist älter als die Mindestversion. Die App aktualisieren; nichts geht verloren.</td></tr>
+  <tr><td>Ein Produkt fehlt in der Verkaufsansicht</td><td>Vielleicht ausgeblendet: in der Kategorienleiste ganz hinten unter <strong>Ausgeblendet</strong> nachsehen.</td></tr>
+  <tr><td>Falsch gebucht</td><td>Storniert wird in der App nicht. Auf einem Deckel: unter <strong>Mitglieder</strong> eine <strong>Korrektur</strong> mit Grund, oder der Kassier in der Verwaltung. Bar: zeigt sich beim Schließen als Differenz, dort den Grund eintragen.</td></tr>
+  <tr><td>Beim Schließen fehlt Geld in der Lade</td><td>Noch einmal zählen. Stimmt es dann immer noch nicht, den <strong>Grund für die Differenz</strong> eintragen — ohne lässt sich nicht schließen. Die Differenz steht im Kassenbuch.</td></tr>
+  <tr><td>Ein Mitglied kommt nicht in seinen Deckel</td><td>Im Profil (Verwaltung, Mitglied) die E-Mail-Adresse prüfen. Online aufladen muss eingeschaltet und der E-Mail-Versand eingerichtet sein.</td></tr>
+  <tr><td>Anmeldung in der Verwaltung klappt nicht</td><td>Mit Kürzel des Vereins anmelden: <code>name@kürzel</code>. Abgelaufener oder gesperrter Zugang? Der Administrator sieht es unter Benutzer und Rollen.</td></tr>
+  <tr><td>Ein Tablet ist verloren</td><td>In der Verwaltung unter <strong>Geräte</strong> sperren.</td></tr>
+</table>
+
+<script>
+  // Das Inhaltsverzeichnis entsteht aus den nummerierten Überschriften (Kapitel h1, Abschnitte h2) und
+  // verlinkt sie — so kann es nicht hinter dem Text zurückbleiben, und im PDF springt ein Klick hin.
+  (() => {
+    const list = document.querySelector("[data-inhalt]");
+    let chapter = null;
+    for (const h of document.querySelectorAll("body > h1, body > h2")) {
+      const m = h.textContent.trim().match(/^(\d+(?:\.\d+)?)\s*(.+)$/);
+      if (!m) continue;
+      h.id = "k" + m[1].replace(".", "-");
+      const a = document.createElement("a");
+      a.href = "#" + h.id;
+      a.textContent = m[1] + " " + m[2];
+      const li = document.createElement("li");
+      li.append(a);
+      if (h.tagName === "H1") {
+        list.append(li);
+        chapter = li;
+      } else if (chapter) {
+        if (!chapter.querySelector("ol")) chapter.append(document.createElement("ol"));
+        chapter.querySelector("ol").append(li);
+      }
+    }
+  })();
+</script>
+</body>
+</html>
